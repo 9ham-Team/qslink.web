@@ -1,0 +1,633 @@
+/* ============================================================
+ * QSLink animations.css — 全站动效层（motion-ui）
+ * 依赖：base.css tokens（--ease / --ease-out / --brand / --brand-2 ...）
+ * 加载顺序最后；只提供动画、过渡与装饰，不覆盖他人布局。
+ * 约定：动效类统一 .fx-* 前缀；背景层 #fx-layer 由 effects.js 填充。
+ * ============================================================ */
+
+/* ============================================================
+ * 1. 背景层 #fx-layer（极光 / 光斑 / 点阵 / 微粒）
+ *    base.css 已提供 position:fixed inset:0 z-index:0 pointer-events:none
+ * ============================================================ */
+.fx-layer > * { pointer-events: none; }
+
+.fx-layer .fx-aurora {
+  position: absolute;
+  inset: -26%;
+  will-change: transform;
+}
+.fx-layer .fx-aurora-a {
+  background:
+    radial-gradient(38% 36% at 20% 18%, rgba(94, 234, 212, 0.4) 0%, rgba(94, 234, 212, 0) 66%),
+    radial-gradient(42% 38% at 80% 20%, rgba(125, 211, 252, 0.34) 0%, rgba(125, 211, 252, 0) 68%),
+    radial-gradient(38% 34% at 56% 88%, rgba(233, 213, 255, 0.32) 0%, rgba(233, 213, 255, 0) 68%);
+  animation: fxAuroraDriftA 84s ease-in-out infinite alternate;
+}
+.fx-layer .fx-aurora-b {
+  background:
+    radial-gradient(34% 32% at 76% 72%, rgba(14, 175, 143, 0.16) 0%, rgba(14, 175, 143, 0) 70%),
+    radial-gradient(30% 28% at 24% 70%, rgba(56, 189, 248, 0.15) 0%, rgba(56, 189, 248, 0) 72%),
+    radial-gradient(26% 24% at 50% 8%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 76%);
+  animation: fxAuroraDriftB 104s ease-in-out infinite alternate;
+}
+@keyframes fxAuroraDriftA {
+  0% { transform: translate3d(-2.4%, -1.6%, 0) scale(1); }
+  48% { transform: translate3d(1.8%, 2.2%, 0) scale(1.05); }
+  100% { transform: translate3d(2.6%, -1.8%, 0) scale(1.02); }
+}
+@keyframes fxAuroraDriftB {
+  0% { transform: translate3d(2%, 1.6%, 0) scale(1.02) rotate(0.4deg); }
+  55% { transform: translate3d(-2.2%, -1.4%, 0) scale(1.06) rotate(-0.5deg); }
+  100% { transform: translate3d(-1.4%, 2%, 0) scale(1); }
+}
+
+.fx-layer .fx-orb {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+  opacity: 0.85;
+}
+.fx-layer .fx-orb-a {
+  width: 52vmax;
+  height: 52vmax;
+  left: -18vmax;
+  top: -22vmax;
+  background: radial-gradient(circle at 40% 40%, rgba(94, 234, 212, 0.3) 0%, rgba(94, 234, 212, 0.1) 38%, rgba(94, 234, 212, 0) 66%);
+  animation: fxOrbFloatA 36s ease-in-out infinite alternate;
+}
+.fx-layer .fx-orb-b {
+  width: 46vmax;
+  height: 46vmax;
+  right: -16vmax;
+  top: -20vmax;
+  background: radial-gradient(circle at 52% 48%, rgba(125, 211, 252, 0.26) 0%, rgba(125, 211, 252, 0.08) 40%, rgba(125, 211, 252, 0) 68%);
+  animation: fxOrbFloatB 44s ease-in-out infinite alternate;
+}
+.fx-layer .fx-orb-c {
+  width: 58vmax;
+  height: 58vmax;
+  left: 24%;
+  bottom: -34vmax;
+  background: radial-gradient(circle at 50% 42%, rgba(233, 213, 255, 0.24) 0%, rgba(233, 213, 255, 0.07) 42%, rgba(233, 213, 255, 0) 70%);
+  animation: fxOrbFloatC 58s ease-in-out infinite alternate;
+}
+@keyframes fxOrbFloatA {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(3.5%, 2.5%, 0) scale(1.07); }
+}
+@keyframes fxOrbFloatB {
+  0% { transform: translate3d(0, 0, 0) scale(1.04); }
+  100% { transform: translate3d(-3%, 3%, 0) scale(1); }
+}
+@keyframes fxOrbFloatC {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-2.5%, -3%, 0) scale(1.08); }
+}
+
+.fx-layer .fx-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(10, 120, 100, 0.16) 1px, transparent 1.3px);
+  background-size: 40px 40px;
+  opacity: 0.34;
+  -webkit-mask-image: radial-gradient(76% 58% at 50% 2%, #000 0%, rgba(0, 0, 0, 0.55) 42%, transparent 82%);
+  mask-image: radial-gradient(76% 58% at 50% 2%, #000 0%, rgba(0, 0, 0, 0.55) 42%, transparent 82%);
+}
+
+.fx-layer .fx-particles {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.9;
+}
+
+.fx-layer .fx-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(90% 54% at 50% -8%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0) 62%, rgba(243, 251, 248, 0.55) 100%);
+}
+
+/* ============================================================
+ * 2. 滚动进入（effects.js 添加类；无 JS 时内容始终可见）
+ * ============================================================ */
+.fx-will-reveal {
+  opacity: 0;
+  transform: translate3d(0, 20px, 0);
+  transition:
+    opacity 0.54s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+    transform 0.54s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  transition-delay: var(--fx-reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.fx-will-reveal.is-revealed {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* ============================================================
+ * 3. 指针增强：data-tilt / data-magnetic（仅精确指针）
+ * ============================================================ */
+[data-tilt] {
+  transform: perspective(900px) rotateX(var(--fx-tilt-x, 0deg)) rotateY(var(--fx-tilt-y, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 0.55s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+[data-tilt].fx-tilt-active {
+  transition-duration: 0.12s;
+  will-change: transform;
+}
+[data-magnetic] {
+  transition: translate 0.5s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+[data-magnetic].fx-mag-active {
+  transition-duration: 0.12s;
+  will-change: translate;
+}
+
+/* data-tilt 与滚动进入组合时，保留 3D 透视完成淡入上移 */
+[data-tilt].fx-will-reveal {
+  transform: perspective(900px) translate3d(0, 20px, 0) rotateX(var(--fx-tilt-x, 0deg)) rotateY(var(--fx-tilt-y, 0deg));
+}
+[data-tilt].fx-will-reveal.is-revealed {
+  transform: perspective(900px) translate3d(0, 0, 0) rotateX(var(--fx-tilt-x, 0deg)) rotateY(var(--fx-tilt-y, 0deg));
+}
+
+/* ============================================================
+ * 4. 点击水波纹：data-ripple（显式）+ .btn（全站按钮轻量波纹）
+ * ============================================================ */
+[data-ripple] {
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 按钮轻量波纹：首次点击时由 effects.js 加上，裁剪到按钮圆角内 */
+.fx-ripple-host {
+  position: relative;
+  overflow: hidden;
+}
+.fx-ripple {
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.18;
+  pointer-events: none;
+  transform: scale(0);
+  animation: fxRipple 0.66s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
+}
+.fx-ripple.is-soft {
+  animation-name: fxRippleSoft;
+  animation-duration: 0.42s;
+}
+@keyframes fxRipple {
+  0% { transform: scale(0); opacity: 0.2; }
+  62% { opacity: 0.12; }
+  100% { transform: scale(1); opacity: 0; }
+}
+@keyframes fxRippleSoft {
+  0% { transform: scale(0); opacity: 0.14; }
+  62% { opacity: 0.07; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+/* ============================================================
+ * 5. 页面进入过渡（QSL.fx.pageTransition）
+ * ============================================================ */
+.fx-page-enter {
+  animation: fxPageIn 0.36s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+@keyframes fxPageIn {
+  0% { opacity: 0; transform: translate3d(0, 12px, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* ============================================================
+ * 6. 数字滚动
+ * ============================================================ */
+[data-count] {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  min-width: 1ch;
+}
+.fx-count-done { animation: fxCountPop 0.4s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)); }
+@keyframes fxCountPop {
+  0% { transform: scale(1); }
+  42% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* ============================================================
+ * 7. 彩纸（QSL.fx.confetti）
+ * ============================================================ */
+.fx-confetti-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  overflow: hidden;
+  pointer-events: none;
+}
+.fx-confetti-piece {
+  position: absolute;
+  display: block;
+  width: var(--fx-w, 8px);
+  height: var(--fx-h, 6px);
+  border-radius: 2px;
+  background: var(--fx-color, #0eaf8f);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: fxConfettiBurst var(--fx-dur, 1s) cubic-bezier(0.16, 0.68, 0.32, 1) var(--fx-delay, 0ms) forwards;
+}
+.fx-confetti-piece.is-round { border-radius: 50%; }
+.fx-confetti-piece.is-thin { height: calc(var(--fx-h, 6px) * 0.42); }
+@keyframes fxConfettiBurst {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(0deg) scale(0.45); }
+  12% { opacity: 1; }
+  58% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--fx-dx, 0px) * 0.84),
+        calc(-50% + var(--fx-dy, 0px) + var(--fx-fall, 60px) * 0.24)
+      )
+      rotate(calc(var(--fx-rot, 180deg) * 0.55)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--fx-dx, 0px)),
+        calc(-50% + var(--fx-dy, 0px) + var(--fx-fall, 60px))
+      )
+      rotate(var(--fx-rot, 180deg)) scale(0.86);
+  }
+}
+
+/* ============================================================
+ * 8. 点赞脉冲（QSL.fx.heartbeat）
+ * ============================================================ */
+.fx-heartbeat {
+  animation: fxHeartbeat 0.72s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+@keyframes fxHeartbeat {
+  0% { transform: scale(1); }
+  16% { transform: scale(1.22); }
+  32% { transform: scale(0.94); }
+  50% { transform: scale(1.13); }
+  68% { transform: scale(0.97); }
+  84% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* ============================================================
+ * 9. 通用动效工具类（页面可选使用）
+ * ============================================================ */
+.fx-float { animation: fxFloatSoft 6.4s var(--ease, cubic-bezier(0.22, 0.61, 0.36, 1)) infinite; }
+.fx-float-slow { animation: fxFloatSoft 9.6s var(--ease, cubic-bezier(0.22, 0.61, 0.36, 1)) infinite; }
+.fx-breath { animation: fxBreathGlow 5.6s ease-in-out infinite; }
+.fx-pulse-soft { animation: fxPulseSoft 2.8s ease-in-out infinite; }
+.fx-spin-slow { animation: fxSpinSlow 26s linear infinite; }
+.fx-fade-in { animation: fxFadeIn 0.52s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+.fx-slide-up { animation: fxSlideUp 0.56s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+.fx-scale-in { animation: fxScaleIn 0.46s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+
+.fx-delay-1 { animation-delay: 0.06s; }
+.fx-delay-2 { animation-delay: 0.12s; }
+.fx-delay-3 { animation-delay: 0.18s; }
+.fx-delay-4 { animation-delay: 0.26s; }
+.fx-delay-5 { animation-delay: 0.34s; }
+.fx-delay-6 { animation-delay: 0.44s; }
+
+@keyframes fxFloatSoft {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -9px, 0); }
+}
+@keyframes fxBreathGlow {
+  0%, 100% { opacity: 0.72; transform: scale(0.99); }
+  50% { opacity: 1; transform: scale(1.015); }
+}
+@keyframes fxPulseSoft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.68; }
+}
+@keyframes fxSpinSlow { to { transform: rotate(360deg); } }
+@keyframes fxFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fxSlideUp {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes fxScaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* 渐变文字流光 */
+.fx-gradient-text {
+  background: linear-gradient(100deg, #0a8f76 0%, #12b39a 30%, #38bdf8 58%, #8b5cf6 82%, #0a8f76 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: fxGradientFlow 9s linear infinite;
+}
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .fx-gradient-text { color: var(--brand-deep); -webkit-text-fill-color: currentColor; background: none; }
+}
+@keyframes fxGradientFlow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+/* 光泽扫过（容器/卡片） */
+.fx-sheen { position: relative; overflow: hidden; }
+.fx-sheen::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -70%;
+  width: 46%;
+  height: 220%;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 48%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-260%) rotate(10deg);
+  transition: transform 0.78s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  pointer-events: none;
+  z-index: 2;
+}
+.fx-sheen:hover::after { transform: translateX(420%) rotate(10deg); }
+
+/* 悬停浮起（不绑定具体组件，按需加类） */
+.fx-hover-lift {
+  transition:
+    transform 0.36s var(--ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    box-shadow 0.36s var(--ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+.fx-hover-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-md, 0 18px 44px -24px rgba(9, 60, 50, 0.3));
+}
+
+/* 渐变下划线 */
+.fx-underline { position: relative; }
+.fx-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--grad-brand, linear-gradient(118deg, #0eaf8f, #38bdf8));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.36s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.fx-underline:hover::after { transform: scaleX(1); }
+
+/* 光晕环 */
+.fx-glow-ring {
+  animation: fxGlowRing 3.6s ease-in-out infinite;
+}
+@keyframes fxGlowRing {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14, 175, 143, 0.22), 0 0 26px -6px rgba(56, 189, 248, 0.28); }
+  50% { box-shadow: 0 0 0 7px rgba(14, 175, 143, 0), 0 0 40px -4px rgba(56, 189, 248, 0.42); }
+}
+
+/* 列表错峰（纯 CSS 版，页面也可用 data-stagger 走 JS） */
+.fx-stagger-in > * {
+  animation: fxSlideUp 0.5s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+.fx-stagger-in > *:nth-child(2) { animation-delay: 0.06s; }
+.fx-stagger-in > *:nth-child(3) { animation-delay: 0.12s; }
+.fx-stagger-in > *:nth-child(4) { animation-delay: 0.18s; }
+.fx-stagger-in > *:nth-child(5) { animation-delay: 0.24s; }
+.fx-stagger-in > *:nth-child(6) { animation-delay: 0.3s; }
+.fx-stagger-in > *:nth-child(7) { animation-delay: 0.36s; }
+.fx-stagger-in > *:nth-child(8) { animation-delay: 0.42s; }
+.fx-stagger-in > *:nth-child(n + 9) { animation-delay: 0.48s; }
+
+/* 骨架微光工具类（共享 .skeleton 已自带 qsl-shimmer，这里提供通用版） */
+.fx-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.fx-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 22%, rgba(255, 255, 255, 0.62) 48%, transparent 74%);
+  transform: translateX(-120%);
+  animation: fxShimmerSweep 1.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+@keyframes fxShimmerSweep {
+  0% { transform: translateX(-120%); }
+  60%, 100% { transform: translateX(120%); }
+}
+
+/* 漂浮装饰点 / 星星（Hero 常用） */
+.fx-sparkle {
+  animation: fxSparkle 3.2s ease-in-out infinite;
+}
+@keyframes fxSparkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.82) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.06) rotate(8deg); }
+}
+
+/* ============================================================
+ * 10. 共享组件增强（叠加式，不覆盖 components.css 内置过渡）
+ * ============================================================ */
+
+/* 品牌字：渐变缓慢流动 */
+.brand-text b {
+  background-size: 200% 100%;
+  animation: fxTextFlow 10s ease-in-out infinite;
+}
+@keyframes fxTextFlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.eyebrow::before {
+  background-size: 220% 100%;
+  animation: fxTextFlow 7.5s ease-in-out infinite;
+}
+
+/* 渐变按钮：悬停光泽扫过 */
+.btn-primary,
+.btn-danger,
+.btn-violet {
+  overflow: hidden;
+}
+.btn-primary::after,
+.btn-danger::after,
+.btn-violet::after {
+  content: "";
+  position: absolute;
+  top: -70%;
+  left: -50%;
+  width: 42%;
+  height: 240%;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.42) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-280%) rotate(10deg);
+  transition: transform 0.72s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  pointer-events: none;
+  z-index: 1;
+}
+.btn-primary:hover::after,
+.btn-danger:hover::after,
+.btn-violet:hover::after {
+  transform: translateX(420%) rotate(10deg);
+}
+
+/* 表单聚焦光晕 */
+.input:focus:not(.is-invalid),
+.textarea:focus:not(.is-invalid),
+.select:focus:not(.is-invalid) {
+  animation: fxFocusedGlow 0.45s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+@keyframes fxFocusedGlow {
+  0% { box-shadow: 0 0 0 0 rgba(14, 175, 143, 0.3); }
+  100% { box-shadow: 0 0 0 4px rgba(14, 175, 143, 0.13); }
+}
+.field:focus-within > .label { color: var(--brand-deep); }
+.label { transition: color 0.2s var(--ease, cubic-bezier(0.22, 0.61, 0.36, 1)); }
+
+/* Toast：顶部细光带 + 图标弹入（页面/弹窗本身过渡保持 components.css 原样） */
+.toast {
+  position: relative;
+}
+.toast::after {
+  content: "";
+  position: absolute;
+  left: 15px;
+  right: 15px;
+  top: 0;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(14, 175, 143, 0.55) 34%, rgba(56, 189, 248, 0.5) 68%, transparent 100%);
+  pointer-events: none;
+  animation: fxToastLine 1.9s var(--ease, cubic-bezier(0.22, 0.61, 0.36, 1)) 0.06s both;
+}
+@keyframes fxToastLine {
+  0% { opacity: 0; transform: scaleX(0.36); transform-origin: left center; }
+  40% { opacity: 0.8; }
+  100% { opacity: 0.28; transform: scaleX(1); transform-origin: left center; }
+}
+.toast .toast-icon {
+  animation: fxPopIn 0.48s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+@keyframes fxPopIn {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Modal：遮罩中央柔光 + 弹窗顶部微光 */
+.modal-overlay::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(760px, 92vw);
+  height: min(560px, 72vh);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgba(94, 234, 212, 0.16) 0%, rgba(56, 189, 248, 0.06) 52%, transparent 74%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--t-base, 0.28s) var(--ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+.modal-overlay.is-show::before { opacity: 1; }
+.modal {
+  position: relative;
+}
+.modal::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(14, 175, 143, 0.4), rgba(56, 189, 248, 0.34), transparent);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* 空状态插画轻微浮动 */
+.empty-state-img {
+  animation: fxFloatSoft 7.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* 统计卡数字 / 面板：数值完成时轻微强调已由 [data-count] 处理 */
+
+/* ============================================================
+ * 11. 响应式降级
+ * ============================================================ */
+@media (max-width: 620px) {
+  .fx-layer .fx-grid { display: none; }
+  .fx-layer .fx-orb-c { opacity: 0.55; }
+  .fx-layer .fx-aurora { inset: -18%; }
+  .fx-confetti-piece { --fx-dur: 0.9s; }
+  .fx-heartbeat { animation-duration: 0.6s; }
+}
+
+/* 无悬停能力的设备禁用倾斜/磁吸/光泽（触摸端保持轻量） */
+@media (hover: none), (pointer: coarse) {
+  [data-tilt] { transform: none; }
+  [data-magnetic] { translate: none; }
+  .btn-primary::after,
+  .btn-danger::after,
+  .btn-violet::after { display: none; }
+  .fx-sheen::after { display: none; }
+}
+
+/* ============================================================
+ * 12. prefers-reduced-motion：保留静态视觉，去掉运动
+ *      （base.css 已统一压缩动画时长，这里做兜底与性能降级）
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .fx-layer .fx-particles { display: none; }
+  .fx-will-reveal,
+  .fx-will-reveal.is-revealed {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    will-change: auto;
+  }
+  [data-tilt] { transform: none !important; }
+  [data-tilt].fx-tilt-active { transition: none !important; }
+  [data-magnetic] { translate: none !important; }
+  .fx-page-enter { animation: none !important; }
+  .fx-confetti-layer { display: none !important; }
+  .fx-heartbeat { animation: none !important; }
+  .fx-ripple { display: none !important; }
+  .fx-count-done { animation: none !important; }
+  .fx-float,
+  .fx-float-slow,
+  .fx-breath,
+  .fx-pulse-soft,
+  .fx-spin-slow,
+  .fx-sparkle,
+  .fx-glow-ring,
+  .fx-gradient-text,
+  .empty-state-img,
+  .brand-text b,
+  .eyebrow::before,
+  .fx-layer .fx-aurora,
+  .fx-layer .fx-orb { animation: none !important; }
+  .fx-hover-lift:hover { transform: none; }
+  .fx-sheen::after,
+  .btn-primary::after,
+  .btn-danger::after,
+  .btn-violet::after { display: none !important; }
+}
+
+/* 打印：去掉装饰层与动画 */
+@media print {
+  #fx-layer { display: none !important; }
+  .fx-will-reveal { opacity: 1 !important; transform: none !important; }
+}

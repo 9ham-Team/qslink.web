@@ -1,0 +1,15 @@
+# ---- 运行时数据（含用户隐私 / 会话 / 密码哈希，绝不入库）----
+data/
+data/db.json
+data/uploads/
+
+# ---- QA 截图与临时产物（可重新生成，体积大）----
+qa-shots/
+*.log
+*.tmp
+
+# ---- 依赖与系统文件 ----
+node_modules/
+.DS_Store
+Thumbs.db
+desktop.ini

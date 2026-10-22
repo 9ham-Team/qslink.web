@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="160" viewBox="0 0 1200 160" role="img" aria-label="波纹装饰">
+  <defs>
+    <linearGradient id="owLine" x1="0" y1="0" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0eaf8f" stop-opacity="0"/>
+      <stop offset="0.18" stop-color="#0eaf8f"/>
+      <stop offset="0.5" stop-color="#38bdf8"/>
+      <stop offset="0.82" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#owLine)" stroke-linecap="round">
+    <path d="M0 82c150-42 260 40 420 0s300-42 480 0 180 40 300 0" stroke-opacity="0.34" stroke-width="2"/>
+    <path d="M0 58c150-42 260 40 420 0s300-42 480 0 180 40 300 0" stroke-opacity="0.16" stroke-width="1.6"/>
+    <path d="M0 108c150-42 260 40 420 0s300-42 480 0 180 40 300 0" stroke-opacity="0.14" stroke-width="1.6" stroke-dasharray="2 10"/>
+  </g>
+  <g fill="#0eaf8f">
+    <circle cx="420" cy="82" r="2.4" opacity="0.35"/>
+    <circle cx="900" cy="82" r="2.4" opacity="0.3"/>
+    <circle cx="660" cy="82" r="1.8" opacity="0.22"/>
+  </g>
+</svg>

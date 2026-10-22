@@ -1,0 +1,17 @@
+{
+  "name": "qslin-k",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QSLink · QSL 卡片交换站 — 上传你的双面 QSL 卡片，以 3D 方式展示、点赞与换卡",
+  "type": "commonjs",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "test": "node tests/smoke.mjs",
+    "shot": "node tools/shot.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
