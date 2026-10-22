@@ -135,12 +135,4 @@ qsl-card-exchange/
 - v3.1 最终调整：首页 Hero 展示社区示例卡片（不含个人真实照片）、卡片广场仅按呼号搜索、上传/展示/后台不再包含波段与模式字段、3D 卡片厚度修正为真实卡纸厚度（2-4px）。
 - 详细验收记录见 [`qa-report.md`](qa-report.md)。
 
-## 🤝 团队协作
-
-- GitHub 私有仓库：<https://github.com/dinnes365/qslink>
-- 已邀请协作者：[@2580m](https://github.com/2580m)（Write 权限，需在 GitHub 通知 / 邮件中接受邀请）
-- 协作流程建议：`main` 保持可运行 → 功能分支 `feat/xxx` → Pull Request 审核合并；合并前运行 `npm test` 作为回归门禁
-- 新增协作者：仓库 Settings → Collaborators → Add people
-- 注意：`.gitignore` 已排除 `data/`（用户隐私、地址、会话与密码哈希）与 `qa-shots/`（本地验收截图），请勿提交运行时数据
-
 © 2026 QSLink · 由业余无线电爱好者共同建设 · 73!
