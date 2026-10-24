@@ -1,0 +1,50 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    tmpfs: [/tmp]
+    environment:
+      NODE_ENV: production
+      QSL_HOST: 0.0.0.0
+      QSL_DATA_DIR: /var/lib/qslink
+      QSL_SEED_DEMO: "false"
+      QSL_PUBLIC_ORIGIN: https://${QSL_DOMAIN:?Set QSL_DOMAIN in .env}
+      QSL_TRUST_PROXY: "true"
+    volumes:
+      - app-data:/var/lib/qslink
+    # Keep this service private. Only the reverse proxy publishes ports.
+    networks: [backend]
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      QSL_DOMAIN: ${QSL_DOMAIN:?Set QSL_DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [backend]
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+networks:
+  backend:
+
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:

@@ -52,7 +52,7 @@ async function writeAtomic(file, content) {
     dir,
     `.${path.basename(file)}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`
   );
-  await fsp.writeFile(tmp, content, 'utf8');
+  await fsp.writeFile(tmp, content, { encoding: 'utf8', mode: 0o600 });
   let lastError = null;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
@@ -64,15 +64,9 @@ async function writeAtomic(file, content) {
       await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
     }
   }
-  // 兜底：先删目标再 rename（极少数环境下 rename 无法覆盖）
-  try {
-    await fsp.unlink(file).catch(() => {});
-    await fsp.rename(tmp, file);
-    return;
-  } catch (err) {
-    await fsp.unlink(tmp).catch(() => {});
-    throw lastError || err;
-  }
+  // Never remove the last good database to work around a failed rename.
+  await fsp.unlink(tmp).catch(() => {});
+  throw lastError;
 }
 
 class Database {
@@ -107,16 +101,16 @@ class Database {
     return true;
   }
 
-  /** 排队写入当前内存快照（串行，保证顺序；失败只记录日志不打断服务） */
+  /** 串行持久化；调用方必须收到写入失败，不能向客户端假报成功。 */
   save() {
     const content = JSON.stringify(this.data, null, 2);
     const file = this.file;
-    this._queue = this._queue
-      .then(() => writeAtomic(file, content))
-      .catch((err) => {
-        console.error('[db] 数据写入失败：', err && err.message ? err.message : err);
-      });
-    return this._queue;
+    const write = this._queue.then(() => {
+      if (this.writeError) throw this.writeError;
+      return writeAtomic(file, content);
+    });
+    this._queue = write.catch(err => { this.writeError = err; });
+    return write;
   }
 
   /** 等待队列中所有写入完成（优雅退出时使用） */

@@ -405,10 +405,14 @@
 
   /* ---------------- 启动辅助 ---------------- */
   QSL.boot = async function () {
+    // Server-controlled, fail-closed feature configuration. No demo credentials
+    // are shipped in the production frontend bundle.
+    QSL.state.config = { demo: false, demoAccounts: [] };
+    try { QSL.state.config = await QSL.api.config(); } catch (err) { /* safe defaults */ }
     // 截图/测试便利：URL 带 devToken 时写入本地并清理地址栏（仅本人 token 有效，不产生额外权限）
     const devToken = QSL.qs('devToken');
     if (devToken) {
-      QSL.api.setToken(devToken);
+      if (QSL.state.config.demo) QSL.api.setToken(devToken);
       QSL.setQuery({ devToken: null });
     }
     const token = QSL.api.token();

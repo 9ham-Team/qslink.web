@@ -6,7 +6,7 @@
  * - /uploads/* 提供上传的卡片图片（长缓存）；
  * - 环境变量：QSL_PORT（默认 8787）、QSL_HOST（默认 127.0.0.1）、
  *   QSL_DATA_DIR（默认项目 data/）、NODE_ENV；
- * - 首次启动（data/db.json 不存在）自动建库 + seed，存在则直接加载。
+ * - 仅显式 QSL_SEED_DEMO=true 时生成演示数据；生产必须先离线初始化管理员。
  */
 
 const http = require('http');
@@ -16,7 +16,9 @@ const path = require('path');
 const { ApiError, badRequest, notFound, payloadTooLarge, methodNotAllowed } = require('./lib/errors');
 const auth = require('./lib/auth');
 const { Database } = require('./lib/db');
-const { seed, DEMO_ACCOUNTS } = require('./seed');
+const { readConfig, assertProductionData } = require('./lib/config');
+const { acquireDataLock } = require('./lib/data-lock');
+const { createAuthLimiter } = require('./lib/rate-limit');
 
 const authApi = require('./lib/api/auth');
 const meApi = require('./lib/api/me');
@@ -30,6 +32,7 @@ const startedAt = Date.now();
 
 const ROUTES = [
   { method: 'GET', pattern: '/api/health', handler: health },
+  { method: 'GET', pattern: '/api/config', handler: publicConfig },
   ...authApi.routes,
   ...meApi.routes,
   ...cardsApi.routes,
@@ -51,6 +54,14 @@ function health() {
       time: new Date().toISOString(),
     },
   };
+}
+
+function publicConfig(ctx) {
+  const accounts = ctx.config.demo ? require('./seed').DEMO_ACCOUNTS.map(account => ({
+    id: account.username, pass: account.password, name: account.displayName,
+    callSign: account.username.toUpperCase(), role: account.role === 'admin' ? '管理员' : '普通用户',
+  })) : [];
+  return { body: { demo: ctx.config.demo, demoAccounts: accounts } };
 }
 
 /** 用 :param 模式匹配路径，返回参数对象；不匹配返回 null */
@@ -202,6 +213,8 @@ async function handleApi(req, res, { db, config, url, host }) {
     body = await readJsonBody(req, MAX_BODY_BYTES);
   }
 
+  if (config.production) config.limitAuth(req, res, pathname, body);
+
   const authState = auth.resolveAuth(db, req);
   const ctx = {
     req,
@@ -276,7 +289,7 @@ async function isFile(file) {
   }
 }
 
-async function sendFile(res, file, { method, cache }) {
+async function sendFile(res, file, { method, cache, upload = false }) {
   let stat;
   try {
     stat = await fsp.stat(file);
@@ -294,6 +307,10 @@ async function sendFile(res, file, { method, cache }) {
     'Cache-Control': cache,
     'X-Content-Type-Options': 'nosniff',
   };
+  if (upload) {
+    // Uploaded SVG documents must never execute script in the site's origin.
+    headers['Content-Security-Policy'] = "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:";
+  }
   if (method === 'HEAD') {
     res.writeHead(200, headers);
     res.end();
@@ -336,6 +353,7 @@ async function serveStatic(req, res, { config, pathname }) {
     await sendFile(res, file, {
       method: req.method,
       cache: 'public, max-age=31536000, immutable',
+      upload: true,
     });
     return;
   }
@@ -370,6 +388,16 @@ async function serveStatic(req, res, { config, pathname }) {
 function createRequestHandler(db, config) {
   return async function handleRequest(req, res) {
     try {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+      if (config.production) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+      if (db.writeError) throw new ApiError(503, 'STORAGE_UNAVAILABLE', '数据存储异常，请联系管理员');
+      if (config.production && req.headers.origin && req.headers.origin !== config.publicOrigin && !['GET', 'HEAD'].includes(req.method)) {
+        throw new ApiError(403, 'ORIGIN_DENIED', '请求来源不受信任');
+      }
       const host = req.headers.host || `${config.host}:${config.port}`;
       const url = new URL(req.url, `http://${host}`);
       if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
@@ -383,12 +411,6 @@ function createRequestHandler(db, config) {
   };
 }
 
-function normalizePort(raw, fallback) {
-  const value = Number.parseInt(raw, 10);
-  if (!Number.isFinite(value) || value < 1 || value > 65535) return fallback;
-  return value;
-}
-
 function printBanner({ config, seeded }) {
   const lines = [
     '',
@@ -397,54 +419,50 @@ function printBanner({ config, seeded }) {
     `  监听地址:  http://${config.host}:${config.port}`,
     `  数据文件:  ${config.dbFile}${seeded ? '（新生成）' : '（已加载）'}`,
     `  上传目录:  ${config.uploadsDir}`,
-    '  种子账号（演示密码，若已修改请以实际为准）:',
   ];
-  for (const account of DEMO_ACCOUNTS) {
-    lines.push(
-      `    ${account.username.padEnd(8)}${account.password.padEnd(15)}` +
-        `${account.role === 'admin' ? '管理员  ' : '普通用户'}${account.displayName}`
-    );
-  }
-  lines.push('  提示: 删除 data/db.json 后重启即可重新生成演示数据');
+  lines.push(config.demo ? '  演示模式已开启（仅用于本地开发）' : '  演示模式已关闭');
   lines.push('');
   console.log(lines.join('\n'));
 }
 
 async function start() {
-  const port = normalizePort(process.env.QSL_PORT, 8787);
-  const host = (process.env.QSL_HOST || '127.0.0.1').trim() || '127.0.0.1';
-  const env = process.env.NODE_ENV || 'development';
-  const dataDir = path.resolve(process.env.QSL_DATA_DIR || path.join(__dirname, '..', 'data'));
-  const uploadsDir = path.join(dataDir, 'uploads');
-  const publicDir = path.join(__dirname, '..', 'public');
-  const dbFile = path.join(dataDir, 'db.json');
+  const config = readConfig();
+  const { port, host, dataDir, uploadsDir, dbFile } = config;
+  config.limitAuth = createAuthLimiter({ trustProxy: config.trustProxy });
 
-  await fsp.mkdir(uploadsDir, { recursive: true });
-
-  const db = new Database(dbFile);
-  const existed = await db.load();
+  const releaseLock = await acquireDataLock(dataDir);
+  let db;
   let seeded = false;
-  if (!existed) {
-    const summary = await seed(db, { uploadsDir, dataDir });
-    await db.save();
-    seeded = true;
-    console.log(
-      `[seed] 首次启动，已生成演示数据：${summary.users} 位用户 / ${summary.cards} 张卡片 / ` +
-        `${summary.exchanges} 条换卡申请 / ${summary.likes} 个点赞`
-    );
-  } else {
-    auth.pruneSessions(db);
-  }
+  try {
+    await fsp.mkdir(uploadsDir, { recursive: true, mode: 0o700 });
 
-  const config = { port, host, env, dataDir, uploadsDir, publicDir, dbFile };
+    db = new Database(dbFile);
+    const existed = await db.load();
+    if (config.production) assertProductionData(db);
+    if (!existed) {
+      if (config.demo) {
+        await require('./seed').seed(db, { uploadsDir, dataDir });
+        db.data.demo = true;
+        seeded = true;
+        console.log('[seed] 已生成本地演示数据');
+      }
+      await db.save();
+    } else {
+      auth.pruneSessions(db);
+    }
+  } catch (err) { await releaseLock(); throw err; }
+
   const server = http.createServer(createRequestHandler(db, config));
+  server.requestTimeout = 60000;
+  server.headersTimeout = 15000;
 
-  server.on('error', (err) => {
+  server.on('error', async (err) => {
     if (err && err.code === 'EADDRINUSE') {
       console.error(`[server] 端口 ${port} 已被占用，请设置 QSL_PORT 换一个端口后重试。`);
     } else {
       console.error('[server] 服务启动失败：', err && err.message ? err.message : err);
     }
+    await releaseLock().catch(() => {});
     process.exit(1);
   });
 
@@ -455,13 +473,14 @@ async function start() {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`\n[server] 收到 ${signal}，正在关闭…`);
-    server.close();
+    const forceExit = setTimeout(() => { process.exit(1); }, 10000);
+    forceExit.unref();
+    await new Promise(resolve => server.close(resolve));
     try {
       await db.flush();
-    } catch (err) {
-      /* 忽略退出阶段写入错误 */
-    }
-    process.exit(0);
+      await releaseLock();
+      process.exit(db.writeError ? 1 : 0);
+    } catch (err) { process.exit(1); }
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));

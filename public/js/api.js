@@ -107,6 +107,7 @@
     buildQuery,
 
     health: () => request('GET', '/api/health'),
+    config: () => request('GET', '/api/config'),
 
     auth: {
       register: (payload) => request('POST', '/api/auth/register', payload),
