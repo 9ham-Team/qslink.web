@@ -14,11 +14,37 @@ services:
       QSL_SEED_DEMO: "false"
       QSL_PUBLIC_ORIGIN: https://${QSL_DOMAIN:?Set QSL_DOMAIN in .env}
       QSL_TRUST_PROXY: "true"
+      DATABASE_URL: postgresql://qslink:${QSL_DB_PASSWORD:?Set QSL_DB_PASSWORD in .env}@db:5432/qslink
     volumes:
       - app-data:/var/lib/qslink
     # Keep this service private. Only the reverse proxy publishes ports.
     networks: [backend]
+    depends_on:
+      db:
+        condition: service_healthy
     stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      QSL_DB_PASSWORD: ${QSL_DB_PASSWORD:?Set QSL_DB_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deploy/init-postgres.sh:/docker-entrypoint-initdb.d/010-qslink.sh:ro
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
@@ -46,5 +72,6 @@ networks:
 
 volumes:
   app-data:
+  postgres-data:
   caddy-data:
   caddy-config:

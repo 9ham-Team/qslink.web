@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fixture } from './helpers/database.mjs';
 
 // ---------------------------------------------------------------------------
 // Configuration / globals
@@ -52,6 +53,7 @@ const paint = (code, text) => (USE_COLOR ? `\x1b[${code}m${text}\x1b[0m` : text)
 let BASE = '';
 let server = null;
 let dataDir = '';
+let databaseFixture;
 let portUsed = 0;
 
 const checks = [];
@@ -323,10 +325,12 @@ async function startServer() {
   for (let attempt = 1; attempt <= 4; attempt += 1) {
     const port = 22000 + Math.floor(Math.random() * 25000);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qsl-smoke-'));
+    databaseFixture = await fixture();
     let logs = '';
     const child = spawn(process.execPath, [ENTRY], {
       cwd: ROOT,
-      env: { ...process.env, QSL_PORT: String(port), QSL_DATA_DIR: dir, NODE_ENV: 'test', QSL_SEED_DEMO: 'true', QSL_PUBLIC_ORIGIN: '' },
+      env: { ...process.env, QSL_PORT: String(port), QSL_DATA_DIR: dir, NODE_ENV: 'test', QSL_SEED_DEMO: 'true', QSL_PUBLIC_ORIGIN: '',
+        DATABASE_URL: databaseFixture.databaseUrl, QSL_DB_SCHEMA: databaseFixture.databaseSchema },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
@@ -373,6 +377,8 @@ async function startServer() {
     }
     await waitForExit(child, 3000);
     if (!KEEP_DATA) safeRm(dir);
+    await databaseFixture.cleanup();
+    databaseFixture = null;
     attempts.push(`attempt #${attempt} port=${port} exit=${JSON.stringify(exitInfo)}\n${indent(snip(logs, 4000))}`);
     const portConflict = /EADDRINUSE/i.test(logs);
     if (!portConflict) break; // deterministic startup failure — retrying won't help
@@ -399,6 +405,7 @@ async function stopServer() {
     }
     await sleep(100);
   }
+  if (databaseFixture) { await databaseFixture.cleanup(); databaseFixture = null; }
   if (!dataDir) return;
   if (KEEP_DATA) {
     console.log(`\n[keep] 临时数据目录: ${dataDir}`);
