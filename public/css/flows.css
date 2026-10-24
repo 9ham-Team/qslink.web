@@ -549,8 +549,25 @@
   display: inline-flex;
   color: #059669;
   pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.85);
+  transition: opacity 160ms ease, transform 180ms var(--ease), color 160ms ease, visibility 160ms;
 }
-.f-auth-page-reg .f-reg-email-check[hidden] { display: none; }
+.f-auth-page-reg .f-reg-email-check.is-visible { opacity: 1; visibility: visible; transform: scale(1); }
+.f-auth-page-reg .f-reg-email-check.is-error { color: var(--danger); }
+.f-auth-page-reg .f-reg-email-cross,
+.f-auth-page-reg .f-reg-email-check.is-error .f-reg-email-tick { display: none; }
+.f-auth-page-reg .f-reg-email-check.is-error .f-reg-email-cross { display: initial; }
+.f-auth-page-reg [data-field="email"] > .f-error {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .f-auth-page-reg [data-field="email"] > .f-input-wrap.is-valid .input {
   border-color: rgba(5, 150, 105, 0.55);
 }
@@ -565,7 +582,7 @@
   opacity: 0;
   visibility: hidden;
   margin-top: -7px;
-  transition: grid-template-rows 0.25s var(--ease), opacity 0.25s var(--ease), margin-top 0.25s var(--ease);
+  transition: grid-template-rows 360ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, margin-top 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .f-auth-page-reg .f-reg-code-reveal.is-open {
   grid-template-rows: 1fr;
@@ -577,7 +594,9 @@
 .f-auth-page-reg .f-reg-code-row { display: flex; align-items: center; gap: 7px; }
 .f-auth-page-reg .f-reg-code-row .input { flex: 1 1 0; min-width: 0; padding-inline: 10px; }
 .f-auth-page-reg .f-reg-code-send {
-  flex: 0 0 auto;
+  flex: 0 0 112px;
+  min-width: 112px;
+  font-variant-numeric: tabular-nums;
   padding: 10px;
   font-size: 11.5px;
   white-space: nowrap;
@@ -595,6 +614,14 @@
 }
 .f-auth-page-reg .f-reg-code-status { margin: 0; font-size: 11.5px; line-height: 1.6; color: #047857; overflow-wrap: anywhere; }
 .f-auth-page-reg .f-reg-code-status:empty { display: none; }
+.f-auth-page-reg .f-reg-code-feedback {
+  display: grid;
+  min-height: 3.2em;
+  font-size: 12.2px;
+  line-height: 1.6;
+  align-content: start;
+}
+.f-auth-page-reg .f-reg-code-feedback > p { grid-area: 1 / 1; }
 @media (prefers-reduced-motion: reduce) {
   .f-auth-page-reg .f-reg-code-reveal { transition: none; }
 }

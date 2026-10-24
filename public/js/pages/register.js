@@ -26,11 +26,24 @@
       : '';
   }
 
+  function paintEmailState(wrap, state, message) {
+    const badge = wrap.querySelector('.f-reg-email-check');
+    badge.classList.toggle('is-visible', !!state);
+    badge.classList.toggle('is-error', state === 'error');
+    badge.setAttribute('aria-hidden', state ? 'false' : 'true');
+    badge.setAttribute('aria-label', message || '邮箱格式正确');
+    badge.title = message || '邮箱格式正确';
+    wrap.querySelector('.f-input-wrap').classList.toggle('is-valid', state === 'valid');
+  }
+
   function setFieldError(wrap, message) {
     if (!wrap) return;
-    const err = wrap.querySelector(':scope > .f-error');
+    const err = wrap.querySelector(':scope > .f-error, :scope > .f-reg-code-feedback > .f-error');
     const errorTarget = wrap.dataset.field === 'email' ? wrap.querySelector('.f-input-wrap') : wrap;
     errorTarget.classList.toggle('has-error', !!message);
+    const input = wrap.querySelector('input');
+    if (input) input.setAttribute('aria-invalid', message ? 'true' : 'false');
+    if (wrap.dataset.field === 'email') paintEmailState(wrap, message ? 'error' : '', message);
     if (err) {
       err.textContent = message || '';
       err.hidden = !message;
@@ -151,22 +164,23 @@
       ' name="' + esc(o.name) + '" type="' + esc(o.type || 'text') + '"' +
       ' placeholder="' + esc(o.placeholder || '') + '"' +
       ' autocomplete="' + esc(o.autocomplete || 'off') + '"' +
+      (o.name === 'email' ? ' aria-describedby="fRegEmailError"' : '') +
       (o.inputmode ? ' inputmode="' + esc(o.inputmode) + '"' : '') +
       (o.maxlength ? ' maxlength="' + esc(o.maxlength) + '"' : '') +
       (o.required ? ' required' : '') + '>' +
       (o.eye
         ? '<button type="button" class="f-eye" aria-label="显示密码" aria-pressed="false" data-eye>' + ico('eye', 18) + '</button>'
         : '') +
-      (o.name === 'email' ? '<span class="f-reg-email-check" role="img" aria-label="邮箱格式正确" hidden><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor"/><path d="m6 10 2.5 2.5 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' : '') +
+      (o.name === 'email' ? '<span class="f-reg-email-check" role="img" aria-label="邮箱格式正确" aria-hidden="true"><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor"/><g fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path class="f-reg-email-tick" d="m6 10 2.5 2.5 5-5"/><path class="f-reg-email-cross" d="m7 7 6 6m0-6-6 6"/></g></svg></span>' : '') +
       '</div>' +
-      '<p class="f-error" data-error="' + esc(o.name) + '" role="alert" hidden></p>' +
+      '<p class="f-error"' + (o.name === 'email' ? ' id="fRegEmailError"' : '') + ' data-error="' + esc(o.name) + '" role="alert" hidden></p>' +
       (o.name === 'email' ? '<div class="f-reg-code-reveal" aria-hidden="true" inert><div class="f-reg-code-inner"><div class="f-field" data-field="emailCode">' +
         '<label class="label" for="fRegEmailCode">邮箱验证码</label><div class="f-reg-code-row">' +
         '<input id="fRegEmailCode" class="input f-input" name="emailCode" type="text" placeholder="6 位数字" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required aria-describedby="fRegCodeStatus">' +
         '<button type="button" class="btn f-reg-code-send" disabled>发送验证码</button></div>' +
-        '<p class="f-error" data-error="emailCode" role="alert" hidden></p>' +
+        '<div class="f-reg-code-feedback"><p class="f-error" data-error="emailCode" role="alert" hidden></p>' +
         '<p class="f-reg-code-status" id="fRegCodeStatus" role="status" aria-live="polite"></p>' +
-        '</div></div></div>' : '') +
+        '</div></div></div></div>' : '') +
       '</div>'
     );
   }
@@ -231,12 +245,26 @@
     let retryAt = 0;
     const emailInput = form.querySelector('[name="email"]');
     const emailField = emailInput.closest('[data-field]');
-    const emailCheck = form.querySelector('.f-reg-email-check');
     const codeReveal = form.querySelector('.f-reg-code-reveal');
     const codeInput = form.querySelector('[name="emailCode"]');
     const codeField = codeInput.closest('[data-field]');
     const sendBtn = form.querySelector('.f-reg-code-send');
     const codeStatus = form.querySelector('.f-reg-code-status');
+    const codeFeedback = form.querySelector('.f-reg-code-feedback');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let feedbackAnimation = null;
+
+    function showCodeFeedback(message, error) {
+      if (feedbackAnimation) feedbackAnimation.cancel();
+      setFieldError(codeField, error ? message : '');
+      codeStatus.textContent = error ? '' : message;
+      if (message && !reducedMotion.matches && typeof codeFeedback.animate === 'function') {
+        feedbackAnimation = codeFeedback.animate([
+          { opacity: 0, transform: 'translateY(3px)' },
+          { opacity: 1, transform: 'translateY(0)' }
+        ], { duration: 200, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+      }
+    }
 
     function emailError(value) {
       if (!value) return '请填写邮箱';
@@ -253,6 +281,7 @@
     function paintSendButton() {
       const remaining = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
       sendBtn.disabled = !emailValid || sending || remaining > 0;
+      sendBtn.setAttribute('aria-busy', sending ? 'true' : 'false');
       sendBtn.textContent = sending ? '发送中…' : remaining ? remaining + ' 秒后重发' : '发送验证码';
       if (!remaining && cooldownTimer !== null) {
         clearInterval(cooldownTimer);
@@ -275,9 +304,8 @@
       const value = emailInput.value.trim();
       const message = emailError(value);
       emailValid = !message;
-      emailCheck.hidden = !emailValid;
-      emailInput.parentElement.classList.toggle('is-valid', emailValid);
       setFieldError(emailField, value || showEmpty ? message : '');
+      if (emailValid) paintEmailState(emailField, 'valid');
       if (emailValid) revealCode();
       paintSendButton();
       return emailValid;
@@ -286,12 +314,9 @@
     emailInput.addEventListener('input', () => {
       emailRevision++;
       emailValid = false;
-      emailCheck.hidden = true;
-      emailInput.parentElement.classList.remove('is-valid');
       setFieldError(emailField, '');
       codeInput.value = '';
-      setFieldError(codeField, '');
-      codeStatus.textContent = '';
+      showCodeFeedback('', false);
       paintSendButton();
       clearTimeout(emailTimer);
       emailTimer = setTimeout(() => {
@@ -310,21 +335,20 @@
       const email = emailInput.value.trim();
       const revision = emailRevision;
       sending = true;
-      setFieldError(codeField, '');
-      codeStatus.textContent = '';
+      showCodeFeedback('正在发送验证码…', false);
       paintSendButton();
       try {
         await QSL.api.auth.sendEmailCode(email);
         if (disposed) return;
         startCooldown(60);
         if (emailRevision === revision && emailInput.value.trim() === email) {
-          codeStatus.textContent = '验证码已发送至 ' + email + '，有效期 30 分钟。';
+          showCodeFeedback('验证码已发送，请查收邮件（30 分钟内有效）。', false);
         }
       } catch (err) {
         if (disposed) return;
         if (err && err.status === 429) startCooldown(60);
         if (emailRevision === revision && emailInput.value.trim() === email) {
-          setFieldError(codeField, (err && err.message) || '验证码发送失败，请稍后重试');
+          showCodeFeedback((err && err.message) || '验证码发送失败，请稍后重试', true);
         }
       } finally {
         if (!disposed) {
@@ -488,6 +512,7 @@
       clearTimeout(emailTimer);
       clearTimeout(focusTimer);
       clearInterval(cooldownTimer);
+      if (feedbackAnimation) feedbackAnimation.cancel();
     };
   }
 
