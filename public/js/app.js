@@ -108,6 +108,15 @@
     if (userBtn) {
       userBtn.addEventListener('click', function (e) {
         e.stopPropagation();
+        // Anchor the unfolding panel to the avatar, including when the name
+        // is hidden on narrow screens or changes the trigger's width.
+        const avatar = userBtn.querySelector('.avatar');
+        if (avatar) {
+          const buttonRect = userBtn.getBoundingClientRect();
+          const avatarRect = avatar.getBoundingClientRect();
+          userEl.style.setProperty('--nav-menu-anchor-right',
+            (buttonRect.right - avatarRect.left - avatarRect.width / 2) + 'px');
+        }
         const open = userEl.classList.toggle('is-open');
         userBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
       });

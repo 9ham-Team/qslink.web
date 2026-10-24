@@ -886,7 +886,7 @@
   color: var(--brand-deep);
   transition: transform 0.3s var(--ease);
 }
-.g-faq__item[open] summary::after { transform: rotate(45deg); }
+.g-faq__item[open]:not([data-expanded="false"]) summary::after { transform: rotate(45deg); }
 .g-faq__answer {
   padding: 0 20px 18px;
   font-size: 13.2px;

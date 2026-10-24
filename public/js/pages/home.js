@@ -297,6 +297,55 @@
     );
   }
 
+  function mountFaq(root) {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const cleanups = [];
+    root.querySelectorAll('.g-faq__item').forEach(function (item) {
+      const summary = item.querySelector('summary');
+      let expanded = item.open;
+      let animation = null;
+      item.dataset.expanded = String(expanded);
+
+      function toggle(event) {
+        // Leave native details behavior available when animation is unsupported.
+        if (typeof item.animate !== 'function') return;
+        event.preventDefault();
+        const startHeight = item.getBoundingClientRect().height;
+        if (animation) animation.cancel();
+        expanded = !expanded;
+        item.dataset.expanded = String(expanded);
+        item.style.height = '';
+
+        if (reducedMotion.matches) {
+          item.open = expanded;
+          animation = null;
+          return;
+        }
+
+        // Measure the natural target height, then keep the answer rendered
+        // until the closing animation finishes. Rapid clicks reverse smoothly.
+        item.open = expanded;
+        const endHeight = item.getBoundingClientRect().height;
+        item.open = true;
+        animation = item.animate([
+          { height: startHeight + 'px' },
+          { height: endHeight + 'px' }
+        ], { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+        animation.onfinish = function () {
+          item.open = expanded;
+          animation = null;
+        };
+      }
+
+      summary.addEventListener('click', toggle);
+      cleanups.push(function () {
+        summary.removeEventListener('click', toggle);
+        if (animation) animation.cancel();
+      });
+    });
+    return function () { cleanups.forEach(function (cleanup) { cleanup(); }); };
+  }
+
   function setStat(root, key, value, compact) {
     const el = root.querySelector('[data-g-stat="' + key + '"]');
     if (!el) return;
@@ -513,6 +562,7 @@
       const state = { viewer: null, cancelled: false };
 
       container.innerHTML = pageHtml(user);
+      const cleanupFaq = mountFaq(container);
 
       // 先创建 3D 卡片（使用品牌占位面），卡片图片到达后再替换，避免空白等待
       mountHero(container, state, { ratio: { w: 104, h: 154 } });
@@ -525,6 +575,7 @@
 
       return function cleanup() {
         state.cancelled = true;
+        cleanupFaq();
         if (state.viewer) {
           try { state.viewer.destroy(); } catch (err) { /* 忽略 */ }
           state.viewer = null;
