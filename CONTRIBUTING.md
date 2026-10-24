@@ -1,4 +1,4 @@
-# QSLink 协作指南
+  # QSLink 协作指南
 
 本文同时面向人类开发者和 AI agent。团队采用「个人 fork 开发 → 团队 dev 整合验证 → PR 合入团队 main → 打标签 → 手动部署」的流程。
 
@@ -72,6 +72,8 @@ npm test
 ```
 
 `node --check` 的文件替换为实际修改的 JavaScript 文件。后端逻辑、权限和接口变更应运行 `npm test`；该脚本启动隔离实例，不使用开发数据库。前端交互变更应实际在浏览器验证相关操作，涉及响应式布局时检查桌面和移动视口。纯文档修改检查内容、链接、命令及差异即可，不必为此启动全部测试。
+
+自动检查定义在 `.github/workflows/ci.yml`：PR 目标为 `dev` 或 `main`，以及向这些分支推送时，会使用 Ubuntu 和 Node.js 24 运行 `npm test`。在 PR 的 Checks 或仓库 Actions 页面查看 `QSLink CI / API smoke tests` 的实际结果。私有 fork PR 需要组织和仓库允许运行工作流；如显示待批准，由有权限的维护者批准运行。不要为测试开启 fork PR 的写令牌或 secrets。手动运行需要工作流先进入默认分支，届时可在 Actions 页面使用 Run workflow。
 
 测试失败或环境阻塞时如实记录，不声称通过；若仍需保存进度，可以提交并明确标记未验证，但不能将其视为可发布版本。
 
