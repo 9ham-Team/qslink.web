@@ -101,11 +101,37 @@
   /* ---------------- 导航 ---------------- */
   let routeToken = 0;
 
+  QSL.scrollToHash = function () {
+    if (!location.hash) return false;
+    let id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch (err) { return false; }
+    const target = document.getElementById(id);
+    if (!target) return false;
+    // Use layout coordinates: the page entrance transform must not shift the
+    // destination while a cross-page navigation is still animating.
+    let top = 0;
+    for (let node = target; node; node = node.offsetParent) top += node.offsetTop;
+    const padding = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    window.scrollTo({
+      top: Math.max(0, top - padding),
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+    });
+    return true;
+  };
+
   QSL.navigate = function (to, options) {
     const opts = options || {};
     const target = typeof to === 'string' ? to : '/';
+    const next = new URL(target, location.href);
+    const samePage = next.pathname === location.pathname && next.search === location.search;
     if (opts.replace) history.replaceState({}, '', target);
     else history.pushState({}, '', target);
+    // Anchor links within the current page must preserve its loaded layout.
+    if (samePage && next.hash && QSL.scrollToHash()) {
+      if (QSL.router.current) QSL.router.current.hash = next.hash;
+      QSL.emit('route', QSL.router.current);
+      return;
+    }
     renderRoute({ scroll: !opts.keepScroll });
   };
 
@@ -257,7 +283,7 @@
   }
 
   function finishRoute(payload, opts) {
-    if (opts.scroll !== false) {
+    if (opts.scroll !== false && !location.hash) {
       try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, 0); }
     }
     QSL.emit('route:rendered', payload);
