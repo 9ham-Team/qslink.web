@@ -106,8 +106,15 @@
 
 ---
 
-## 1. 健康检查
+## 1. 健康检查与运行配置
+
 `GET /api/health` → `{ "ok": true, "name": "QSLink", "version": "1.0.0", "uptime": 12.3, "time": "..." }`
+
+### GET /api/config
+
+公开运行配置，响应不缓存。默认及生产返回 `{ "demo": false, "demoAccounts": [] }`。仅开发/测试显式启用 `QSL_SEED_DEMO=true` 时返回演示账号供登录页填入；前端不内置演示密码。生产模式禁止此开关，忽略 `devToken` URL 参数。
+
+生产对登录、注册实施限流，超限返回 `429 RATE_LIMITED` 与 `Retry-After`；携带非本站 Origin 的写请求返回 `403 ORIGIN_DENIED`。PostgreSQL 暂时不可用时返回 `503 STORAGE_UNAVAILABLE`，连接恢复后请求可重试。健康检查验证数据库连接并包含 `storage: "postgresql"`。分享 URL 使用配置的 HTTPS 公开地址。
 
 ## 2. 认证
 ### POST /api/auth/register

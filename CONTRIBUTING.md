@@ -1,4 +1,4 @@
-# QSLink 协作指南
+  # QSLink 协作指南
 
 本文同时面向人类开发者和 AI agent。团队采用「个人 fork 开发 → 团队 dev 整合验证 → PR 合入团队 main → 打标签 → 手动部署」的流程。
 
@@ -63,7 +63,7 @@ git switch -c feature/card-search upstream/dev
 4. 除用户明确说明不提交外，每次完成一项更改、完成相关验证后自动创建 commit。一次尚未完成的编辑过程不必逐步提交。
 5. 明确暂存本次任务文件，避免用无差别暂存把其他人的工作带入提交。
 
-项目使用 Node.js ≥ 18，无需安装第三方依赖或构建。常用检查：
+项目使用 Node.js ≥ 18（CI 为 24）和 PostgreSQL 17。先执行 `npm ci` 安装锁定依赖，无需前端构建。常用检查：
 
 ```powershell
 git diff --check
@@ -71,7 +71,9 @@ node --check public/js/core.js
 npm test
 ```
 
-`node --check` 的文件替换为实际修改的 JavaScript 文件。后端逻辑、权限和接口变更应运行 `npm test`；该脚本启动隔离实例，不使用开发数据库。前端交互变更应实际在浏览器验证相关操作，涉及响应式布局时检查桌面和移动视口。纯文档修改检查内容、链接、命令及差异即可，不必为此启动全部测试。
+`node --check` 的文件替换为实际修改的 JavaScript 文件。后端逻辑、权限和接口变更应运行 `npm test` 和 `npm run test:production`；脚本默认启动临时 PostgreSQL，不使用 `DATABASE_URL`。CI 使用单独的 `QSL_TEST_DATABASE_URL` 和随机测试 schema。前端交互变更应实际在浏览器验证相关操作，涉及响应式布局时检查桌面和移动视口。纯文档修改检查内容、链接、命令及差异即可。
+
+自动检查定义在 `.github/workflows/ci.yml`：PR 目标为 `dev` 或 `main`，以及向这些分支推送时，会使用 Ubuntu 和 Node.js 24 运行 `npm test`。在 PR 的 Checks 或仓库 Actions 页面查看 `QSLink CI / API smoke tests` 的实际结果。私有 fork PR 需要组织和仓库允许运行工作流；如显示待批准，由有权限的维护者批准运行。不要为测试开启 fork PR 的写令牌或 secrets。手动运行需要工作流先进入默认分支，届时可在 Actions 页面使用 Run workflow。
 
 测试失败或环境阻塞时如实记录，不声称通过；若仍需保存进度，可以提交并明确标记未验证，但不能将其视为可发布版本。
 
@@ -136,7 +138,7 @@ PR 更新后需要重新检查新增差异。合入后，下一项工作从更�
 - 部署更新代码时保留生产数据目录，不用开发数据库覆盖生产数据库。
 - 正式部署前，必须确认生产启动不会自动写入演示账号、默认密码或示例卡片；生产登录页不展示演示账号入口，管理员通过独立初始化流程创建。
 
-**当前实现注意：** 本指南编写时，`server/server.js` 在数据库不存在时自动执行演示 seed，登录页包含演示账号入口。环境隔离和独立管理员初始化仍需实现、验证；不能仅设置 `NODE_ENV=production` 就视为已满足上述发布条件。
+**生产实现：** 默认不生成演示数据；本地演示必须显式启用 `QSL_SEED_DEMO=true`。生产禁止演示模式，并检查独立数据目录、HTTPS 站点地址和管理员。第一位管理员通过 `npm run admin:init` 离线创建，详见 `docs/DEPLOYMENT.md`。发布前运行 `npm run test:production`，并核对 CI 的容器启动检查；目标机器的 DNS、证书及备份仍需部署后验收。
 
 ## 8. Agent 执行约定
 

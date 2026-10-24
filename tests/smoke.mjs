@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fixture } from './helpers/database.mjs';
 
 // ---------------------------------------------------------------------------
 // Configuration / globals
@@ -34,7 +35,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // QSL_SMOKE_ENTRY is a debugging aid (e.g. point the harness at a stub server).
 const ENTRY = process.env.QSL_SMOKE_ENTRY
   ? path.resolve(ROOT, process.env.QSL_SMOKE_ENTRY)
-  : path.join(ROOT, 'server', 'server.js');
+  : path.join(ROOT, 'tests', 'helpers', 'mail-server.cjs');
+const mailCodes = new Map();
 const ARGS = process.argv.slice(2);
 const FILTER = (ARGS.find((a) => a.startsWith('--filter=')) || '').slice('--filter='.length).toLowerCase();
 const KEEP_DATA = ARGS.includes('--keep');
@@ -52,6 +54,7 @@ const paint = (code, text) => (USE_COLOR ? `\x1b[${code}m${text}\x1b[0m` : text)
 let BASE = '';
 let server = null;
 let dataDir = '';
+let databaseFixture;
 let portUsed = 0;
 
 const checks = [];
@@ -323,13 +326,16 @@ async function startServer() {
   for (let attempt = 1; attempt <= 4; attempt += 1) {
     const port = 22000 + Math.floor(Math.random() * 25000);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qsl-smoke-'));
+    databaseFixture = await fixture();
     let logs = '';
     const child = spawn(process.execPath, [ENTRY], {
       cwd: ROOT,
-      env: { ...process.env, QSL_PORT: String(port), QSL_DATA_DIR: dir, NODE_ENV: 'test' },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, QSL_PORT: String(port), QSL_DATA_DIR: dir, NODE_ENV: 'test', QSL_SEED_DEMO: 'true', QSL_PUBLIC_ORIGIN: '',
+        DATABASE_URL: databaseFixture.databaseUrl, QSL_DB_SCHEMA: databaseFixture.databaseSchema },
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       windowsHide: true,
     });
+    child.on('message', ({ email, code }) => mailCodes.set(email, code));
     let exitInfo = null;
     child.once('exit', (code, signal) => {
       exitInfo = { code, signal };
@@ -373,6 +379,8 @@ async function startServer() {
     }
     await waitForExit(child, 3000);
     if (!KEEP_DATA) safeRm(dir);
+    await databaseFixture.cleanup();
+    databaseFixture = null;
     attempts.push(`attempt #${attempt} port=${port} exit=${JSON.stringify(exitInfo)}\n${indent(snip(logs, 4000))}`);
     const portConflict = /EADDRINUSE/i.test(logs);
     if (!portConflict) break; // deterministic startup failure — retrying won't help
@@ -399,6 +407,7 @@ async function stopServer() {
     }
     await sleep(100);
   }
+  if (databaseFixture) { await databaseFixture.cleanup(); databaseFixture = null; }
   if (!dataDir) return;
   if (KEEP_DATA) {
     console.log(`\n[keep] 临时数据目录: ${dataDir}`);
@@ -439,6 +448,13 @@ async function login(identifier, password) {
   return api('POST', '/api/auth/login', { body: { identifier, password } });
 }
 
+async function emailCode(email) {
+  const sent = await api('POST', '/api/auth/email-code', { body: { email } });
+  expectStatus(sent, 200, 'send email code');
+  for (let i = 0; i < 100 && !mailCodes.has(email); i++) await sleep(10);
+  return mailCodes.get(email);
+}
+
 async function registerUser(key, payload) {
   const body = {
     username: payload.username,
@@ -448,6 +464,7 @@ async function registerUser(key, payload) {
   if (payload.displayName !== undefined) body.displayName = payload.displayName;
   if (payload.callSign !== undefined) body.callSign = payload.callSign;
   secrets.push(payload.password);
+  body.emailCode = await emailCode(body.email);
   const res = await api('POST', '/api/auth/register', { body });
   if (res.status !== 201) {
     throw new CheckError(`注册用户 ${key} 失败: 期望 201，实际 ${res.status}${resInfo(res)}`);
@@ -686,6 +703,7 @@ async function phaseRegister() {
     };
     const { res } = await (async () => {
       secrets.push(ownerPayload.password);
+      ownerPayload.emailCode = await emailCode(ownerPayload.email);
       const r = await api('POST', '/api/auth/register', { body: ownerPayload });
       if (r.status !== 201) throw new CheckError(`owner 注册失败: 期望 201，实际 ${r.status}${resInfo(r)}`);
       users.owner = {

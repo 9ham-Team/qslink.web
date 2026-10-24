@@ -117,6 +117,13 @@ function validateAddress(raw, fields, prefix = 'address') {
 
 /* ---------------- 注册 / 登录 ---------------- */
 
+function validateEmail(value) {
+  const email = str(value).toLowerCase();
+  if (!EMAIL_RE.test(email) || email.length > LIMITS.email)
+    throw badRequest({ email: '请输入有效的邮箱地址' });
+  return email;
+}
+
 function validateRegister(input) {
   const body = isObj(input) ? input : {};
   const fields = {};
@@ -149,6 +156,8 @@ function validateLogin(input) {
   const password = typeof body.password === 'string' ? body.password : '';
   if (!identifier) fields.identifier = '请输入用户名或邮箱';
   if (!password) fields.password = '请输入密码';
+  if (identifier.length > 120) fields.identifier = '用户名或邮箱过长';
+  if (size(password) > LIMITS.password) fields.password = '密码过长';
   if (Object.keys(fields).length) throw badRequest(fields, '请输入用户名和密码');
   return { identifier, password };
 }
@@ -358,6 +367,7 @@ module.exports = {
   passwordProblem,
   validateAddress,
   validateRegister,
+  validateEmail,
   validateLogin,
   validateProfile,
   validateCardCreate,

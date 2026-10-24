@@ -22,20 +22,25 @@ QSLink 是一个为业余无线电爱好者（HAM）打造的 QSL 卡片交换�
 
 ## 🚀 快速开始
 
-环境要求：**Node.js ≥ 18**（开发验证于 Node 24），零 npm 依赖、无需联网、无需构建。
+环境要求：**Node.js ≥ 18**（CI 使用 Node 24）和 **PostgreSQL 17**。先用 `npm ci` 安装锁定依赖，无需前端构建。数据库连接与本地启动见 [PostgreSQL 指南](docs/POSTGRESQL.md)。
 
 ```bash
 cd qsl-card-exchange
-npm start            # 启动服务，默认 http://127.0.0.1:8787
+npm ci
+# 先配置独立开发库的 DATABASE_URL，或按 PostgreSQL 指南运行 npm run db:local
+npm start            # 默认空库，不自动创建演示账号
+npm run demo         # 显式本地演示模式，默认 http://127.0.0.1:8787
 # 或开发模式（文件变化自动重启）
 npm run dev
 ```
 
-Windows 用户也可以直接**双击项目根目录的 `start.cmd`**：会自动启动服务并打开浏览器。
+Windows 用户在启动 PostgreSQL 并配置好 `DATABASE_URL` 后，也可以使用项目根目录的 `start.cmd` 启动网站并打开浏览器。
 
-首次启动会自动创建 `data/db.json` 并写入演示数据（程序化生成的双面 SVG QSL 卡片示例，共 13 张）。
+默认首次启动只初始化空 PostgreSQL schema。需要演示数据时，在独立开发库运行 `npm run demo`（等价于 `QSL_SEED_DEMO=true`）；仅在目标未初始化时生成 13 张示例卡片及演示用户。既有数据不会被覆盖。
 
-### 演示账号
+**公网生产部署请先阅读 [部署指南](docs/DEPLOYMENT.md)**，使用 Docker Compose + Caddy HTTPS 或配置受保护的反向代理。生产必须显式配置独立数据目录、HTTPS 站点地址，并先运行离线管理员初始化。禁止复制开发演示库上线。
+
+### 演示账号（仅显式开启的本地演示环境）
 
 | 角色 | 用户名 | 密码 | 说明 |
 | --- | --- | --- | --- |
@@ -46,12 +51,12 @@ Windows 用户也可以直接**双击项目根目录的 `start.cmd`**：会自�
 ### 重置演示数据
 
 ```bash
-# 停止服务后删除数据文件与上传目录，再次启动即可重新生成种子数据
-rm -rf data/db.json data/uploads
-npm start
+# 使用全新、隔离的开发 schema；不要删除生产数据
+export QSL_DB_SCHEMA=qslink_demo_fresh
+npm run demo
 ```
 
-> 上传的卡片图片保存在 `data/uploads/`，数据保存在 `data/db.json`，可直接备份。
+> 上传图片保存在 `data/uploads/`，业务数据保存在 PostgreSQL。旧 `db.json` 需显式导入，不会自动删除；数据库和上传文件需分别备份。
 
 ## ⚙️ 环境变量
 
@@ -59,12 +64,19 @@ npm start
 | --- | --- | --- |
 | `QSL_PORT` | `8787` | 监听端口 |
 | `QSL_HOST` | `127.0.0.1` | 监听地址（局域网访问可设为 `0.0.0.0`） |
-| `QSL_DATA_DIR` | `<项目>/data` | 数据目录（含 `db.json` 与 `uploads/`） |
+| `QSL_DATA_DIR` | `<项目>/data` | 上传目录的父目录，生产必须为独立绝对路径 |
+| `DATABASE_URL` | 无 | 必填的 PostgreSQL 连接串，不提交真实凭据 |
+| `QSL_DB_SCHEMA` | `public` | 数据库 schema，开发与生产应使用独立数据库 |
+| `NODE_ENV` | `development` | 生产必须为 `production` |
+| `QSL_SEED_DEMO` | `false` | 仅显式 `true` 生成/启用本地演示，生产禁止 |
+| `QSL_PUBLIC_ORIGIN` | 空 | 生产必填 HTTPS 地址，用于分享链接和来源校验 |
+| `QSL_TRUST_PROXY` | `false` | 仅可信、隔离的代理环境可启用，详见部署指南 |
 
 ## 🧪 测试
 
 ```bash
 npm test             # 启动隔离实例跑完整 API 端到端冒烟测试（tests/smoke.mjs）
+npm run test:production # 验证空库、生产配置、管理员初始化、限流与演示隔离
 node tools/shot.mjs http://127.0.0.1:8787/ shot.png 1440 1000   # 无头浏览器截图
 ```
 
@@ -74,7 +86,7 @@ node tools/shot.mjs http://127.0.0.1:8787/ shot.png 1440 1000   # 无头浏览�
 
 ```
 qsl-card-exchange/
-├── server/                 # 零依赖 Node.js 后端
+├── server/                 # Node.js + pg 后端
 │   ├── server.js           # HTTP 入口：API 路由 + 静态资源 + SPA 回退
 │   ├── lib/                # 数据层、鉴权、校验、上传、领域路由
 │   ├── seed.js             # 演示数据与程序化 SVG QSL 卡片生成
@@ -84,7 +96,7 @@ qsl-card-exchange/
 │   ├── css/                # base / components / gallery / flows / admin / animations
 │   ├── js/                 # core / api / ui / effects / card3d / pages / app
 │   └── assets/             # 品牌与插画 SVG
-├── data/                   # 运行时数据（db.json + uploads/）
+├── data/                   # uploads 与可选本地开发数据库（不入库）
 ├── docs/                   # API 契约、前端契约、截图
 ├── tests/                  # 端到端冒烟测试
 └── tools/                  # 截图工具
@@ -93,6 +105,9 @@ qsl-card-exchange/
 ## 📚 文档
 
 - [API 契约（唯一事实来源）](docs/API.md)
+- [生产部署与备份回滚](docs/DEPLOYMENT.md)
+- [PostgreSQL 连接、开发与 JSON 导入](docs/POSTGRESQL.md)
+- [人类与 agent 协作流程](CONTRIBUTING.md)
 - [前端架构与设计系统契约](docs/CONTRACT.md)
 - 自动化验收：`npm test`（由 tests/smoke.mjs 驱动隔离实例）
 
@@ -109,7 +124,7 @@ qsl-card-exchange/
 - Token 为 32 字节随机值，服务端 `sessions` 表校验有效期；被禁用用户立即失效。
 - 所有卡片、申请、用户管理接口均做所有权 / 角色校验；管理员保护规则（不能禁用自己或最后一个管理员、不能删除最后一个管理员）。
 - 前端所有用户内容插值均转义，避免 XSS；上传仅接受图片 MIME 白名单并限制大小（单图 ≤ 8MB，请求体 ≤ 25MB）。
-- 数据层为 JSON 文件 + 原子写（临时文件 + rename）+ 写入串行队列，适合演示与小型自托管；大规模生产建议替换为 SQLite / PostgreSQL 并接入对象存储与 HTTPS。
+- 数据层使用 PostgreSQL 关系表、唯一约束、外键和事务；按请求加载领域快照并按行提交变更，适合小型社区。大量数据场景仍需将查询/分页下推 SQL 并细化写锁；图片可迁移至对象存储。
 
 ## 📸 截图
 

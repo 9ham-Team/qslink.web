@@ -8,10 +8,24 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "test": "node tests/smoke.mjs",
+    "demo": "node tools/demo.mjs",
+    "admin:init": "node server/init-admin.js",
+    "test": "node tools/run-tests.mjs smoke",
+    "test:production": "node tools/run-tests.mjs production",
+    "db:import-json": "node server/import-json.js",
+    "db:local": "node tools/local-postgres.mjs",
     "shot": "node tools/shot.mjs"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@alicloud/dm20151123": "1.11.0",
+    "@alicloud/openapi-client": "0.4.15",
+    "@alicloud/tea-util": "1.4.11",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "embedded-postgres": "17.10.0-beta.17"
   }
 }
