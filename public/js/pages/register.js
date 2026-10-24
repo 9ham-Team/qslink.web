@@ -26,10 +26,24 @@
       : '';
   }
 
+  function paintEmailState(wrap, state, message) {
+    const badge = wrap.querySelector('.f-reg-email-check');
+    badge.classList.toggle('is-visible', !!state);
+    badge.classList.toggle('is-error', state === 'error');
+    badge.setAttribute('aria-hidden', state ? 'false' : 'true');
+    badge.setAttribute('aria-label', message || '邮箱格式正确');
+    badge.title = message || '邮箱格式正确';
+    wrap.querySelector('.f-input-wrap').classList.toggle('is-valid', state === 'valid');
+  }
+
   function setFieldError(wrap, message) {
     if (!wrap) return;
-    const err = wrap.querySelector('.f-error');
-    wrap.classList.toggle('has-error', !!message);
+    const err = wrap.querySelector(':scope > .f-error, :scope > .f-reg-code-feedback .f-error');
+    const errorTarget = wrap.dataset.field === 'email' ? wrap.querySelector('.f-input-wrap') : wrap;
+    errorTarget.classList.toggle('has-error', !!message);
+    const input = wrap.querySelector('input');
+    if (input) input.setAttribute('aria-invalid', message ? 'true' : 'false');
+    if (wrap.dataset.field === 'email') paintEmailState(wrap, message ? 'error' : '', message);
     if (err) {
       err.textContent = message || '';
       err.hidden = !message;
@@ -150,14 +164,23 @@
       ' name="' + esc(o.name) + '" type="' + esc(o.type || 'text') + '"' +
       ' placeholder="' + esc(o.placeholder || '') + '"' +
       ' autocomplete="' + esc(o.autocomplete || 'off') + '"' +
+      (o.name === 'email' ? ' aria-describedby="fRegEmailError"' : '') +
       (o.inputmode ? ' inputmode="' + esc(o.inputmode) + '"' : '') +
       (o.maxlength ? ' maxlength="' + esc(o.maxlength) + '"' : '') +
       (o.required ? ' required' : '') + '>' +
       (o.eye
         ? '<button type="button" class="f-eye" aria-label="显示密码" aria-pressed="false" data-eye>' + ico('eye', 18) + '</button>'
         : '') +
+      (o.name === 'email' ? '<span class="f-reg-email-check" role="img" aria-label="邮箱格式正确" aria-hidden="true"><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor"/><g fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path class="f-reg-email-tick" d="m6 10 2.5 2.5 5-5"/><path class="f-reg-email-cross" d="m7 7 6 6m0-6-6 6"/></g></svg></span>' : '') +
       '</div>' +
-      '<p class="f-error" data-error="' + esc(o.name) + '" role="alert" hidden></p>' +
+      '<p class="f-error"' + (o.name === 'email' ? ' id="fRegEmailError"' : '') + ' data-error="' + esc(o.name) + '" role="alert" hidden></p>' +
+      (o.name === 'email' ? '<div class="f-reg-code-reveal" aria-hidden="true" inert><div class="f-reg-code-inner"><div class="f-field" data-field="emailCode">' +
+        '<label class="label" for="fRegEmailCode">邮箱验证码</label><div class="f-reg-code-row">' +
+        '<input id="fRegEmailCode" class="input f-input" name="emailCode" type="text" placeholder="6 位数字" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required aria-describedby="fRegCodeStatus">' +
+        '<button type="button" class="btn f-reg-code-send" disabled>发送验证码</button></div>' +
+        '<div class="f-reg-code-feedback"><div class="f-reg-code-feedback-inner"><p class="f-error" data-error="emailCode" role="alert" hidden></p>' +
+        '<p class="f-reg-code-status" id="fRegCodeStatus" role="status" aria-live="polite"></p>' +
+        '</div></div></div></div></div>' : '') +
       '</div>'
     );
   }
@@ -212,6 +235,130 @@
     const strengthText = strengthEl ? strengthEl.querySelector('.f-strength-text') : null;
     const passwordInput = form.querySelector('[name="password"]');
     let busy = false;
+    let disposed = false;
+    let emailTimer = null;
+    let cooldownTimer = null;
+    let focusTimer = null;
+    let sending = false;
+    let emailValid = false;
+    let emailRevision = 0;
+    let retryAt = 0;
+    const emailInput = form.querySelector('[name="email"]');
+    const emailField = emailInput.closest('[data-field]');
+    const codeReveal = form.querySelector('.f-reg-code-reveal');
+    const codeInput = form.querySelector('[name="emailCode"]');
+    const codeField = codeInput.closest('[data-field]');
+    const sendBtn = form.querySelector('.f-reg-code-send');
+    const codeStatus = form.querySelector('.f-reg-code-status');
+    const codeFeedback = form.querySelector('.f-reg-code-feedback');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let feedbackAnimation = null;
+
+    function showCodeFeedback(message, error) {
+      const previousHeight = codeFeedback.getBoundingClientRect().height;
+      if (feedbackAnimation) feedbackAnimation.cancel();
+      setFieldError(codeField, error ? message : '');
+      codeStatus.textContent = error ? '' : message;
+      const nextHeight = message ? codeFeedback.firstElementChild.scrollHeight : 0;
+      if (!reducedMotion.matches && typeof codeFeedback.animate === 'function') {
+        feedbackAnimation = codeFeedback.animate([
+          { height: previousHeight + 'px' },
+          { height: nextHeight + 'px' }
+        ], { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+      }
+    }
+
+    function emailError(value) {
+      if (!value) return '请填写邮箱';
+      if (value.length > 120) return '邮箱不能超过 120 个字符';
+      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) ? '' : '邮箱格式不正确';
+    }
+
+    function revealCode() {
+      codeReveal.classList.add('is-open');
+      codeReveal.setAttribute('aria-hidden', 'false');
+      codeReveal.removeAttribute('inert');
+    }
+
+    function paintSendButton() {
+      const remaining = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
+      sendBtn.disabled = !emailValid || sending || remaining > 0;
+      sendBtn.setAttribute('aria-busy', sending ? 'true' : 'false');
+      sendBtn.textContent = sending ? '发送中…' : remaining ? remaining + ' 秒后重发' : '发送验证码';
+      if (!remaining && cooldownTimer !== null) {
+        clearInterval(cooldownTimer);
+        cooldownTimer = null;
+      }
+    }
+
+    function startCooldown(seconds) {
+      retryAt = Date.now() + seconds * 1000;
+      if (cooldownTimer !== null) clearInterval(cooldownTimer);
+      cooldownTimer = setInterval(() => {
+        if (!disposed) paintSendButton();
+      }, 1000);
+      paintSendButton();
+    }
+
+    function validateEmail(showEmpty) {
+      clearTimeout(emailTimer);
+      emailTimer = null;
+      const value = emailInput.value.trim();
+      const message = emailError(value);
+      emailValid = !message;
+      setFieldError(emailField, value || showEmpty ? message : '');
+      if (emailValid) paintEmailState(emailField, 'valid');
+      if (emailValid) revealCode();
+      paintSendButton();
+      return emailValid;
+    }
+
+    emailInput.addEventListener('input', () => {
+      emailRevision++;
+      emailValid = false;
+      setFieldError(emailField, '');
+      codeInput.value = '';
+      showCodeFeedback('', false);
+      paintSendButton();
+      clearTimeout(emailTimer);
+      emailTimer = setTimeout(() => {
+        if (!disposed) validateEmail(false);
+      }, 100);
+    });
+
+    codeInput.addEventListener('input', () => {
+      codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
+      showCodeFeedback(codeStatus.textContent, false);
+    });
+
+    sendBtn.addEventListener('click', async () => {
+      if (disposed || sending) return;
+      if (!validateEmail(true) || Date.now() < retryAt) return;
+      const email = emailInput.value.trim();
+      const revision = emailRevision;
+      sending = true;
+      showCodeFeedback('', false);
+      paintSendButton();
+      try {
+        await QSL.api.auth.sendEmailCode(email);
+        if (disposed) return;
+        startCooldown(60);
+        if (emailRevision === revision && emailInput.value.trim() === email) {
+          showCodeFeedback('验证码已发送，请查收邮件（30 分钟内有效）。', false);
+        }
+      } catch (err) {
+        if (disposed) return;
+        if (err && err.status === 429) startCooldown(60);
+        if (emailRevision === revision && emailInput.value.trim() === email) {
+          showCodeFeedback((err && err.message) || '验证码发送失败，请稍后重试', true);
+        }
+      } finally {
+        if (!disposed) {
+          sending = false;
+          paintSendButton();
+        }
+      }
+    });
 
     /* 密码可见切换 */
     form.querySelectorAll('[data-eye]').forEach((btn) => {
@@ -263,6 +410,7 @@
       return {
         username: get('username').trim(),
         email: get('email').trim(),
+        emailCode: get('emailCode').trim(),
         password: get('password'),
         confirmPassword: get('confirmPassword'),
         displayName: get('displayName').trim(),
@@ -274,8 +422,10 @@
       const errors = {};
       if (!values.username) errors.username = '请填写用户名';
       else if (!/^[A-Za-z0-9_]{3,20}$/.test(values.username)) errors.username = '用户名需为 3-20 位字母、数字或下划线';
-      if (!values.email) errors.email = '请填写邮箱';
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) errors.email = '邮箱格式不正确';
+      const message = emailError(values.email);
+      if (message) errors.email = message;
+      if (!values.emailCode) errors.emailCode = '请填写邮箱验证码';
+      else if (!/^\d{6}$/.test(values.emailCode)) errors.emailCode = '验证码需为 6 位数字';
       if (values.displayName && values.displayName.length > 40) errors.displayName = '昵称不能超过 40 个字符';
       if (values.callSign && values.callSign.length > 20) errors.callSign = '呼号不能超过 20 个字符';
       if (!values.password) errors.password = '请设置密码';
@@ -301,9 +451,10 @@
 
     async function onSubmit(event) {
       event.preventDefault();
-      if (busy) return;
+      if (disposed || busy) return;
       setAlert(alertBox, '');
       clearFieldErrors(form);
+      validateEmail(true);
       const values = collect();
       const errors = validate(values);
       if (Object.keys(errors).length) {
@@ -317,17 +468,21 @@
         const payload = {
           username: values.username,
           email: values.email,
+          emailCode: values.emailCode,
           password: values.password
         };
         if (values.displayName) payload.displayName = values.displayName;
         if (values.callSign) payload.callSign = values.callSign;
         const res = await QSL.api.auth.register(payload);
+        if (disposed) return;
         if (res && res.token) QSL.api.setToken(res.token);
         if (res && res.user) QSL.setUser(res.user);
         else await QSL.refreshUser();
+        if (disposed) return;
         if (QSL.toast) QSL.toast('注册成功，欢迎加入 QSLink！', 'success');
         QSL.navigate(safeNext || '/dashboard');
       } catch (err) {
+        if (disposed) return;
         busy = false;
         setBusy(submitBtn, false);
         if (err && err.fields) applyFieldErrors(form, err.fields);
@@ -342,15 +497,25 @@
     }
 
     form.addEventListener('submit', onSubmit);
+    form.addEventListener('input', (event) => {
+      if (event.target === emailInput || event.target === codeInput) return;
+      setFieldError(event.target.closest('.f-field[data-field]'), '');
+    });
 
     if (window.innerWidth >= 860) {
-      setTimeout(() => {
+      focusTimer = setTimeout(() => {
         const input = form.querySelector('[name="username"]');
         if (input && document.body.contains(input)) input.focus({ preventScroll: true });
       }, 60);
     }
 
-    return function cleanup() { /* 无全局监听 */ };
+    return function cleanup() {
+      disposed = true;
+      clearTimeout(emailTimer);
+      clearTimeout(focusTimer);
+      clearInterval(cooldownTimer);
+      if (feedbackAnimation) feedbackAnimation.cancel();
+    };
   }
 
   QSL.registerPage('register', { title: '注册', render: render });

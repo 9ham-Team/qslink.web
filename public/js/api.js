@@ -110,6 +110,7 @@
     config: () => request('GET', '/api/config'),
 
     auth: {
+      sendEmailCode: (email) => request('POST', '/api/auth/email-code', { email }, { skipAuthClear: true }),
       register: (payload) => request('POST', '/api/auth/register', payload),
       login: (payload) => request('POST', '/api/auth/login', payload),
       logout: () => request('POST', '/api/auth/logout', {}),
