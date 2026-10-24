@@ -245,6 +245,12 @@ async function handleApi(req, res, { db, config, url, host }) {
     return;
   }
 
+  if (matched.outsideTransaction) {
+    const result = await matched.handler({ db, config, req, res, body });
+    sendJson(res, result.status || 200, result.body || {});
+    return;
+  }
+
   const result = await db.transaction(
     async (unit) => {
       const authState = auth.resolveAuth(unit, req);
@@ -481,8 +487,9 @@ function printBanner({ config, seeded }) {
   console.log(lines.join('\n'));
 }
 
-async function start() {
+async function start({ mailTransport } = {}) {
   const config = readConfig();
+  config.sendMail = mailTransport || require('./lib/mail').createMailTransport(config.mail);
   const { port, host, dataDir, uploadsDir } = config;
   config.limitAuth = createAuthLimiter({ trustProxy: config.trustProxy });
 

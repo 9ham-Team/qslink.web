@@ -117,6 +117,13 @@ function validateAddress(raw, fields, prefix = 'address') {
 
 /* ---------------- 注册 / 登录 ---------------- */
 
+function validateEmail(value) {
+  const email = str(value).toLowerCase();
+  if (!EMAIL_RE.test(email) || email.length > LIMITS.email)
+    throw badRequest({ email: '请输入有效的邮箱地址' });
+  return email;
+}
+
 function validateRegister(input) {
   const body = isObj(input) ? input : {};
   const fields = {};
@@ -360,6 +367,7 @@ module.exports = {
   passwordProblem,
   validateAddress,
   validateRegister,
+  validateEmail,
   validateLogin,
   validateProfile,
   validateCardCreate,

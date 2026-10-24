@@ -32,7 +32,7 @@ function env(dir, overrides = {}) {
     DATABASE_URL: databases.get(dir).databaseUrl, QSL_DB_SCHEMA: databases.get(dir).databaseSchema, ...overrides };
 }
 function processFor(entry, config, input = '') {
-  const child = spawn(process.execPath, [entry], { cwd: ROOT, env: config, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [entry], { cwd: ROOT, env: config, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe', 'ipc'] });
   let output = '';
   child.stdout.on('data', data => { output += data; });
   child.stderr.on('data', data => { output += data; });
@@ -44,15 +44,20 @@ async function init(dir, data = credentials) {
   return processFor('server/init-admin.js', env(dir), JSON.stringify(data)).ended;
 }
 async function freePort() {
-  const server = net.createServer();
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const port = server.address().port;
-  await new Promise(resolve => server.close(resolve));
+  let port;
+  do {
+    const server = net.createServer();
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    port = server.address().port;
+    await new Promise(resolve => server.close(resolve));
+  } while (port <= 10080); // Fetch's restricted ports are all at or below 10080.
   return port;
 }
 async function start(t, dir, overrides = {}) {
   const port = await freePort();
-  const proc = processFor('server/server.js', env(dir, { QSL_PORT: String(port), ...overrides }));
+  const proc = processFor('tests/helpers/mail-server.cjs', env(dir, { QSL_PORT: String(port), ...overrides }));
+  const codes = new Map();
+  proc.child.on('message', ({ email, code }) => codes.set(email, code));
   const base = `http://127.0.0.1:${port}`;
   let stopped = false;
   const stop = async () => {
@@ -66,7 +71,7 @@ async function start(t, dir, overrides = {}) {
     if (proc.child.exitCode !== null) throw new Error(proc.logs());
     try {
       const res = await fetch(base + '/api/health');
-      if (res.ok) return { ...proc, base, stop };
+      if (res.ok) return { ...proc, base, stop, codes };
     } catch { /* starting */ }
     await new Promise(resolve => setTimeout(resolve, 40));
   }
@@ -76,6 +81,57 @@ async function request(base, route, { token, body, headers = {}, method = 'GET' 
   return fetch(base + route, { method, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { Authorization: 'Bearer ' + token } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined });
 }
+
+async function withCode(app, body) {
+  assert.equal((await request(app.base, '/api/auth/email-code', { method: 'POST', body: { email: body.email } })).status, 200);
+  for (let i = 0; i < 100 && !app.codes.has(body.email); i++) await new Promise(resolve => setTimeout(resolve, 10));
+  return { ...body, emailCode: app.codes.get(body.email) };
+}
+
+test('email codes persist attempts, expire, consume once, throttle across processes and fail closed', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const a = await start(t, dir), b = await start(t, dir);
+  const db = databases.get(dir).db;
+  const payload = { username: 'verified', email: 'verified@example.test', password: 'Verified-Password-42!' };
+  const register = (app, body) => request(app.base, '/api/auth/register', { method: 'POST', body });
+  assert.equal((await register(a, payload)).status, 400);
+  for (const email of ['abc', 'a@b.c', 'a b@c.test', 'a@@c.test'])
+    assert.equal((await request(a.base, '/api/auth/email-code', { method: 'POST', body: { email } })).status, 400);
+  const verified = await withCode(a, payload);
+  assert.match(verified.emailCode, /^\d{6}$/);
+  const row = await db.transaction(unit => unit.data.emailVerifications[0]);
+  assert.ok(row.codeHash.startsWith('scrypt$'));
+  assert.notEqual(row.codeHash, verified.emailCode);
+  assert.equal(Date.parse(row.expiresAt) - Date.parse(row.sentAt), 1800000);
+  assert.equal((await request(b.base, '/api/auth/email-code', { method: 'POST', body: { email: payload.email.toUpperCase() } })).status, 429);
+  const wrong = verified.emailCode === '000000' ? '000001' : '000000';
+  for (let i = 0; i < 5; i++) assert.equal((await register(i % 2 ? a : b, { ...payload, emailCode: wrong })).status, 400);
+  assert.equal(await db.transaction(unit => unit.data.emailVerifications[0].attempts), 5);
+  assert.equal((await register(a, verified)).status, 400);
+  await db.transaction(unit => { unit.data.emailVerifications[0].sentAt = new Date(Date.now() - 61000).toISOString(); }, { write: true });
+  const renewed = await withCode(b, payload);
+  assert.equal((await register(a, { ...renewed, email: 'other@example.test' })).status, 400);
+  await db.transaction(unit => { unit.data.emailVerifications[0].expiresAt = new Date(Date.now() - 1).toISOString(); }, { write: true });
+  assert.equal((await register(a, renewed)).status, 400);
+  await db.transaction(unit => { unit.data.emailVerifications[0].expiresAt = new Date(Date.now() + 1800000).toISOString(); }, { write: true });
+  const results = await Promise.all([a, b].map((app, i) => register(app, { ...renewed, username: 'verified' + i })));
+  assert.deepEqual(results.map(res => res.status).sort(), [201, 409]);
+  assert.equal(await db.transaction(unit => unit.data.emailVerifications[0].status), 'consumed');
+  const { sendCode } = require('../server/lib/email-verification');
+  const context = { db, req: { socket: { remoteAddress: '192.0.2.1' }, headers: {} }, res: { setHeader() {} }, body: { email: 'fail@example.test' } };
+  await assert.rejects(sendCode({ ...context, config: {} }), err => err.status === 503);
+  await assert.rejects(sendCode({ ...context, config: { sendMail: async () => {
+    // This transaction would deadlock if the network operation held the write lock.
+    await db.transaction(() => {}, { write: true });
+    throw new Error('provider secret details');
+  } } }), err => err.status === 503 && !err.message.includes('provider'));
+  assert.equal(await db.transaction(unit => unit.find('emailVerifications', item => item.id === 'fail@example.test').codeHash), null);
+  await db.transaction(unit => unit.insert('mailQuotas', { id: 'email:quota@example.test', count: 5, windowAt: new Date().toISOString() }), { write: true });
+  await assert.rejects(sendCode({ ...context, body: { email: 'quota@example.test' }, config: { sendMail: async () => assert.fail('must not send') } }), err => err.status === 429);
+  for (const settings of [{ QSL_MAIL_ENDPOINT: 'attacker.test' }, { QSL_MAIL_REGION: 'invalid' }])
+    assert.throws(() => readConfig({ DATABASE_URL: 'postgresql://localhost/test', ...settings }));
+});
 
 test('production config fails closed for missing paths/origin/demo flag and insecure origins', () => {
   const valid = { DATABASE_URL: 'postgresql://localhost/test', NODE_ENV: 'production', QSL_DATA_DIR: os.tmpdir(), QSL_PUBLIC_ORIGIN: 'https://qsl.example.test' };
@@ -220,7 +276,7 @@ test('concurrent registration and exchange approval remain atomic across app pro
   const dir = await temp(t);
   assert.equal((await init(dir)).code, 0);
   const a = await start(t, dir), b = await start(t, dir);
-  const registration = { username: 'concurrent', email: 'concurrent@example.test', password: 'Concurrent-Password-42!' };
+  const registration = await withCode(a, { username: 'concurrent', email: 'concurrent@example.test', password: 'Concurrent-Password-42!' });
   const results = await Promise.all([a, b].map(app => request(app.base, '/api/auth/register', { method: 'POST', body: registration })));
   assert.deepEqual(results.map(res => res.status).sort(), [201, 409]);
   const token = (await (await request(a.base, '/api/auth/login', { method: 'POST', body: { identifier: credentials.username, password: credentials.password } })).json()).token;
@@ -230,7 +286,7 @@ test('concurrent registration and exchange approval remain atomic across app pro
   const address = { name: 'Test', line1: 'Test road', city: 'Test', country: 'Test' };
   const ids = [];
   for (let i = 0; i < 2; i++) {
-    const user = await (await request(a.base, '/api/auth/register', { method: 'POST', body: { username: 'applicant' + i, email: `applicant${i}@example.test`, password: 'Applicant-Password-42!' } })).json();
+    const user = await (await request(a.base, '/api/auth/register', { method: 'POST', body: await withCode(a, { username: 'applicant' + i, email: `applicant${i}@example.test`, password: 'Applicant-Password-42!' }) })).json();
     const response = await request(a.base, `/api/cards/${card.id}/exchanges`, { token: user.token, method: 'POST', body: { contactName: 'Test', address, message: '' } });
     assert.equal(response.status, 201);
     ids.push((await response.json()).exchange.id);

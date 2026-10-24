@@ -70,6 +70,7 @@ function readConfig(env = process.env) {
     uploadsDir: path.join(dataDir, 'uploads'),
     databaseUrl: env.DATABASE_URL,
     databaseSchema,
+    mail: require('./mail').readMailConfig(env),
   };
 }
 
