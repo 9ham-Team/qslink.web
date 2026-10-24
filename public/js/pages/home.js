@@ -503,7 +503,7 @@
       renderShowcaseError(root, function () { loadData(root, state); });
       return;
     }
-    cardsApi.list({ sort: 'popular', limit: 48 }).then(function (res) {
+    return cardsApi.list({ sort: 'popular', limit: 48 }).then(function (res) {
       if (state.cancelled) return;
       const items = (res && res.items) || [];
       const total = (res && res.total) || items.length;
@@ -530,30 +530,6 @@
     });
   }
 
-  /* 支持页脚 / #showcase、#features、#how-it-works、#join、#faq 锚点 */
-  function scrollToHash(root, attempt) {
-    const hash = location.hash;
-    if (!hash || hash.length < 2) return;
-    let id = hash.slice(1);
-    try { id = decodeURIComponent(id); } catch (err) { /* 保留原样 */ }
-    const targets = root.querySelectorAll('[id]');
-    let target = null;
-    for (let i = 0; i < targets.length; i++) {
-      if (targets[i].id === id) { target = targets[i]; break; }
-    }
-    if (!target) {
-      if ((attempt || 0) < 2) {
-        setTimeout(function () { scrollToHash(root, (attempt || 0) + 1); }, 120);
-      }
-      return;
-    }
-    try {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (err) {
-      target.scrollIntoView();
-    }
-  }
-
   /* ---------------- 页面注册 ---------------- */
   QSL.registerPage('home', {
     title: '首页',
@@ -567,11 +543,13 @@
       // 先创建 3D 卡片（使用品牌占位面），卡片图片到达后再替换，避免空白等待
       mountHero(container, state, { ratio: { w: 104, h: 154 } });
 
-      requestAnimationFrame(function () {
-        scrollToHash(container, 0);
+      // Card data changes the height of sections above the footer anchors.
+      // Wait for that layout before positioning a direct or cross-page link.
+      Promise.resolve(loadData(container, state)).then(function () {
+        requestAnimationFrame(function () {
+          if (!state.cancelled) QSL.scrollToHash();
+        });
       });
-
-      loadData(container, state);
 
       return function cleanup() {
         state.cancelled = true;
