@@ -1,0 +1,13 @@
+# Optional IP-only HTTPS deployment: use together with compose.yaml.
+services:
+  app:
+    mem_limit: 384m
+    environment:
+      NODE_OPTIONS: --max-old-space-size=192
+  db:
+    mem_limit: 512m
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=30"]
+  proxy:
+    mem_limit: 128m
+    volumes:
+      - ./deploy/Caddyfile.ip:/etc/caddy/Caddyfile:ro

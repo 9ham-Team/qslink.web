@@ -55,7 +55,10 @@ jobs:
         run: npm run test:production
 
       - name: Validate production Compose config
-        run: docker compose -p qslink-ci config --quiet
+        run: |
+          docker compose -p qslink-ci config --quiet
+          QSL_DOMAIN=203.0.113.1 docker compose -f compose.yaml -f compose.ip.yaml config --quiet
+          sh -n deploy/backup.sh
 
       - name: Build production image
         run: docker compose -p qslink-ci build app
@@ -67,6 +70,7 @@ jobs:
           docker compose -p qslink-ci up -d --wait app
           docker compose -p qslink-ci exec -T app node -e "fetch('http://127.0.0.1:8787/api/config').then(async r=>{const c=await r.json();if(!r.ok||c.demo||c.demoAccounts.length)process.exit(1)})"
           docker run --rm -e QSL_DOMAIN -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+          docker run --rm -e QSL_DOMAIN=203.0.113.1 -v "$PWD/deploy/Caddyfile.ip:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
 
       - name: Remove isolated CI containers and volumes
         if: always()
