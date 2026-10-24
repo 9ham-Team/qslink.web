@@ -326,7 +326,7 @@ async function startServer() {
     let logs = '';
     const child = spawn(process.execPath, [ENTRY], {
       cwd: ROOT,
-      env: { ...process.env, QSL_PORT: String(port), QSL_DATA_DIR: dir, NODE_ENV: 'test' },
+      env: { ...process.env, QSL_PORT: String(port), QSL_DATA_DIR: dir, NODE_ENV: 'test', QSL_SEED_DEMO: 'true', QSL_PUBLIC_ORIGIN: '' },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });

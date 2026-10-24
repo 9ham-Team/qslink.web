@@ -149,6 +149,8 @@ function validateLogin(input) {
   const password = typeof body.password === 'string' ? body.password : '';
   if (!identifier) fields.identifier = '请输入用户名或邮箱';
   if (!password) fields.password = '请输入密码';
+  if (identifier.length > 120) fields.identifier = '用户名或邮箱过长';
+  if (size(password) > LIMITS.password) fields.password = '密码过长';
   if (Object.keys(fields).length) throw badRequest(fields, '请输入用户名和密码');
   return { identifier, password };
 }

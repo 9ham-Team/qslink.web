@@ -233,7 +233,7 @@ async function share(ctx) {
   return {
     body: {
       shareToken: card.shareToken,
-      url: `${requestProtocol(ctx)}://${ctx.host}/share/${card.shareToken}`,
+      url: `${ctx.config.publicOrigin || requestProtocol(ctx) + '://' + ctx.host}/share/${card.shareToken}`,
     },
   };
 }

@@ -19,6 +19,8 @@ jobs:
     name: API smoke tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      QSL_DOMAIN: qsl.example.com
 
     steps:
       - name: Checkout code
@@ -31,3 +33,23 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Verify production isolation
+        run: npm run test:production
+
+      - name: Validate production Compose config
+        run: docker compose -p qslink-ci config --quiet
+
+      - name: Build production image
+        run: docker compose -p qslink-ci build app
+
+      - name: Verify container startup and production defaults
+        run: |
+          printf '%s' '{"username":"ci_operator","email":"ci@example.test","password":"CI-Only-Admin-42!"}' | docker compose -p qslink-ci run --rm -T --no-deps app node server/init-admin.js
+          docker compose -p qslink-ci up -d --wait app
+          docker compose -p qslink-ci exec -T app node -e "fetch('http://127.0.0.1:8787/api/config').then(async r=>{const c=await r.json();if(!r.ok||c.demo||c.demoAccounts.length)process.exit(1)})"
+          docker run --rm -e QSL_DOMAIN -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
+      - name: Remove isolated CI containers and volumes
+        if: always()
+        run: docker compose -p qslink-ci down --volumes
