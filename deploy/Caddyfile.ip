@@ -1,0 +1,18 @@
+{
+    default_sni {$QSL_DOMAIN}
+}
+
+{$QSL_DOMAIN} {
+    tls {
+        issuer acme https://acme-v02.api.letsencrypt.org/directory {
+            profile shortlived
+            disable_http_challenge
+        }
+    }
+    request_body {
+        max_size 25MB
+    }
+    reverse_proxy app:8787 {
+        header_up X-Real-IP {remote_host}
+    }
+}

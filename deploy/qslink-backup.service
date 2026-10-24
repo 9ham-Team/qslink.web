@@ -1,0 +1,15 @@
+[Unit]
+Description=Back up QSLink PostgreSQL and uploads
+After=docker.service
+Requires=docker.service
+ConditionPathExists=/opt/qslink/current/.env
+
+[Service]
+Type=oneshot
+Environment=QSL_RELEASE_DIR=/opt/qslink/current
+Environment=QSL_BACKUP_DIR=/var/backups/qslink
+ExecStart=/bin/sh /opt/qslink/current/deploy/backup.sh
+UMask=0077
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
