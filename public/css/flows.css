@@ -590,7 +590,14 @@
   visibility: visible;
   margin-top: 3px;
 }
-.f-auth-page-reg .f-reg-code-inner { min-height: 0; overflow: hidden; }
+.f-auth-page-reg .f-reg-code-inner {
+  min-height: 0;
+  overflow: hidden;
+  /* Leave room for the input focus/error ring inside the reveal clip. */
+  margin-inline: -6px;
+  padding-inline: 6px;
+}
+.f-auth-page-reg .f-reg-code-inner > .f-field { padding-bottom: 5px; }
 .f-auth-page-reg .f-reg-code-row { display: flex; align-items: center; gap: 7px; }
 .f-auth-page-reg .f-reg-code-row .input { flex: 1 1 0; min-width: 0; padding-inline: 10px; }
 .f-auth-page-reg .f-reg-code-send {
@@ -616,14 +623,22 @@
 .f-auth-page-reg .f-reg-code-status:empty { display: none; }
 .f-auth-page-reg .f-reg-code-feedback {
   display: grid;
-  min-height: 3.2em;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: -7px;
   font-size: 12.2px;
   line-height: 1.6;
-  align-content: start;
+  transition: grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1), margin-top 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease;
 }
-.f-auth-page-reg .f-reg-code-feedback > p { grid-area: 1 / 1; }
+.f-auth-page-reg .f-reg-code-feedback:has(p:not(:empty)) {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 0;
+}
+.f-auth-page-reg .f-reg-code-feedback-inner { min-height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
-  .f-auth-page-reg .f-reg-code-reveal { transition: none; }
+  .f-auth-page-reg .f-reg-code-reveal,
+  .f-auth-page-reg .f-reg-code-feedback { transition: none; }
 }
 
 /* 演示账号 */

@@ -38,7 +38,7 @@
 
   function setFieldError(wrap, message) {
     if (!wrap) return;
-    const err = wrap.querySelector(':scope > .f-error, :scope > .f-reg-code-feedback > .f-error');
+    const err = wrap.querySelector(':scope > .f-error, :scope > .f-reg-code-feedback .f-error');
     const errorTarget = wrap.dataset.field === 'email' ? wrap.querySelector('.f-input-wrap') : wrap;
     errorTarget.classList.toggle('has-error', !!message);
     const input = wrap.querySelector('input');
@@ -178,9 +178,9 @@
         '<label class="label" for="fRegEmailCode">邮箱验证码</label><div class="f-reg-code-row">' +
         '<input id="fRegEmailCode" class="input f-input" name="emailCode" type="text" placeholder="6 位数字" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required aria-describedby="fRegCodeStatus">' +
         '<button type="button" class="btn f-reg-code-send" disabled>发送验证码</button></div>' +
-        '<div class="f-reg-code-feedback"><p class="f-error" data-error="emailCode" role="alert" hidden></p>' +
+        '<div class="f-reg-code-feedback"><div class="f-reg-code-feedback-inner"><p class="f-error" data-error="emailCode" role="alert" hidden></p>' +
         '<p class="f-reg-code-status" id="fRegCodeStatus" role="status" aria-live="polite"></p>' +
-        '</div></div></div></div>' : '') +
+        '</div></div></div></div></div>' : '') +
       '</div>'
     );
   }
@@ -255,14 +255,16 @@
     let feedbackAnimation = null;
 
     function showCodeFeedback(message, error) {
+      const previousHeight = codeFeedback.getBoundingClientRect().height;
       if (feedbackAnimation) feedbackAnimation.cancel();
       setFieldError(codeField, error ? message : '');
       codeStatus.textContent = error ? '' : message;
-      if (message && !reducedMotion.matches && typeof codeFeedback.animate === 'function') {
+      const nextHeight = message ? codeFeedback.firstElementChild.scrollHeight : 0;
+      if (!reducedMotion.matches && typeof codeFeedback.animate === 'function') {
         feedbackAnimation = codeFeedback.animate([
-          { opacity: 0, transform: 'translateY(3px)' },
-          { opacity: 1, transform: 'translateY(0)' }
-        ], { duration: 200, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+          { height: previousHeight + 'px' },
+          { height: nextHeight + 'px' }
+        ], { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
       }
     }
 
@@ -326,7 +328,7 @@
 
     codeInput.addEventListener('input', () => {
       codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
-      setFieldError(codeField, '');
+      showCodeFeedback(codeStatus.textContent, false);
     });
 
     sendBtn.addEventListener('click', async () => {
@@ -335,7 +337,7 @@
       const email = emailInput.value.trim();
       const revision = emailRevision;
       sending = true;
-      showCodeFeedback('正在发送验证码…', false);
+      showCodeFeedback('', false);
       paintSendButton();
       try {
         await QSL.api.auth.sendEmailCode(email);
