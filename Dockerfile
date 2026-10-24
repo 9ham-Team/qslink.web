@@ -1,7 +1,8 @@
 FROM node:24-alpine
 ENV NODE_ENV=production QSL_HOST=0.0.0.0 QSL_PORT=8787 QSL_DATA_DIR=/var/lib/qslink QSL_SEED_DEMO=false
 WORKDIR /app
-COPY package.json ./
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY server ./server
 COPY public ./public
 RUN mkdir -p /var/lib/qslink && chown node:node /var/lib/qslink

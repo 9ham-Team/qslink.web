@@ -63,7 +63,7 @@ git switch -c feature/card-search upstream/dev
 4. 除用户明确说明不提交外，每次完成一项更改、完成相关验证后自动创建 commit。一次尚未完成的编辑过程不必逐步提交。
 5. 明确暂存本次任务文件，避免用无差别暂存把其他人的工作带入提交。
 
-项目使用 Node.js ≥ 18，无需安装第三方依赖或构建。常用检查：
+项目使用 Node.js ≥ 18（CI 为 24）和 PostgreSQL 17。先执行 `npm ci` 安装锁定依赖，无需前端构建。常用检查：
 
 ```powershell
 git diff --check
@@ -71,7 +71,7 @@ node --check public/js/core.js
 npm test
 ```
 
-`node --check` 的文件替换为实际修改的 JavaScript 文件。后端逻辑、权限和接口变更应运行 `npm test`；该脚本启动隔离实例，不使用开发数据库。前端交互变更应实际在浏览器验证相关操作，涉及响应式布局时检查桌面和移动视口。纯文档修改检查内容、链接、命令及差异即可，不必为此启动全部测试。
+`node --check` 的文件替换为实际修改的 JavaScript 文件。后端逻辑、权限和接口变更应运行 `npm test` 和 `npm run test:production`；脚本默认启动临时 PostgreSQL，不使用 `DATABASE_URL`。CI 使用单独的 `QSL_TEST_DATABASE_URL` 和随机测试 schema。前端交互变更应实际在浏览器验证相关操作，涉及响应式布局时检查桌面和移动视口。纯文档修改检查内容、链接、命令及差异即可。
 
 自动检查定义在 `.github/workflows/ci.yml`：PR 目标为 `dev` 或 `main`，以及向这些分支推送时，会使用 Ubuntu 和 Node.js 24 运行 `npm test`。在 PR 的 Checks 或仓库 Actions 页面查看 `QSLink CI / API smoke tests` 的实际结果。私有 fork PR 需要组织和仓库允许运行工作流；如显示待批准，由有权限的维护者批准运行。不要为测试开启 fork PR 的写令牌或 secrets。手动运行需要工作流先进入默认分支，届时可在 Actions 页面使用 Run workflow。
 

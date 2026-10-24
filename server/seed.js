@@ -1922,6 +1922,9 @@ async function seed(db, { uploadsDir }) {
 
   // 点赞：真实种子用户占 2-5 个（保证 liked 状态有差异），其余显示为站内其他爱好者的历史点赞
   const likes = [];
+  // Legacy seeds used likes from nonexistent users. Keep demo totals while
+  // making every like reference a real, disabled, synthetic demonstration user.
+  const syntheticPasswordHash = hashPassword(require('crypto').randomBytes(32).toString('hex'));
   let guestLikeSeq = 0;
   CARD_LIKE_COUNTS.forEach((count, cardIndex) => {
     if (!count) return;
@@ -1937,6 +1940,10 @@ async function seed(db, { uploadsDir }) {
     }
     for (let i = realCount; i < count; i += 1) {
       guestLikeSeq += 1;
+      const actorId = `u_like_${String(guestLikeSeq).padStart(4, '0')}`;
+      users.push({ id: actorId, username: 'demo_like_' + guestLikeSeq, email: `demo_like_${guestLikeSeq}@example.invalid`,
+        displayName: '演示点赞用户', callSign: '', bio: '', avatarColor: '#0eaf8f', role: 'user', status: 'banned',
+        address: null, passwordHash: syntheticPasswordHash, createdAt: card.createdAt, updatedAt: card.createdAt });
       likes.push({
         id: createId('l'),
         cardId: card.id,
