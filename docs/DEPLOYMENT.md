@@ -1,106 +1,78 @@
-# 生产部署与维护
+# 生产部署与维护（PostgreSQL 17）
 
-适用范围：单台 Linux 服务器、小型社区，单个 Node.js 进程 + JSON 数据库 + Caddy HTTPS。不要多实例共享数据目录；高并发或多机部署需先迁移到事务数据库和对象存储。以下命令在服务器项目根目录执行，要求 Docker Engine 与 Compose v2。
+适用于单机小型社区：Node.js + PostgreSQL 17 + Caddy HTTPS。代码和测试已支持 PostgreSQL 事务；上传文件仍需独立持久化。旧 JSON 数据迁移详见 [PostgreSQL 指南](POSTGRESQL.md)。
 
-## 1. 发布前准备
+## 首次部署
 
-- 功能 PR 合入团队 `dev`，等待 `QSLink CI` 的 API、生产隔离、镜像和容器检查成功。
-- 经 `dev → main` 发布 PR 合并，在已验证的 `main` 提交上打唯一版本标签。服务器部署指定标签，而不是自动追随开发分支。
-- 域名 A/AAAA 指向服务器；只设置可实际连通的记录。开放 TCP 80/443 供访问和证书签发，不对公网开放 8787。
-- 使用全新的生产数据卷。不要复制开发 `data/`、演示账号或上传样例。生产模式会拒绝带演示标记、示例图片或已知默认管理员密码的数据。
+要求 Docker Engine、Compose v2、真实域名和 TCP 80/443。域名 A/AAAA 必须指向服务器。不公开 8787 或 5432 端口。
 
-## 2. 首次部署
-
-检出选定发布标签后：
+在选定的、CI 已通过的发布标签目录执行：
 
 ```sh
 cp .env.example .env
 ```
 
-编辑 `.env`，将 `QSL_DOMAIN` 改成实际域名，仅填主机名，不加协议和路径，例如 `qsl.example.com`。`.env` 不入库。Compose 自动读取它；直接使用 node/npm 时不会自动读取。
+设置 QSL_DOMAIN 为实际域名，POSTGRES_PASSWORD 为数据库管理员密码，QSL_DB_PASSWORD 为独立的应用数据库密码。用密码管理器或 `openssl rand -hex 32` 分别生成两个值。Compose 将应用密码拼接到连接串，因此示例建议十六进制字符串。不要保留空值、复用演示密码或提交 .env；服务器上限制 .env 的读取权限，例如 `chmod 600 .env`。
 
 ```sh
 docker compose config --quiet
 docker compose build app
+docker compose up -d --wait db
 docker compose run --rm --no-deps app node server/init-admin.js
-```
-
-初始化命令会询问管理员用户名、邮箱和密码，密码输入不回显，至少 12 位且包含字母数字。使用密码管理器生成独立密码，不使用 README 中的演示密码。命令仅创建第一位管理员，不覆盖或提升已有用户；服务必须停止，初始化和服务共享数据目录锁。
-
-```sh
 docker compose up -d --wait
-docker compose ps
-docker compose logs --tail=50 app proxy
 ```
 
-Caddy 自动获取并续期证书。浏览器访问 `https://实际域名`；若签发失败，检查 DNS、80/443、防火墙和代理日志。不要绕过浏览器证书警告上线。
+初始化会询问第一位网站管理员的用户名、邮箱和密码，密码不回显，至少 12 位且包含字母数字。这与数据库账号不是同一个账号。网站管理员已存在时拒绝覆盖。已有真实 JSON 库应先导入，不要先初始化管理员。
 
-Compose 的 `app-data` 保存数据库与上传文件，`caddy-data` 保存证书。应用以非 root 身份运行，代码文件系统只读，只写入数据卷。应用端口不发布到宿主机，仅反向代理可访问。
+新的 PostgreSQL 卷会通过 deploy/init-postgres.sh 创建数据库及非超级用户 qslink。应用仅使用这个角色，数据库管理员凭据不传给应用。已初始化的数据库卷不会重新执行初始化脚本；更改 .env 不会自动修改数据库内密码，轮换必须通过 PostgreSQL 完成并同步应用配置。
 
-## 3. 上线验证
+app-data 保存上传文件，postgres-data 保存数据库，caddy-data 保存证书。应用非 root、代码文件系统只读、数据库和 app 都不发布宿主机端口。Caddy 自动获取并续期证书；失败时检查 DNS、防火墙和日志，不绕过证书警告。
+
+## 配置与上线验证
+
+直接运行 Node 时必须先 `npm ci --omit=dev`。必填 DATABASE_URL；生产还必须设置 NODE_ENV=production、独立绝对路径 QSL_DATA_DIR、HTTPS 的 QSL_PUBLIC_ORIGIN，并关闭 QSL_SEED_DEMO。QSL_DB_SCHEMA 默认 public。外部数据库必须按服务商要求校验 TLS。详见 POSTGRESQL.md。
+
+QSL_TRUST_PROXY 仅在应用端口被隔离、所有请求来自可信代理时启用。Compose 已覆盖 X-Real-IP 并隔离 app 端口。认证限流为单进程内存限流，不能替代公网网关的抗滥用保护。
 
 ```sh
 curl --fail https://实际域名/api/health
 curl --fail https://实际域名/api/config
+docker compose ps
+docker compose logs --tail=50 app db proxy
 ```
 
-配置接口应返回 `{"demo":false,"demoAccounts":[]}`。人工检查：
+健康响应应含 storage=postgresql；配置响应应为 demo=false、demoAccounts=[]。检查：无演示登录入口；新管理员可登录；普通用户上传、审核、分享可用；两位用户完成换卡流程且地址仅对授权用户可见。不要用真实地址做验收。生产演示模式、默认管理员密码和示例数据均会被拒绝。
 
-1. 登录页没有演示账号入口，旧默认账号不能登录。
-2. 使用新管理员登录，后台可访问，退出正常。
-3. 注册普通测试账号，上传自己的正反面图片，管理员审核后可在广场查看。
-4. 用两个普通账号验证申请、同意、地址可见性和完成流程；无关账号看不到地址。
-5. 分享链接以实际 HTTPS 域名开头。桌面和手机访问均正常。
+## 备份
 
-不要使用真实地址进行验收。测试账号和卡片通过后台清理；不要为了初始化重建已有生产数据库。
-
-## 4. 不使用 Docker 时的配置
-
-使用受支持的 Node.js LTS（CI 和容器为 Node.js 24），由非 root 服务用户运行，设置以下环境变量：
-
-| 变量 | 生产要求 |
-| --- | --- |
-| `NODE_ENV` | `production` |
-| `QSL_DATA_DIR` | 独立绝对路径，例如 `/var/lib/qslink`，由服务用户读写，不在 `public/` 内 |
-| `QSL_PUBLIC_ORIGIN` | 实际 HTTPS 站点地址，例如 `https://qsl.example.com`，不含路径、账号或查询参数 |
-| `QSL_SEED_DEMO` | `false`，生产设为 `true` 会拒绝启动 |
-| `QSL_HOST` | 默认 `127.0.0.1`；仅经 HTTPS 反向代理访问 |
-| `QSL_PORT` | 默认 `8787` |
-| `QSL_TRUST_PROXY` | 默认 `false`；仅在应用端口已隔离、流量全部来自可信代理时可设 `true` |
-
-环境配置完成后，先以同一服务用户、同一环境运行 `npm run admin:init`，再由进程管理器运行 `node server/server.js`。不要通过公开 HTTP 接口创建第一位管理员。
-
-代理必须覆盖客户端的 `X-Real-IP`，不能透传任意用户提供的值。Compose 已配置此行为。应用对登录和注册做单进程内存限流：每个 IP 15 分钟最多 100 次认证请求、10 次注册，每个登录标识最多 15 次登录；限流返回 429 和 Retry-After。限流不是抗 DDoS 服务，大型部署还需网关层防护。
-
-客户端携带 Origin 的写请求只接受 `QSL_PUBLIC_ORIGIN`。管理员初始化及 CLI 请求可不携带 Origin。生产前端忽略截图工具使用的 `devToken` 参数。
-
-## 5. 备份、升级与回滚
-
-备份包含数据库、上传图片、地址和会话，应限制访问并加密异地保存，按业务需求定期执行和演练恢复。以下为停止写入后的完整备份示例，不是在线热备：
+数据库和图片必须成套备份。以下命令面向 Linux shell，停 app 以保证图片和数据库的一致性，db 继续运行：
 
 ```sh
 mkdir -p backups
 chmod 700 backups
+backup_id=$(date -u +%Y%m%dT%H%M%SZ)
 docker compose stop app
-backup_name="qslink-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
-docker compose run --rm --no-deps --user 0 -v "$PWD/backups:/backup" app tar -czf "/backup/$backup_name" -C /var/lib/qslink .
+docker compose exec -T db pg_dump -U qslink -d qslink -Fc > "backups/$backup_id.dump"
+docker compose run --rm --no-deps --user 0 -v "$PWD/backups:/backup" app tar -czf "/backup/$backup_id-uploads.tar.gz" -C /var/lib/qslink .
 docker compose start app
 ```
 
-备份命令不启动应用、不写数据库。确认归档可解压，并在隔离环境用副本测试恢复。不要把备份提交到 Git 或放到网站公开目录。上线前安排定时备份及失败告警；仓库不会自动替服务器配置定时任务。
+分别检查两条备份命令的退出状态；失败时不能把不完整文件当成功备份。备份包含地址、哈希和会话，需要加密异地保存、限制访问，并安排定时任务及失败告警。应用不会替服务器配置备份调度。不要复制运行中的 PostgreSQL 数据卷文件作为逻辑备份。
 
-升级时先备份，检查新版本的配置或数据迁移说明，再在干净工作区检出目标标签，执行 `docker compose build app` 和 `docker compose up -d --wait`。不要执行 `docker compose down --volumes`，这会删除生产数据。保持 Compose 项目名和部署目录一致，否则可能生成新的空数据卷。
+恢复时先在隔离的新数据库/卷验证 pg_restore 和图片解压，保持同一批次，确认应用用户可以读取图片；禁止在运行的生产库上直接执行覆盖式恢复。pg_dump/pg_restore 应使用与数据库兼容的版本。旧 JSON 不包含切换 PostgreSQL 之后的新写入，不能直接当最新回滚数据。
 
-回滚时停止 app、备份当前故障现场、切回上个镜像/标签。仅当确认数据格式兼容时复用现有数据；否则在独立的新卷中恢复对应版本的备份，并核对所有权为应用用户（容器 UID/GID 1000）。确认恢复正常后再切换服务，旧卷保留至验收完成。
+## 升级与回滚
 
-## 6. 故障处理与约束
+按 CONTRIBUTING.md 经 dev 验证、发布 PR 合入 main、选定版本标签，再部署。升级前成套备份，阅读迁移说明，然后 `docker compose build app` 和 `docker compose up -d --wait`。启动时按 schema_migrations 执行 SQL 迁移。
 
-- **缺少管理员**：先停止服务，在正确数据卷运行初始化，不修改源码预置密码。
-- **演示数据被拒绝**：使用新的生产目录；不要去掉标记或只改默认密码来冒充已完成数据迁移。迁移真实业务数据需独立审核。
-- **数据目录已锁定**：先确认没有容器或进程正在使用该卷。正常停止会释放 `db.json.lock`；断电或强制终止可能残留。仅在确认无写入进程、完成备份后手动移除这个锁文件，再启动。不要删除 `db.json`。
-- **数据库无法写入**：接口返回错误，后续请求返回 503；检查磁盘、卷权限和文件系统，修复并重启。程序不会删除旧数据库来强行覆盖。
-- **磁盘与可用性**：监控健康接口、证书、磁盘容量、日志和备份任务。上传暂未设置每用户配额；小型自托管应监测容量，增长后增加配额或对象存储。
-- **SVG**：上传资源附带沙箱 CSP，阻止上传文档在本站源下运行脚本；不要用其他静态服务器绕开这些响应头直接发布上传目录。
-- **进程与数据**：单进程、单数据卷，不使用集群模式或横向扩容。停服备份和启动锁属于本存储方案的明确约束。
+不要执行 `docker compose down --volumes`，这会删除数据库和图片。保持 Compose 项目名、部署目录和卷配置不变。PostgreSQL 大版本升级必须按官方升级流程操作，不能直接将已有 17 数据卷挂到其他大版本镜像。
 
-本次自动化覆盖程序、配置、生产镜像和隔离容器；实际域名证书、服务器防火墙、备份调度及人工业务验收必须在目标机器完成。生产发布不等于已经部署到公网。
+回滚不自动降级数据库。先停止 app，保存故障现场，确认旧程序是否兼容现有 schema；不兼容时在新库恢复相应备份，验证后切换。不要移动已发布标签。
+
+## 限制与故障
+
+- PostgreSQL 不可用时接口返回 503，检查连接、权限、磁盘、网络，修复后可重试。不会回退到旧 JSON。
+- JSON 文件锁已移除，多个应用进程的写事务由 PostgreSQL 协调。当前领域适配层逐请求加载表数据、串行处理写事务，适合小社区，不宣称高并发扩展完成。
+- 多个应用实例需要共享上传文件或对象存储。当前 Compose 仍运行一个 app；不要直接复制独立上传卷来扩容。
+- 上传暂未设置每用户配额，需监控容量；SVG 依赖应用的沙箱 CSP，不能绕过应用响应头公开上传目录。
+- 监控健康、证书、磁盘、数据库连接和备份结果。真实域名证书、防火墙、恢复演练和业务验收必须在目标机器完成；代码合并不等于已部署公网。

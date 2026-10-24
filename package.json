@@ -10,11 +10,19 @@
     "dev": "node --watch server/server.js",
     "demo": "node tools/demo.mjs",
     "admin:init": "node server/init-admin.js",
-    "test": "node tests/smoke.mjs",
-    "test:production": "node --test tests/production.mjs",
+    "test": "node tools/run-tests.mjs smoke",
+    "test:production": "node tools/run-tests.mjs production",
+    "db:import-json": "node server/import-json.js",
+    "db:local": "node tools/local-postgres.mjs",
     "shot": "node tools/shot.mjs"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "embedded-postgres": "17.10.0-beta.17"
   }
 }

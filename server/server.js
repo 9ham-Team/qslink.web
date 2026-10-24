@@ -13,11 +13,16 @@ const http = require('http');
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
-const { ApiError, badRequest, notFound, payloadTooLarge, methodNotAllowed } = require('./lib/errors');
+const {
+  ApiError,
+  badRequest,
+  notFound,
+  payloadTooLarge,
+  methodNotAllowed,
+} = require('./lib/errors');
 const auth = require('./lib/auth');
 const { Database } = require('./lib/db');
 const { readConfig, assertProductionData } = require('./lib/config');
-const { acquireDataLock } = require('./lib/data-lock');
 const { createAuthLimiter } = require('./lib/rate-limit');
 
 const authApi = require('./lib/api/auth');
@@ -50,6 +55,7 @@ function health() {
       ok: true,
       name: 'QSLink',
       version: VERSION,
+      storage: 'postgresql',
       uptime: Number(((Date.now() - startedAt) / 1000).toFixed(1)),
       time: new Date().toISOString(),
     },
@@ -57,10 +63,15 @@ function health() {
 }
 
 function publicConfig(ctx) {
-  const accounts = ctx.config.demo ? require('./seed').DEMO_ACCOUNTS.map(account => ({
-    id: account.username, pass: account.password, name: account.displayName,
-    callSign: account.username.toUpperCase(), role: account.role === 'admin' ? '管理员' : '普通用户',
-  })) : [];
+  const accounts = ctx.config.demo
+    ? require('./seed').DEMO_ACCOUNTS.map((account) => ({
+        id: account.username,
+        pass: account.password,
+        name: account.displayName,
+        callSign: account.username.toUpperCase(),
+        role: account.role === 'admin' ? '管理员' : '普通用户',
+      }))
+    : [];
   return { body: { demo: ctx.config.demo, demoAccounts: accounts } };
 }
 
@@ -172,11 +183,16 @@ function sendError(res, err) {
     return;
   }
   if (process.env.NODE_ENV === 'production') {
-    console.error('[server] 未处理异常：', err && err.message ? err.message : err);
+    console.error(
+      '[server] 未处理异常：',
+      err && err.message ? err.message : err,
+    );
   } else {
     console.error('[server] 未处理异常：', err);
   }
-  sendJson(res, 500, { error: { message: '服务器内部错误', code: 'INTERNAL' } });
+  sendJson(res, 500, {
+    error: { message: '服务器内部错误', code: 'INTERNAL' },
+  });
 }
 
 /* =========================================================================
@@ -215,26 +231,45 @@ async function handleApi(req, res, { db, config, url, host }) {
 
   if (config.production) config.limitAuth(req, res, pathname, body);
 
-  const authState = auth.resolveAuth(db, req);
-  const ctx = {
-    req,
-    res,
-    db,
-    config,
-    dataDir: config.dataDir,
-    uploadsDir: config.uploadsDir,
-    url,
-    query: url.searchParams,
-    params,
-    path: pathname,
-    body,
-    host,
-    auth: authState,
-    user: authState.user,
-    token: authState.token,
-  };
+  if (pathname === '/api/health') {
+    try {
+      await db.ping();
+    } catch (err) {
+      throw new ApiError(503, 'STORAGE_UNAVAILABLE', '数据库暂时不可用');
+    }
+    sendJson(res, 200, health().body);
+    return;
+  }
+  if (pathname === '/api/config') {
+    sendJson(res, 200, publicConfig({ config }).body);
+    return;
+  }
 
-  const result = (await matched.handler(ctx)) || {};
+  const result = await db.transaction(
+    async (unit) => {
+      const authState = auth.resolveAuth(unit, req);
+      const ctx = {
+        req,
+        res,
+        db: unit,
+        config,
+        dataDir: config.dataDir,
+        uploadsDir: config.uploadsDir,
+        url,
+        query: url.searchParams,
+        params,
+        path: pathname,
+        body,
+        host,
+        auth: authState,
+        user: authState.user,
+        token: authState.token,
+      };
+
+      return (await matched.handler(ctx)) || {};
+    },
+    { write: !['GET', 'HEAD'].includes(req.method) },
+  );
   const status = result.status || 200;
   sendJson(res, status, result.body === undefined ? {} : result.body);
 }
@@ -268,7 +303,9 @@ const MIME_TYPES = {
 };
 
 function contentTypeFor(file) {
-  return MIME_TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  return (
+    MIME_TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream'
+  );
 }
 
 /** 拼接并校验路径，阻止目录穿越（越界返回 null） */
@@ -276,7 +313,9 @@ function safeJoin(root, relative) {
   const resolvedRoot = path.resolve(root);
   const target = path.resolve(resolvedRoot, relative);
   if (target === resolvedRoot) return target;
-  const prefix = resolvedRoot.endsWith(path.sep) ? resolvedRoot : resolvedRoot + path.sep;
+  const prefix = resolvedRoot.endsWith(path.sep)
+    ? resolvedRoot
+    : resolvedRoot + path.sep;
   return target.startsWith(prefix) ? target : null;
 }
 
@@ -309,7 +348,8 @@ async function sendFile(res, file, { method, cache, upload = false }) {
   };
   if (upload) {
     // Uploaded SVG documents must never execute script in the site's origin.
-    headers['Content-Security-Policy'] = "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:";
+    headers['Content-Security-Policy'] =
+      "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:";
   }
   if (method === 'HEAD') {
     res.writeHead(200, headers);
@@ -326,7 +366,10 @@ async function sendFile(res, file, { method, cache, upload = false }) {
 
 async function serveStatic(req, res, { config, pathname }) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, HEAD' });
+    res.writeHead(405, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      Allow: 'GET, HEAD',
+    });
     res.end('Method Not Allowed');
     return;
   }
@@ -391,11 +434,22 @@ function createRequestHandler(db, config) {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
       res.setHeader('X-Frame-Options', 'DENY');
-      res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
-      if (config.production) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
-      if (db.writeError) throw new ApiError(503, 'STORAGE_UNAVAILABLE', '数据存储异常，请联系管理员');
-      if (config.production && req.headers.origin && req.headers.origin !== config.publicOrigin && !['GET', 'HEAD'].includes(req.method)) {
+      res.setHeader(
+        'Permissions-Policy',
+        'camera=(), microphone=(), geolocation=()',
+      );
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+      );
+      if (config.production)
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+      if (
+        config.production &&
+        req.headers.origin &&
+        req.headers.origin !== config.publicOrigin &&
+        !['GET', 'HEAD'].includes(req.method)
+      ) {
         throw new ApiError(403, 'ORIGIN_DENIED', '请求来源不受信任');
       }
       const host = req.headers.host || `${config.host}:${config.port}`;
@@ -417,40 +471,58 @@ function printBanner({ config, seeded }) {
     '  QSLink · QSL 卡片交换站  服务已启动',
     `  环境:      ${config.env}`,
     `  监听地址:  http://${config.host}:${config.port}`,
-    `  数据文件:  ${config.dbFile}${seeded ? '（新生成）' : '（已加载）'}`,
+    `  数据库:    PostgreSQL / schema ${config.databaseSchema}${seeded ? '（演示数据）' : ''}`,
     `  上传目录:  ${config.uploadsDir}`,
   ];
-  lines.push(config.demo ? '  演示模式已开启（仅用于本地开发）' : '  演示模式已关闭');
+  lines.push(
+    config.demo ? '  演示模式已开启（仅用于本地开发）' : '  演示模式已关闭',
+  );
   lines.push('');
   console.log(lines.join('\n'));
 }
 
 async function start() {
   const config = readConfig();
-  const { port, host, dataDir, uploadsDir, dbFile } = config;
+  const { port, host, dataDir, uploadsDir } = config;
   config.limitAuth = createAuthLimiter({ trustProxy: config.trustProxy });
 
-  const releaseLock = await acquireDataLock(dataDir);
-  let db;
+  const db = new Database(config);
   let seeded = false;
   try {
     await fsp.mkdir(uploadsDir, { recursive: true, mode: 0o700 });
 
-    db = new Database(dbFile);
-    const existed = await db.load();
-    if (config.production) assertProductionData(db);
-    if (!existed) {
-      if (config.demo) {
-        await require('./seed').seed(db, { uploadsDir, dataDir });
-        db.data.demo = true;
-        seeded = true;
-        console.log('[seed] 已生成本地演示数据');
-      }
-      await db.save();
-    } else {
-      auth.pruneSessions(db);
-    }
-  } catch (err) { await releaseLock(); throw err; }
+    await db.migrate();
+    await db.transaction(
+      async (unit) => {
+        if (!unit.initialized) {
+          const legacy = await fsp.access(path.join(dataDir, 'db.json')).then(
+            () => true,
+            () => false,
+          );
+          if (legacy)
+            throw new Error(
+              '检测到旧 JSON 数据，请先运行 npm run db:import-json，原文件不会自动删除',
+            );
+        }
+        if (config.production) assertProductionData(unit);
+        if (!unit.initialized) {
+          if (config.demo) {
+            await require('./seed').seed(unit, { uploadsDir, dataDir });
+            unit.data.demo = true;
+            seeded = true;
+            console.log('[seed] 已生成本地演示数据');
+          }
+          await unit.save();
+        } else {
+          auth.pruneSessions(unit);
+        }
+      },
+      { write: true },
+    );
+  } catch (err) {
+    await db.close();
+    throw err;
+  }
 
   const server = http.createServer(createRequestHandler(db, config));
   server.requestTimeout = 60000;
@@ -458,11 +530,16 @@ async function start() {
 
   server.on('error', async (err) => {
     if (err && err.code === 'EADDRINUSE') {
-      console.error(`[server] 端口 ${port} 已被占用，请设置 QSL_PORT 换一个端口后重试。`);
+      console.error(
+        `[server] 端口 ${port} 已被占用，请设置 QSL_PORT 换一个端口后重试。`,
+      );
     } else {
-      console.error('[server] 服务启动失败：', err && err.message ? err.message : err);
+      console.error(
+        '[server] 服务启动失败：',
+        err && err.message ? err.message : err,
+      );
     }
-    await releaseLock().catch(() => {});
+    await db.close().catch(() => {});
     process.exit(1);
   });
 
@@ -473,14 +550,17 @@ async function start() {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`\n[server] 收到 ${signal}，正在关闭…`);
-    const forceExit = setTimeout(() => { process.exit(1); }, 10000);
+    const forceExit = setTimeout(() => {
+      process.exit(1);
+    }, 10000);
     forceExit.unref();
-    await new Promise(resolve => server.close(resolve));
+    await new Promise((resolve) => server.close(resolve));
     try {
-      await db.flush();
-      await releaseLock();
-      process.exit(db.writeError ? 1 : 0);
-    } catch (err) { process.exit(1); }
+      await db.close();
+      process.exit(0);
+    } catch (err) {
+      process.exit(1);
+    }
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
