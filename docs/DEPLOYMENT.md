@@ -30,6 +30,8 @@ app-data 保存上传文件，postgres-data 保存数据库，caddy-data 保存�
 
 ## 配置与上线验证
 
+已有域名和可用 HTTPS 证书时，继续使用域名部署配置：`QSL_DOMAIN` 填写实际域名，默认使用 `compose.yaml` 和 `deploy/Caddyfile`。下面的 IP 配置仅用于无域名场景；同步这些文件不会自动切换生产入口。已有部署升级时应保留服务器上的 `.env`、实际使用的 Compose 覆盖文件、代理配置及证书卷，先核对启动命令再更新。
+
 暂时没有域名时，可将 `QSL_DOMAIN` 设为服务器公网 IP，并通过 `docker compose -f compose.yaml -f compose.ip.yaml ...` 使用 IP 部署覆盖配置。它配置 Let’s Encrypt `shortlived` IP 证书、TLS-ALPN 验证和 2GB 主机的保守内存限制；仍保持 HTTPS 来源校验，不启用明文生产登录。需要支持 IP 签发的较新 Caddy、可用的出站 ACME 连接及公网 443 入站。Caddy 持久化证书并自动续期；短期证书尤其需要监测续期失败。
 
 直接运行 Node 时必须先 `npm ci --omit=dev`。必填 DATABASE_URL；生产还必须设置 NODE_ENV=production、独立绝对路径 QSL_DATA_DIR、HTTPS 的 QSL_PUBLIC_ORIGIN，并关闭 QSL_SEED_DEMO。QSL_DB_SCHEMA 默认 public。外部数据库必须按服务商要求校验 TLS。详见 POSTGRESQL.md。
