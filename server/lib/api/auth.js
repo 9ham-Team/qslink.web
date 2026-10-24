@@ -20,6 +20,10 @@ async function register(ctx) {
     throw conflict('EMAIL_TAKEN', '邮箱已被注册', { email: '该邮箱已被注册' });
   }
 
+  if (!require('../email-verification').consumeCode(ctx.db, payload.email, ctx.body.emailCode)) {
+    return require('../email-verification').invalidCode();
+  }
+
   const now = new Date().toISOString();
   const user = {
     id: createId('u'),
@@ -77,6 +81,7 @@ async function me(ctx) {
 
 module.exports = {
   routes: [
+    { method: 'POST', pattern: '/api/auth/email-code', outsideTransaction: true, handler: require('../email-verification').sendCode },
     { method: 'POST', pattern: '/api/auth/register', handler: register },
     { method: 'POST', pattern: '/api/auth/login', handler: login },
     { method: 'POST', pattern: '/api/auth/logout', handler: logout },

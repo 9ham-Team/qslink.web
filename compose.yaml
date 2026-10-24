@@ -14,6 +14,12 @@ services:
       QSL_SEED_DEMO: "false"
       QSL_PUBLIC_ORIGIN: https://${QSL_DOMAIN:?Set QSL_DOMAIN in .env}
       QSL_TRUST_PROXY: "true"
+      ALIBABA_CLOUD_ACCESS_KEY_ID: ${ALIBABA_CLOUD_ACCESS_KEY_ID:-}
+      ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET:-}
+      QSL_MAIL_REGION: ${QSL_MAIL_REGION:-cn-hangzhou}
+      QSL_MAIL_ENDPOINT: ${QSL_MAIL_ENDPOINT:-}
+      QSL_MAIL_FROM: ${QSL_MAIL_FROM:-}
+      QSL_MAIL_FROM_NAME: ${QSL_MAIL_FROM_NAME:-QSLink}
       DATABASE_URL: postgresql://qslink:${QSL_DB_PASSWORD:?Set QSL_DB_PASSWORD in .env}@db:5432/qslink
     volumes:
       - app-data:/var/lib/qslink

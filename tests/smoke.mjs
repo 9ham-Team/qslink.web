@@ -35,7 +35,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // QSL_SMOKE_ENTRY is a debugging aid (e.g. point the harness at a stub server).
 const ENTRY = process.env.QSL_SMOKE_ENTRY
   ? path.resolve(ROOT, process.env.QSL_SMOKE_ENTRY)
-  : path.join(ROOT, 'server', 'server.js');
+  : path.join(ROOT, 'tests', 'helpers', 'mail-server.cjs');
+const mailCodes = new Map();
 const ARGS = process.argv.slice(2);
 const FILTER = (ARGS.find((a) => a.startsWith('--filter=')) || '').slice('--filter='.length).toLowerCase();
 const KEEP_DATA = ARGS.includes('--keep');
@@ -331,9 +332,10 @@ async function startServer() {
       cwd: ROOT,
       env: { ...process.env, QSL_PORT: String(port), QSL_DATA_DIR: dir, NODE_ENV: 'test', QSL_SEED_DEMO: 'true', QSL_PUBLIC_ORIGIN: '',
         DATABASE_URL: databaseFixture.databaseUrl, QSL_DB_SCHEMA: databaseFixture.databaseSchema },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       windowsHide: true,
     });
+    child.on('message', ({ email, code }) => mailCodes.set(email, code));
     let exitInfo = null;
     child.once('exit', (code, signal) => {
       exitInfo = { code, signal };
@@ -446,6 +448,13 @@ async function login(identifier, password) {
   return api('POST', '/api/auth/login', { body: { identifier, password } });
 }
 
+async function emailCode(email) {
+  const sent = await api('POST', '/api/auth/email-code', { body: { email } });
+  expectStatus(sent, 200, 'send email code');
+  for (let i = 0; i < 100 && !mailCodes.has(email); i++) await sleep(10);
+  return mailCodes.get(email);
+}
+
 async function registerUser(key, payload) {
   const body = {
     username: payload.username,
@@ -455,6 +464,7 @@ async function registerUser(key, payload) {
   if (payload.displayName !== undefined) body.displayName = payload.displayName;
   if (payload.callSign !== undefined) body.callSign = payload.callSign;
   secrets.push(payload.password);
+  body.emailCode = await emailCode(body.email);
   const res = await api('POST', '/api/auth/register', { body });
   if (res.status !== 201) {
     throw new CheckError(`注册用户 ${key} 失败: 期望 201，实际 ${res.status}${resInfo(res)}`);
@@ -693,6 +703,7 @@ async function phaseRegister() {
     };
     const { res } = await (async () => {
       secrets.push(ownerPayload.password);
+      ownerPayload.emailCode = await emailCode(ownerPayload.email);
       const r = await api('POST', '/api/auth/register', { body: ownerPayload });
       if (r.status !== 201) throw new CheckError(`owner 注册失败: 期望 201，实际 ${r.status}${resInfo(r)}`);
       users.owner = {

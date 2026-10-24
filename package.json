@@ -20,6 +20,9 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@alicloud/dm20151123": "1.11.0",
+    "@alicloud/openapi-client": "0.4.15",
+    "@alicloud/tea-util": "1.4.11",
     "pg": "8.23.1"
   },
   "devDependencies": {
