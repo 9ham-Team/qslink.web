@@ -1,0 +1,8 @@
+{$QSL_DOMAIN} {
+    request_body {
+        max_size 25MB
+    }
+    reverse_proxy app:8787 {
+        header_up X-Real-IP {remote_host}
+    }
+}

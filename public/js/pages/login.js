@@ -165,17 +165,13 @@
   }
 
   /* ---------- 演示账号 ---------- */
-  const DEMO_ACCOUNTS = [
-    { id: 'bg7mom', pass: 'Demo@123456', name: '小刻', callSign: 'BG7MOM', role: '普通用户', color: '#0eaf8f' },
-    { id: 'admin', pass: 'Admin@123456', name: '站点管理员', callSign: 'ADMIN', role: '管理员', color: '#8b5cf6' },
-    { id: 'BA1AA', pass: 'Demo@123456', name: '老北京', callSign: 'BA1AA', role: '卡片拥有者', color: '#38bdf8' }
-  ];
-
   function demoBlock() {
-    const items = DEMO_ACCOUNTS.map((acc) => {
+    const config = QSL.state.config || {};
+    if (!config.demo) return '';
+    const items = (config.demoAccounts || []).map((acc) => {
       return (
         '<button type="button" class="f-demo-item" data-demo-user="' + esc(acc.id) + '" data-demo-pass="' + esc(acc.pass) + '">' +
-        '<span class="f-demo-ava" style="--f-ava:' + esc(acc.color) + '">' + esc(acc.callSign.slice(0, 2)) + '</span>' +
+        '<span class="f-demo-ava" style="--f-ava:#0eaf8f">' + esc(acc.callSign.slice(0, 2)) + '</span>' +
         '<span class="f-demo-info"><b>' + esc(acc.id) + '</b><span>' + esc(acc.name) + ' · ' + esc(acc.role) + '</span></span>' +
         '<span class="f-demo-fill">填入' + ico('arrow-right', 14) + '</span>' +
         '</button>'
@@ -208,7 +204,7 @@
       '<p>登录后即可管理卡片、处理换卡申请。</p>' +
       '</div>' +
       '<div class="f-form-alert" role="alert" hidden></div>' +
-      textField({ id: 'fLoginIdentifier', name: 'identifier', label: '用户名或邮箱', icon: 'user', placeholder: 'bg7mom 或 you@example.com', autocomplete: 'username', required: true, maxlength: 120 }) +
+      textField({ id: 'fLoginIdentifier', name: 'identifier', label: '用户名或邮箱', icon: 'user', placeholder: '用户名或 you@example.com', autocomplete: 'username', required: true, maxlength: 120 }) +
       textField({ id: 'fLoginPassword', name: 'password', label: '密码', icon: 'lock', type: 'password', placeholder: '输入登录密码', autocomplete: 'current-password', required: true, eye: true, hint: '区分大小写' }) +
       '<button class="btn btn-primary btn-lg f-submit" type="submit" data-label="登录">' +
       '<span class="f-btn-label">登录</span>' + ico('arrow-right', 18) +
