@@ -10,6 +10,8 @@
  *    base.css 已提供 position:fixed inset:0 z-index:0 pointer-events:none
  * ============================================================ */
 .fx-layer > * { pointer-events: none; }
+/* 手机展示 3D 卡片时，把纹理预算留给卡面；页面仍保留 body 的静态渐变。 */
+.fx-layer.is-static-card-scene { display: none; }
 
 .fx-layer .fx-aurora {
   position: absolute;
@@ -446,6 +448,17 @@
 .brand-text b {
   background-size: 200% 100%;
   animation: fxTextFlow 10s ease-in-out infinite;
+}
+/* 移动端停用品牌渐变动画，避免页脚离屏时仍持续绘制。 */
+@media (max-width: 900px), (hover: none) and (pointer: coarse) {
+  .brand-text b {
+    animation: none;
+  }
+  .site-header .brand-text b {
+    background: none;
+    color: var(--brand-deep);
+    -webkit-text-fill-color: currentColor;
+  }
 }
 @keyframes fxTextFlow {
   0%, 100% { background-position: 0% 50%; }

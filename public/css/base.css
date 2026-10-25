@@ -227,6 +227,8 @@ html { -webkit-tap-highlight-color: transparent; }
   height: var(--nav-h);
   background: rgba(249, 254, 252, 0.66);
   border-bottom: 1px solid transparent;
+  /* 毛玻璃保持在吸顶导航自身上。曾改为 isolation + 负 z-index 伪元素承载 backdrop-filter（e226425），
+     导致移动 WebView 中分享页 3D 卡片旋转时整页卡顿、闪烁，故恢复原结构。 */
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   transition: border-color var(--t-base) var(--ease), background var(--t-base) var(--ease),

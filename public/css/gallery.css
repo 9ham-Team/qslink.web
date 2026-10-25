@@ -122,7 +122,9 @@
   overflow: hidden;
   background: linear-gradient(150deg, #f6fffc 0%, #eff7ff 55%, #f5efff 100%);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  transform-style: preserve-3d;
+  /* 卡面内的光泽/全息层只与本面图片混合，不向外穿透到 3D 场景和毛玻璃面板，
+     否则旋转时每帧都要重新合成整块背景，移动端会整页卡顿并闪烁 */
+  isolation: isolate;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
@@ -250,6 +252,17 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
     inset 1px 0 0 rgba(255, 255, 255, 0.25),
     inset 0 -14px 28px rgba(9, 78, 66, 0.05);
+}
+
+/* 高 DPR 手机快速翻面时，五张整面厚度薄片和全息混合层会挤占卡图的
+   GPU 瓦片预算，造成已加载图片缺块/闪烁。移动端只合成两个真实卡面；
+   保留透视、正反面间距和玻璃边框，不用额外整面纹理模拟纸张厚度。 */
+@media (max-width: 900px), (hover: none), (pointer: coarse) {
+  .card3d-thickness,
+  .card3d-holo { display: none; }
+  .card3d-sheen { mix-blend-mode: normal; transition: none; }
+  .card3d.is-hover .card3d-sheen,
+  .card3d.is-dragging .card3d-sheen { opacity: 0.08; }
 }
 
 /* 地面投影 */
@@ -1561,6 +1574,14 @@
   flex-direction: column;
   gap: 8px;
 }
+/* 3D 查看器面板不做背景模糊：毛玻璃包裹持续变换的 3D 图层，会让每一帧都重新模糊合成，
+   导致旋转时整页掉帧、卡面纹理闪烁丢失；改为更实的底色，观感基本一致 */
+.g-share__viewer.g-panel,
+.g-detail__viewer.g-panel {
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 .g-share__viewer::before {
   content: "";
   position: absolute;
@@ -1794,9 +1815,31 @@
   /* 基础规则位于本节更靠后的位置，这里用更高权重保证移动端单列堆叠 */
   .g-share .g-share__grid { grid-template-columns: minmax(0, 1fr); gap: 26px; }
   .g-share__viewer-stage { height: clamp(430px, 66vw, 550px); }
-  /* 单列时访客注册引导置顶，侧栏里的那份隐藏 */
-  .g-share__lead:not([hidden]) { display: block; margin: -8px 0 18px; }
-  .g-share__lead .g-share__cta { margin-top: 0; }
+  /* 单列时访客注册引导紧接在卡片查看器下方，拼成一张整体面板；侧栏里的那份隐藏 */
+  .g-share__lead:not([hidden]) { display: block; margin-top: -26px; position: relative; z-index: 1; }
+  .g-share__lead .g-share__cta {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+    margin-top: 0;
+    padding: 16px 18px;
+    border-top: 1px dashed var(--line-strong);
+    border-radius: 0 0 var(--r-xl) var(--r-xl);
+    box-shadow: none;
+  }
+  .g-share__lead .g-share__cta::before { display: none; }
+  .g-share__lead .g-share__cta-icon { width: 38px; height: 38px; margin: 0; border-radius: 12px; }
+  .g-share__lead .g-share__cta h2 { font-size: 18px; }
+  .g-share__lead .g-share__cta p { grid-column: 1 / -1; margin-top: 8px; font-size: 12.8px; line-height: 1.7; }
+  .g-share__lead .g-share__cta-actions { grid-column: 1 / -1; margin-top: 12px; }
+  .g-share__lead .g-share__cta-hint { display: none; }
+  /* 用虚线“撕口”衔接，像一张带存根的 QSL 卡 */
+  .g-share__grid.has-lead .g-share__viewer {
+    border-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
   .g-share__aside .g-share__cta.is-guest { display: none; }
 }
 @media (max-width: 760px) {
@@ -1806,6 +1849,9 @@
   .g-share__viewer-note { display: none; }
   .g-share__title { font-size: clamp(26px, 8vw, 34px); }
   .g-share__cta-actions .btn { flex: 1 1 auto; justify-content: center; }
+  /* 访客首屏需同时看到按钮和卡片，适当压低查看器高度 */
+  .g-share__grid.has-lead .g-share__viewer-stage { height: clamp(300px, 82vw, 400px); }
+  .g-share__grid.has-lead .g-share__viewer-skel { min-height: clamp(300px, 82vw, 400px); }
   .g-share__meta { display: grid; grid-template-columns: 1fr 1fr; }
   .g-share__meta div { padding: 10px 12px 10px 0; border-right: 1px dashed var(--line); }
   .g-share__meta div:nth-child(2n) { border-right: 0; padding-left: 14px; }

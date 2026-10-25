@@ -519,7 +519,7 @@
     const src = c.frontImage || QSL.PLACEHOLDER_IMAGE;
     return (
       '<span class="card-thumb" style="height:' + height + 'px;aspect-ratio:' + esc(QSL.ratioCss(ratio)) + '">' +
-      '<img src="' + esc(src) + '" alt="' + esc(c.title || '卡片') + '" loading="lazy">' +
+      '<img ' + QSL.images.attributes(src, Math.ceil(height * ratio.w / ratio.h) + 'px') + ' alt="' + esc(c.title || '卡片') + '" loading="lazy">' +
       '</span>'
     );
   };
@@ -549,7 +549,7 @@
       '<div class="qsl-tile-frame">' +
       '<a class="qsl-tile-media" href="' + esc(href) + '" data-link aria-label="' + esc(c.title || '查看卡片') + '">' +
       '<span class="qsl-tile-img" style="aspect-ratio:' + esc(QSL.ratioCss(ratio)) + '">' +
-      '<img src="' + esc(c.frontImage || QSL.PLACEHOLDER_IMAGE) + '" alt="' + esc(c.title || '') + '" loading="lazy" decoding="async">' +
+      '<img ' + QSL.images.attributes(c.frontImage || QSL.PLACEHOLDER_IMAGE) + ' alt="' + esc(c.title || '') + '" loading="lazy" decoding="async">' +
       '</span>' +
       '<span class="qsl-tile-sheen"></span>' +
       '<span class="qsl-tile-3d">' + icon('3d', 15) + '<span>3D 预览</span></span>' +

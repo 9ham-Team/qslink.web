@@ -32,6 +32,8 @@ docker compose up -d --wait
 
 app-data 保存上传文件，postgres-data 保存数据库，caddy-data 保存证书。应用非 root、代码文件系统只读、数据库和 app 都不发布宿主机端口。Caddy 自动获取并续期证书；失败时检查 DNS、防火墙和日志，不绕过证书警告。
 
+响应式卡图会在 `QSL_DATA_DIR/image-cache/` 按需生成 WebP 缓存，使用现有 app-data 数据卷，不需要额外公开目录或服务。升级时通过镜像内的 `npm ci` 安装 Sharp 的 Linux/Alpine 原生可选依赖，不可把 Windows 的 node_modules 复制进容器，也不要禁用 optional dependencies。缓存可在维护时清理并自动重建；备份应优先保留原始 uploads 和数据库，缓存不属于唯一原件。
+
 ## 配置与上线验证
 
 已有域名和可用 HTTPS 证书时，继续使用域名部署配置：`QSL_DOMAIN` 填写实际域名，默认使用 `compose.yaml` 和 `deploy/Caddyfile`。下面的 IP 配置仅用于无域名场景；同步这些文件不会自动切换生产入口。已有部署升级时应保留服务器上的 `.env`、实际使用的 Compose 覆盖文件、代理配置及证书卷，先核对启动命令再更新。

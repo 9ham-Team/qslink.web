@@ -147,6 +147,8 @@
     let lastFlipAt = 0;
     let lastTapAt = 0;
     let rafId = 0;
+    let glossRaf = 0;
+    let glossEvent = null;
     let lastFrame = 0;
     let idleTimer = 0;
     let destroyed = false;
@@ -244,6 +246,8 @@
       root.style.setProperty('--card3d-persp', Math.round(clamp(w * 2.15, 860, 1900)) + 'px');
       root.style.setProperty('--card3d-title-size', Math.round(clamp(w * 0.11, 22, 58)) + 'px');
       root.style.setProperty('--card3d-sub-size', Math.round(clamp(w * 0.021, 9, 14)) + 'px');
+      // A stable layout size, independent of the current rotation; the browser chooses DPR.
+      frontImg.sizes = backImg.sizes = w + 'px';
     }
 
     /* ---------------- 图片 ---------------- */
@@ -253,6 +257,7 @@
         faceEl.classList.remove('is-loaded');
         faceEl.classList.add('is-empty');
         imgEl.removeAttribute('src');
+        imgEl.removeAttribute('srcset');
         return;
       }
       faceEl.classList.remove('is-empty', 'is-loaded');
@@ -265,7 +270,7 @@
         faceEl.classList.add('is-empty');
       };
       imgEl.alt = label === 'back' ? '卡片背面' : '卡片正面';
-      imgEl.src = url;
+      QSL.images.apply(imgEl, url, cssWidth || 340);
     }
 
     function paintImages() {
@@ -403,14 +408,26 @@
       };
     }
 
+    // 光泽跟随指针：每帧最多写一次 CSS 变量。逐事件写会让整张卡片的渐变/混合层反复重绘，
+    // 在手机 WebView 上会拖垮合成器（整页卡顿、卡面闪烁甚至纹理丢失）。
+    function flushGloss() {
+      glossRaf = 0;
+      if (destroyed || !glossEvent) return;
+      const pos = pointerPosNormalized(glossEvent);
+      glossEvent = null;
+      root.style.setProperty('--mx', (pos.x * 100).toFixed(1) + '%');
+      root.style.setProperty('--my', (pos.y * 100).toFixed(1) + '%');
+      root.style.setProperty('--holo-x', (pos.x * 160 - 30).toFixed(0) + 'deg');
+      root.style.setProperty('--holo-y', (pos.y * 160 - 30).toFixed(0) + 'deg');
+    }
+
     function onPointerMove(e) {
       if (destroyed) return;
-      // 光泽跟随指针（悬停与拖拽都生效）
-      const pos = pointerPosNormalized(e);
-      root.style.setProperty('--mx', (pos.x * 100).toFixed(2) + '%');
-      root.style.setProperty('--my', (pos.y * 100).toFixed(2) + '%');
-      root.style.setProperty('--holo-x', (pos.x * 160 - 30).toFixed(1) + 'deg');
-      root.style.setProperty('--holo-y', (pos.y * 160 - 30).toFixed(1) + 'deg');
+      // 触摸没有悬停态，光泽保持居中，避免拖拽时逐帧重绘卡面
+      if (e.pointerType !== 'touch') {
+        glossEvent = { clientX: e.clientX, clientY: e.clientY };
+        if (!glossRaf) glossRaf = requestAnimationFrame(flushGloss);
+      }
 
       if (!dragging || e.pointerId !== activePointer) return;
 
@@ -507,6 +524,8 @@
     }
 
     function onPointerLeave() {
+      if (glossRaf) { cancelAnimationFrame(glossRaf); glossRaf = 0; }
+      glossEvent = null;
       root.style.setProperty('--mx', '50%');
       root.style.setProperty('--my', '50%');
       root.style.setProperty('--holo-x', '50deg');
@@ -514,8 +533,8 @@
       root.classList.remove('is-hover');
     }
 
-    function onPointerEnter() {
-      root.classList.add('is-hover');
+    function onPointerEnter(e) {
+      if (e.pointerType !== 'touch') root.classList.add('is-hover');
       lastInteract = nowMs();
     }
 
@@ -627,6 +646,7 @@
       if (destroyed) return;
       destroyed = true;
       stopLoop();
+      if (glossRaf) { cancelAnimationFrame(glossRaf); glossRaf = 0; }
       if (idleTimer) { clearTimeout(idleTimer); idleTimer = 0; }
       if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
       if (intersectionObserver) { intersectionObserver.disconnect(); intersectionObserver = null; }
@@ -698,6 +718,8 @@
 
     /* ---------------- 首帧 ---------------- */
     if (container.classList) container.classList.add('card3d-mounted');
+    // Measure before assigning image URLs, avoiding a full-resolution or oversized first request.
+    relayout();
     paintImages();
     syncSpinButton();
     applyTransform();

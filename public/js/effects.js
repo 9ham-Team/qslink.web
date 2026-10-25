@@ -20,10 +20,12 @@
   /* ---------------- 环境探测 ---------------- */
   var mqReduce = null;
   var mqFine = null;
+  var mqCardScene = null;
   try {
     if (typeof win.matchMedia === 'function') {
       mqReduce = win.matchMedia('(prefers-reduced-motion: reduce)');
       mqFine = win.matchMedia('(hover: hover) and (pointer: fine)');
+      mqCardScene = win.matchMedia('(max-width: 900px), (hover: none), (pointer: coarse)');
     }
   } catch (e) { /* ignore */ }
 
@@ -254,7 +256,12 @@
 
   function startBackground() {
     if (!state.inited) return;
-    if (reduced()) { stopBackground(); return; }
+    // 高 DPR 手机同时合成全屏动态背景和快速翻面的卡图时会耗尽瓦片预算。
+    // 由组件挂载/卸载触发的 enhance 同步状态，不在每帧查询 DOM。
+    var cardScene = !!(mqCardScene && mqCardScene.matches && doc.querySelector('.card3d'));
+    if (state.layer) state.layer.classList.toggle('is-static-card-scene', cardScene);
+    if (reduced() || doc.hidden || cardScene) { stopBackground(); return; }
+    if (state.running) return;
     if (!state.canvas || !state.canvas.getContext) return;
     try {
       if (!state.ctx) state.ctx = state.canvas.getContext('2d');
@@ -797,6 +804,7 @@
 
   function bindResizeAndVisibility() {
     var onResize = debounce(function () {
+      startBackground();
       if (!state.running) return;
       try { resizeCanvas(); seedParticles(); } catch (e) { /* ignore */ }
     }, 180);
@@ -808,6 +816,12 @@
       if (doc.hidden) stopBackground();
       else startBackground();
     });
+    if (mqCardScene) {
+      try {
+        if (typeof mqCardScene.addEventListener === 'function') mqCardScene.addEventListener('change', startBackground);
+        else if (typeof mqCardScene.addListener === 'function') mqCardScene.addListener(startBackground);
+      } catch (e) { /* ignore */ }
+    }
   }
 
   function bindReduceChange() {
@@ -887,6 +901,7 @@
         fx.init();
         return;
       }
+      startBackground();
       pruneObserver();
       var root = scope && typeof scope.querySelectorAll === 'function' ? scope : doc;
       if (reduced()) {

@@ -24,6 +24,7 @@ const auth = require('./lib/auth');
 const { Database } = require('./lib/db');
 const { readConfig, assertProductionData } = require('./lib/config');
 const { createAuthLimiter } = require('./lib/rate-limit');
+const { imageWidth, imageVariant } = require('./lib/image-variants');
 
 const authApi = require('./lib/api/auth');
 const meApi = require('./lib/api/me');
@@ -370,7 +371,7 @@ async function sendFile(res, file, { method, cache, upload = false }) {
   stream.pipe(res);
 }
 
-async function serveStatic(req, res, { config, pathname }) {
+async function serveStatic(req, res, { config, pathname, searchParams }) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, {
       'Content-Type': 'text/plain; charset=utf-8',
@@ -399,9 +400,23 @@ async function serveStatic(req, res, { config, pathname }) {
       sendText(res, 404, 'Not Found');
       return;
     }
-    await sendFile(res, file, {
+    let servedFile = file;
+    let cache = 'public, max-age=31536000, immutable';
+    if (searchParams.has('w')) {
+      const width = imageWidth(searchParams.get('w'));
+      if (!(await isFile(file))) { sendText(res, 404, 'Not Found'); return; }
+      // Old SVGs remain vector images; existing originals never change.
+      try {
+        servedFile = await imageVariant(file, path.join(config.dataDir, 'image-cache'), width);
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+        // Invalid/unsupported rasters or a full cache disk must not break existing cards.
+        cache = 'no-cache';
+      }
+    }
+    await sendFile(res, servedFile, {
       method: req.method,
-      cache: 'public, max-age=31536000, immutable',
+      cache,
       upload: true,
     });
     return;
@@ -463,7 +478,7 @@ function createRequestHandler(db, config) {
       if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
         await handleApi(req, res, { db, config, url, host });
       } else {
-        await serveStatic(req, res, { config, pathname: url.pathname });
+        await serveStatic(req, res, { config, pathname: url.pathname, searchParams: url.searchParams });
       }
     } catch (err) {
       sendError(res, err);

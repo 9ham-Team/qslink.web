@@ -56,7 +56,7 @@
       tile.innerHTML =
         '<div class="qsl-tile-frame"><a class="qsl-tile-media" href="/card/' + esc(card.id || '') + '">' +
         '<span class="qsl-tile-img" style="aspect-ratio:' + esc(QSL.ratioCss(card.ratio)) + '">' +
-        '<img src="' + esc(card.frontImage || QSL.PLACEHOLDER_IMAGE) + '" alt="' + esc(card.title || '') + '" loading="lazy">' +
+        '<img ' + QSL.images.attributes(card.frontImage || QSL.PLACEHOLDER_IMAGE) + ' alt="' + esc(card.title || '') + '" loading="lazy">' +
         '</span></a></div>' +
         '<div class="qsl-tile-info"><span class="qsl-tile-title">' + esc(card.title || '未命名卡片') + '</span></div>';
     }
