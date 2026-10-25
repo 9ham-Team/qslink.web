@@ -14,6 +14,7 @@ node_modules/
 .env.*
 !.env.example
 backups/
+artifacts/
 .DS_Store
 Thumbs.db
 desktop.ini

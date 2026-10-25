@@ -10,6 +10,7 @@ import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
+import { withLegalConsent } from './helpers/legal.mjs';
 
 const require = createRequire(import.meta.url);
 const { readConfig } = require('../server/lib/config');
@@ -17,6 +18,52 @@ const { Database } = require('../server/lib/db');
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const credentials = { username: 'operator', email: 'operator@example.test', password: 'Unique-Production-42!' };
 const databases = new Map();
+
+test('legal acceptance: explicit version, persistence, content authorization and public pages', async (t) => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const app = await start(t, dir);
+  for (const page of ['terms.html', 'privacy.html', 'software.html', 'agpl-3.0.txt']) {
+    const res = await fetch(app.base + '/legal/' + page);
+    assert.equal(res.status, 200);
+    assert.match(await res.text(), page.endsWith('.txt') ? /GNU AFFERO GENERAL PUBLIC LICENSE/ : /QSLink/);
+  }
+  const body = await withCode(app, { username: 'legaluser', email: 'legal@example.test', password: 'Legal-Password-42!' });
+  for (const patch of [{ acceptTerms: undefined }, { acceptTerms: false }, { acceptTerms: 'true' }, { termsVersion: 'old' }]) {
+    const rejected = await request(app.base, '/api/auth/register', { method: 'POST', body: { ...body, ...patch } });
+    assert.equal(rejected.status, 400);
+    assert.ok((await rejected.json()).error.fields.legalConsent);
+  }
+  const registered = await request(app.base, '/api/auth/register', { method: 'POST', body });
+  assert.equal(registered.status, 201, 'refused consent does not consume email code');
+  const { token, user } = await registered.json();
+  const db = databases.get(dir).db;
+  const saved = await db.transaction(unit => unit.find('users', item => item.id === user.id));
+  assert.equal(saved.legalConsent.version, '2026-10-25');
+  assert.ok(Number.isFinite(Date.parse(saved.legalConsent.acceptedAt)));
+  assert.equal(user.legalConsent, undefined);
+  assert.equal(await db.transaction(unit => unit.find('users', item => item.username === credentials.username).legalConsent), null);
+  const cardBody = { title: 'Authorized', ratio: { w: 3, h: 2 }, frontImage: 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64') };
+  const rejected = await request(app.base, '/api/cards', { token, method: 'POST', body: { ...cardBody, acceptContentLicense: false } });
+  assert.equal(rejected.status, 400);
+  assert.equal(await db.transaction(unit => unit.data.cards.length), 0);
+  const created = await request(app.base, '/api/cards', { token, method: 'POST', body: cardBody });
+  assert.equal(created.status, 201);
+  const { card } = await created.json();
+  assert.equal(card.contentConsent, undefined);
+  const record = await db.transaction(unit => unit.find('cards', item => item.id === card.id));
+  assert.equal(record.contentConsent.userId, user.id);
+  assert.equal(record.contentConsent.version, '2026-10-25');
+  assert.equal(record.contentConsent.contentLicense, true);
+  const edit = await request(app.base, '/api/cards/' + card.id, { token, method: 'PUT', body: { title: 'Changed', acceptContentLicense: undefined } });
+  assert.equal(edit.status, 400);
+  assert.equal((await db.transaction(unit => unit.find('cards', item => item.id === card.id))).title, 'Authorized');
+  const login = await request(app.base, '/api/auth/login', { method: 'POST', body: { identifier: credentials.username, password: credentials.password } });
+  const admin = await login.json();
+  const moderated = await request(app.base, '/api/cards/' + card.id, { token: admin.token, method: 'PUT', body: { status: 'approved', acceptTerms: undefined, acceptContentLicense: undefined } });
+  assert.equal(moderated.status, 200);
+  assert.deepEqual((await db.transaction(unit => unit.find('cards', item => item.id === card.id))).contentConsent, record.contentConsent);
+});
 
 async function temp(t) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'qsl-production-'));
@@ -78,6 +125,7 @@ async function start(t, dir, overrides = {}) {
   throw new Error('Server did not become ready: ' + proc.logs());
 }
 async function request(base, route, { token, body, headers = {}, method = 'GET' } = {}) {
+  body = withLegalConsent(method, route, body);
   return fetch(base + route, { method, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { Authorization: 'Bearer ' + token } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined });
 }

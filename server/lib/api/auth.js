@@ -11,6 +11,7 @@ const serialize = require('../serialize');
 /** POST /api/auth/register */
 async function register(ctx) {
   const payload = validateRegister(ctx.body || {});
+  const legalConsent = require('../legal').requireAcceptance(ctx.body);
   const users = ctx.db.data.users;
 
   if (users.some((user) => user.username.toLowerCase() === payload.username.toLowerCase())) {
@@ -37,6 +38,7 @@ async function register(ctx) {
     status: 'active',
     address: null,
     passwordHash: auth.hashPassword(payload.password),
+    legalConsent,
     createdAt: now,
     updatedAt: now,
   };

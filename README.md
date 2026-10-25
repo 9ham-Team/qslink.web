@@ -40,6 +40,10 @@ Windows 用户在启动 PostgreSQL 并配置好 `DATABASE_URL` 后，也可以�
 
 **公网生产部署请先阅读 [部署指南](docs/DEPLOYMENT.md)**，使用 Docker Compose + Caddy HTTPS 或配置受保护的反向代理。生产必须显式配置独立数据目录、HTTPS 站点地址，并先运行离线管理员初始化。禁止复制开发演示库上线。
 
+迁移到新服务器时，可使用 [Docker 离线一键打包脚本](docs/DOCKER-BUNDLE.md) 构建、验证并导出三个镜像；数据迁移步骤见 [服务器迁移流程](docs/SERVER-MIGRATION.md)。
+
+GitHub Actions 可在 CI 通过后 [自动发布应用镜像到 GHCR](docs/GHCR.md)，服务器通过 `compose.ghcr.yaml` 拉取指定版本部署。
+
 ### 演示账号（仅显式开启的本地演示环境）
 
 | 角色 | 用户名 | 密码 | 说明 |
@@ -150,4 +154,14 @@ qsl-card-exchange/
 - v3.1 最终调整：首页 Hero 展示社区示例卡片（不含个人真实照片）、卡片广场仅按呼号搜索、上传/展示/后台不再包含波段与模式字段、3D 卡片厚度修正为真实卡纸厚度（2-4px）。
 - 详细验收记录见 [`qa-report.md`](qa-report.md)。
 
-© 2026 QSLink · 由业余无线电爱好者共同建设 · 73!
+## 许可与权利范围
+
+Copyright (C) 2026 **BG4JEC and BG7MOM**。原创软件源代码采用 [GNU AGPL-3.0（仅第 3 版）](LICENSE)，允许使用、修改和商用；传播和提供修改版网络服务时须履行协议要求的源码提供义务。
+
+软件许可不覆盖用户上传的 QSL 卡片、照片、文字、个人信息及品牌商标；示例图片、截图和品牌素材也不默认随代码开源。详细边界见 [内容与品牌权利说明](CONTENT-LICENSE.md)。第三方材料适用各自许可。
+
+网站提供 [用户条款](public/legal/terms.html)、[隐私说明](public/legal/privacy.html) 和 [软件许可与源码入口](public/legal/software.html)。注册须主动确认条款；提交或编辑自己的卡片须单独确认内容授权。服务器记录版本、时间及卡片授权账号，旧数据保持未确认状态，不追溯授权。
+
+部署前请按 [条款上线检查](docs/LEGAL-DEPLOYMENT.md) 公布真实运营主体、联系渠道和数据保留安排，并将源码入口改为实际运行版本的对应源码。
+
+© 2026 BG4JEC and BG7MOM · QSLink · 73!

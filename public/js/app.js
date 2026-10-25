@@ -196,7 +196,10 @@
       '<a href="/#features" data-link>平台特性</a>' +
       '<a href="/#showcase" data-link>精选展示</a>' +
       '<a href="/#join" data-link>加入我们</a>' +
-      '<a href="/#faq" data-link>常见问题</a></div>' +
+      '<a href="/#faq" data-link>常见问题</a>' +
+      '<a href="/legal/terms.html" target="_blank" rel="noopener">用户条款</a>' +
+      '<a href="/legal/privacy.html" target="_blank" rel="noopener">隐私说明</a>' +
+      '<a href="/legal/software.html" target="_blank" rel="noopener">AGPL 许可与源代码</a></div>' +
       '</div>' +
       '<div class="footer-bottom">' +
       '<span>© 2026 QSLink · 由业余无线电爱好者共同建设</span>' +

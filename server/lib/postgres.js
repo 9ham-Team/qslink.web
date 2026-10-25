@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
-const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql'];
 const SCHEMA_VERSION = MIGRATIONS.length;
 const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas'];
 const FIELDS = {
@@ -22,6 +22,7 @@ const FIELDS = {
     'status',
     'address',
     'passwordHash',
+    'legalConsent',
     'createdAt',
     'updatedAt',
   ],
@@ -37,6 +38,7 @@ const FIELDS = {
     'frontImage',
     'backImage',
     'shareToken',
+    'contentConsent',
     'status',
     'rejectReason',
     'createdAt',

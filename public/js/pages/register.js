@@ -217,12 +217,13 @@
       '<span class="f-strength-bar"><i></i></span><span class="f-strength-bar"><i></i></span><span class="f-strength-bar"><i></i></span>' +
       '<span class="f-strength-text">密码强度</span>' +
       '</div>' +
+      '<div class="f-field" data-field="legalConsent"><label class="f-consent"><input type="checkbox" name="legalConsent" required><span>我已阅读并同意<a href="/legal/terms.html" target="_blank" rel="noopener">用户条款</a>，并已阅读<a href="/legal/privacy.html" target="_blank" rel="noopener">隐私说明</a>。</span></label><p class="f-error" role="alert" hidden></p></div>' +
       '<button class="btn btn-primary btn-lg f-submit" type="submit" data-label="创建账号">' +
       '<span class="f-btn-label">创建账号</span>' + ico('arrow-right', 18) +
       '</button>' +
       '<p class="f-auth-alt">已经有账号了？<a class="f-link" href="' + esc(loginHref) + '">直接登录</a></p>' +
       '</form>' +
-      '<p class="f-auth-legal">' + ico('shield', 14) + ' 注册即表示你同意以真实身份参与卡片交换</p>' +
+      '<p class="f-auth-legal">' + ico('shield', 14) + ' 请保护收件信息，上传卡片时需另行确认内容授权。</p>' +
       '</div>' +
       '</div>' +
       '</section>';
@@ -420,6 +421,7 @@
 
     function validate(values) {
       const errors = {};
+      if (!form.querySelector('[name="legalConsent"]').checked) errors.legalConsent = '请阅读并同意用户条款，确认已阅读隐私说明';
       if (!values.username) errors.username = '请填写用户名';
       else if (!/^[A-Za-z0-9_]{3,20}$/.test(values.username)) errors.username = '用户名需为 3-20 位字母、数字或下划线';
       const message = emailError(values.email);
@@ -466,6 +468,8 @@
       setBusy(submitBtn, true, '创建中…');
       try {
         const payload = {
+          acceptTerms: true,
+          termsVersion: '2026-10-25',
           username: values.username,
           email: values.email,
           emailCode: values.emailCode,
