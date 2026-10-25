@@ -1545,6 +1545,7 @@
 .g-share__crumb-note .icon { color: var(--brand); }
 
 .g-share__main { padding-top: clamp(22px, 3.4vw, 42px); }
+.g-share__lead { display: none; }
 .g-share__grid {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
@@ -1793,6 +1794,10 @@
   /* 基础规则位于本节更靠后的位置，这里用更高权重保证移动端单列堆叠 */
   .g-share .g-share__grid { grid-template-columns: minmax(0, 1fr); gap: 26px; }
   .g-share__viewer-stage { height: clamp(430px, 66vw, 550px); }
+  /* 单列时访客注册引导置顶，侧栏里的那份隐藏 */
+  .g-share__lead:not([hidden]) { display: block; margin: -8px 0 18px; }
+  .g-share__lead .g-share__cta { margin-top: 0; }
+  .g-share__aside .g-share__cta.is-guest { display: none; }
 }
 @media (max-width: 760px) {
   .g-share__viewer { padding: 12px 12px 8px; }
