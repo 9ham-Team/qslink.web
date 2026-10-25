@@ -368,6 +368,7 @@
       }) +
       '<div class="f-ex-toolbar" data-reveal>' +
       '<div class="tabs tabs-lg f-ex-tabs" role="tablist" aria-label="申请分类">' +
+      '<span class="f-ex-tab-glider" aria-hidden="true"></span>' +
       '<button class="tab is-active" type="button" role="tab" aria-selected="true" data-box="incoming">' +
       ico('inbox', 16) + ' <span>收到的申请</span><b class="tab-count" data-box-count="incoming" hidden>0</b></button>' +
       '<button class="tab" type="button" role="tab" aria-selected="false" data-box="outgoing">' +
@@ -391,6 +392,38 @@
     const totalEl = container.querySelector('[data-ex-total]');
     const refreshBtn = container.querySelector('[data-refresh]');
 
+    const tabsEl = container.querySelector('.f-ex-tabs');
+    const gliderEl = container.querySelector('.f-ex-tab-glider');
+
+    function moveGlider() {
+      if (!tabsEl || !gliderEl) return;
+      const active = tabsEl.querySelector('.tab.is-active');
+      if (!active || !active.offsetWidth) return;
+      gliderEl.style.width = active.offsetWidth + 'px';
+      gliderEl.style.transform = 'translateX(' + active.offsetLeft + 'px)';
+      if (!tabsEl.classList.contains('has-glider')) {
+        // 首次定位不做动画，避免页面打开时滑块从左侧飞入
+        requestAnimationFrame(() => tabsEl.classList.add('has-glider'));
+      }
+    }
+
+    let tabsObserver = null;
+    if (tabsEl && typeof ResizeObserver === 'function') {
+      tabsObserver = new ResizeObserver(moveGlider);
+      tabsObserver.observe(tabsEl);
+    }
+
+    let switchTimer = 0;
+    function animateListSwitch(direction) {
+      if (!listEl) return;
+      clearTimeout(switchTimer);
+      listEl.classList.remove('is-switch-left', 'is-switch-right');
+      void listEl.offsetWidth;
+      listEl.classList.add(direction === 'outgoing' ? 'is-switch-right' : 'is-switch-left');
+      // 动画结束后移除，避免后续刷新列表时重复播放
+      switchTimer = setTimeout(() => listEl.classList.remove('is-switch-left', 'is-switch-right'), 800);
+    }
+
     function paintChrome() {
       container.querySelectorAll('[data-box]').forEach((btn) => {
         const active = btn.dataset.box === state.box;
@@ -413,6 +446,7 @@
         outgoingBadge.hidden = outgoingCount <= 0;
         outgoingBadge.textContent = String(outgoingCount);
       }
+      moveGlider();
       // 当前 Tab 各状态数量
       const inBox = state.items.filter((item) => item.direction === state.box);
       const byStatus = { all: inBox.length };
@@ -731,6 +765,7 @@
         state.box = btn.dataset.box;
         paintChrome();
         paintList();
+        animateListSwitch(state.box);
         syncQuery();
       });
     });
@@ -800,7 +835,11 @@
 
     paintChrome();
     load();
-    return function cleanup() { state.alive = false; };
+    return function cleanup() {
+      state.alive = false;
+      clearTimeout(switchTimer);
+      if (tabsObserver) tabsObserver.disconnect();
+    };
   }
 
   QSL.registerPage('exchanges', { title: '换卡申请', render: render });

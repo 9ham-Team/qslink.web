@@ -85,8 +85,7 @@
           '<a href="/dashboard/profile" data-link>' + QSL.icon('user', 18) + '个人资料</a>' +
           (isAdmin ? '<a href="/admin" data-link>' + QSL.icon('shield', 18) + '管理后台</a>' : '') +
           '<button type="button" class="btn btn-ghost btn-block" data-logout>' + QSL.icon('logout', 18) + '退出登录</button>'
-        : '<a href="/login" data-link>' + QSL.icon('log-in', 18) + '登录</a>' +
-          '<a class="btn btn-primary btn-block" href="/register" data-link>免费注册</a>');
+        : '<a href="/login" data-link>' + QSL.icon('log-in', 18) + '登录</a>');
 
     headerEl.innerHTML =
       '<div class="nav-shell container">' +
@@ -162,7 +161,12 @@
 
   document.addEventListener('click', function (e) {
     const userEl = document.getElementById('nav-user');
-    if (userEl && !userEl.contains(e.target)) closeNav();
+    if (userEl && !userEl.contains(e.target)) {
+      userEl.classList.remove('is-open');
+      const btn = userEl.querySelector('.nav-avatar-btn');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+    if (!e.target.closest('.site-header')) closeNav();
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeNav();
@@ -201,7 +205,7 @@
       '<a href="/legal/privacy.html" target="_blank" rel="noopener">隐私说明</a></div>' +
       '</div>' +
       '<div class="footer-bottom">' +
-      '<span>© 2026 QSLink · 9ham.net</span>' +
+      '<span>© 2026 QSLink · 9ham.net · 联系我们：<a href="mailto:services@9ham.net">services@9ham.net</a></span>' +
       '<span>让每一张 QSL 卡片，都抵达对的人 <span class="seventy-three">73!</span></span>' +
       '</div></div>';
   }

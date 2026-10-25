@@ -286,7 +286,8 @@
   transform-style: preserve-3d;
   will-change: transform;
 }
-.qsl-tile-frame { position: relative; transform-style: preserve-3d; }
+/* 内部使用二维叠层，避免倾斜时图片链接抢占爱心的鼠标命中区域。 */
+.qsl-tile-frame { position: relative; transform-style: flat; isolation: isolate; }
 .qsl-tile-media {
   position: relative;
   display: block;
