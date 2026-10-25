@@ -69,11 +69,12 @@ test('legal acceptance: explicit version, persistence, content authorization and
   const dir = await temp(t);
   assert.equal((await init(dir)).code, 0);
   const app = await start(t, dir);
-  for (const page of ['terms.html', 'privacy.html', 'software.html', 'agpl-3.0.txt']) {
+  for (const page of ['terms.html', 'privacy.html', 'agpl-3.0.txt']) {
     const res = await fetch(app.base + '/legal/' + page);
     assert.equal(res.status, 200);
     assert.match(await res.text(), page.endsWith('.txt') ? /GNU AFFERO GENERAL PUBLIC LICENSE/ : /QSLink/);
   }
+  assert.equal((await fetch(app.base + '/legal/software.html')).status, 404);
   const body = await withCode(app, { username: 'legaluser', email: 'legal@example.test', password: 'Legal-Password-42!' });
   for (const patch of [{ acceptTerms: undefined }, { acceptTerms: false }, { acceptTerms: 'true' }, { termsVersion: 'old' }]) {
     const rejected = await request(app.base, '/api/auth/register', { method: 'POST', body: { ...body, ...patch } });

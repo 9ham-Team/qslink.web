@@ -834,6 +834,8 @@
   background: #fff;
   box-shadow: var(--shadow-sm);
 }
+.g-step__link:hover { color: var(--brand-deep); }
+.g-step__link:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 4px; }
 .g-step__no {
   position: relative;
   z-index: 1;
