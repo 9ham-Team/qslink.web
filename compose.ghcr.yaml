@@ -1,0 +1,6 @@
+# Use with compose.yaml. Set QSL_APP_IMAGE to a GHCR tag or digest in .env.
+# Run `docker compose -f compose.yaml -f compose.ghcr.yaml up -d --no-build`.
+services:
+  app:
+    image: ${QSL_APP_IMAGE:?Set QSL_APP_IMAGE to the published GHCR image}
+    pull_policy: always
