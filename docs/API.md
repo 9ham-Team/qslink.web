@@ -1,6 +1,6 @@
 # QSLink API 契约 v1
 
-> 本文件是前端与后端的唯一事实来源（single source of truth）。后端实现必须逐条满足；前端只依赖本文件描述的行为。
+> 本文件记录当前前后端接口行为；修改接口时应同步更新。若与文档不符，以 `server/lib/api/` 等现行实现为核实依据。
 > 服务默认地址：`http://127.0.0.1:8787`。所有接口前缀 `/api`，JSON in / JSON out（UTF-8）。
 
 ## 0. 通用约定
@@ -91,7 +91,7 @@
 ```json
 { "error": { "message": "用户名已被占用", "code": "USERNAME_TAKEN", "fields": { "username": "..." } } }
 ```
-`fields` 可选。常见 code：`VALIDATION`、`INVALID_CREDENTIALS`、`UNAUTHORIZED`、`FORBIDDEN`、`NOT_FOUND`、`CONFLICT`、`PAYLOAD_TOO_LARGE`、`BANNED`。
+`fields` 可选。常见 code：`VALIDATION`、`INVALID_CREDENTIALS`、`UNAUTHORIZED`、`FORBIDDEN`、`NOT_FOUND`、`CONFLICT`、`PAYLOAD_TOO_LARGE`、`BANNED`。验证码相关错误另见 §2；限流响应的 `Retry-After` 单位为秒。
 
 ### 分页
 查询参数 `page`（默认 1）、`limit`（默认 12，最大 48）。列表响应：
@@ -108,27 +108,46 @@
 
 ## 1. 健康检查与运行配置
 
-`GET /api/health` → `{ "ok": true, "name": "QSLink", "version": "1.0.0", "uptime": 12.3, "time": "..." }`
+`GET /api/health` → `{ "ok": true, "name": "QSLink", "version": "1.0.0", "uptime": 12.3, "time": "...", "storage": "postgresql" }`。健康检查会验证数据库连接。
 
 ### GET /api/config
 
-公开运行配置，响应不缓存。默认及生产返回 `{ "demo": false, "demoAccounts": [] }`。仅开发/测试显式启用 `QSL_SEED_DEMO=true` 时返回演示账号供登录页填入；前端不内置演示密码。生产模式禁止此开关，忽略 `devToken` URL 参数。
+公开运行配置，响应不缓存。默认及生产返回 `{ "demo": false, "demoAccounts": [] }`。仅开发/测试显式启用 `QSL_SEED_DEMO=true` 时返回演示账号供登录页填入；前端不内置演示密码。生产模式禁止此开关。前端仅在 `demo: true` 时接受 `devToken` URL 参数，其余情况下忽略并清除该参数。
 
-生产对登录、注册实施限流，超限返回 `429 RATE_LIMITED` 与 `Retry-After`；携带非本站 Origin 的写请求返回 `403 ORIGIN_DENIED`。PostgreSQL 暂时不可用时返回 `503 STORAGE_UNAVAILABLE`，连接恢复后请求可重试。健康检查验证数据库连接并包含 `storage: "postgresql"`。分享 URL 使用配置的 HTTPS 公开地址。
+生产对登录、注册实施 15 分钟固定窗口限流：同一 IP 两接口合计最多 100 次，注册另限同一 IP 10 次，登录另限同一规范化 identifier 15 次；超限返回 `429 RATE_LIMITED` 与 `Retry-After`。此限制不代替验证码端点的独立限流（见 §2）。生产携带非本站 Origin 的写请求返回 `403 ORIGIN_DENIED`。PostgreSQL 暂时不可用时返回 `503 STORAGE_UNAVAILABLE`，连接恢复后请求可重试。生产分享 URL 使用配置的 HTTPS 公开地址。
 
 ## 2. 认证
+
+### POST /api/auth/email-code
+
+注册邮箱验证码发送端点，无需登录。body：`{ "email": "you@example.com" }`。
+- 邮箱去除首尾空白并转小写；须为合法邮箱且长度 ≤120，否则 `400 VALIDATION`（`fields.email`）。
+- 200 → `{ "ok": true, "expiresIn": 1800, "retryAfter": 60 }`。验证码为 **6 位数字字符串**（可能以 0 开头），从本次请求建立验证码记录起 **30 分钟**内有效，仅可消费一次；接口不会返回验证码明文，需查收邮件。
+- 同一规范化邮箱两次发送至少间隔 60 秒；未到时间返回 `429 MAIL_COOLDOWN`。另按从各自首个计数请求开始的 1 小时固定窗口，限制同一邮箱最多 5 次、同一 IP 最多 20 次；超限返回 `429 MAIL_RATE_LIMITED`。两种 429 均带剩余等待秒数的 `Retry-After`。IP 默认取连接地址，仅 `QSL_TRUST_PROXY=true` 且 `X-Real-IP` 为有效 IP 时采用该头。
+- `409 EMAIL_TAKEN`（`fields.email`）：邮箱已注册。发送前先校验邮箱并检查邮件服务是否配置；未配置邮件服务时会先返回下述 503。
+- `503 MAIL_UNAVAILABLE`：邮件服务未配置、投递调用失败，或发送后未能激活对应验证码。不会伪报发送成功，也不会向客户端暴露邮件 SDK 错误或凭据。
+- 通过邮箱冲突及限流检查后，先占用配额并建立 `pending` 记录，再投递邮件；只有投递调用成功且记录仍匹配本次请求才变为 `ready`。新记录覆盖该邮箱旧码（旧码立即失效）；投递失败会变为 `failed`，**不退还配额或 60 秒冷却**。尚在发送中的码、失败码都不能注册。未配置邮件服务时不占用配额。
+
 ### POST /api/auth/register
 
-注册还必须提交 `acceptTerms: true` 和 `termsVersion: "2026-10-25"`，表示主动同意用户条款并确认阅读隐私说明。缺失、非布尔 true 或版本不符返回 `400 VALIDATION`，字段为 `legalConsent`。服务器记录版本和确认时间，不从客户端接受确认时间。
-body: `{ username, email, password, displayName?, callSign? }`
-- username 3-20 位字母/数字/下划线且唯一；email 合法且唯一；password ≥ 8 位且包含字母与数字；displayName 默认 username；callSign 默认空字符串。
-- 201 → `{ token, user: UserSelf }`
-- 409 `USERNAME_TAKEN` / `EMAIL_TAKEN`；400 `VALIDATION`（fields 标注字段）。
+body：`{ username, email, emailCode, password, displayName?, callSign?, acceptTerms: true, termsVersion: "2026-10-25" }`。
+- username 3-20 位字母/数字/下划线且唯一（大小写不敏感）；email 合法、≤120、唯一，去除首尾空白并转小写；password 8-200 个字符且包含字母与数字。
+- displayName 默认 username，1-30 个字符；callSign 选填，去除首尾空白、≤20 个字符，默认空字符串。服务端不强制呼号格式或大写；注册页会将输入转大写。
+- `emailCode` 必须为该邮箱最近一次可用验证码的 6 位数字**字符串**；数字类型、缺失、格式错误、错码、过期、发送未完成、投递失败、已消费或尝试次数用尽均返回 `400 EMAIL_CODE_INVALID`：
+  ```json
+  { "error": { "code": "EMAIL_CODE_INVALID", "message": "邮箱验证码无效、已过期或尝试次数已用尽", "fields": { "emailCode": "请重新获取或检查验证码" } } }
+  ```
+- 每个 `ready` 且未过期的码最多校验 5 次（正确的一次也计数）；成功即消费并清除验证码哈希，第 5 次错误后失效。注册信息校验、法律同意及用户名/邮箱冲突检查均先于验码；这些前置检查失败不消耗验码次数。验证码错误以正常的 400 结果返回，使尝试次数更新可以提交。
+- 法律同意仍为必需：主动提交 `acceptTerms: true` 和 `termsVersion: "2026-10-25"`，表示同意用户条款并确认阅读隐私说明。缺失、非布尔 true 或版本不符返回 `400 VALIDATION`，字段为 `legalConsent`。服务器记录版本和确认时间，不从客户端接受确认时间。
+- 201 → `{ token, user: UserSelf }`；创建账号并建立登录会话。
+- 409 `USERNAME_TAKEN` / `EMAIL_TAKEN`；400 `VALIDATION`（fields 标注字段）；生产还受 §1 的注册限流约束。
+
+前端通过 `QSL.api.auth.sendEmailCode(email)` 发送，通过 `QSL.api.auth.register(payload)` 提交验证码和法律同意。邮箱格式正确只表示本地格式校验通过，不代表已验证邮箱；验证码仍由服务端校验。当前注册页发送成功或收到 429 后显示 60 秒倒计时，不读取响应头中可能更长的 `Retry-After`，实际可重试时间以服务端限制为准。
 
 ### POST /api/auth/login
 body: `{ identifier, password }`（identifier = 用户名或邮箱，大小写不敏感）
 - 200 → `{ token, user: UserSelf }`
-- 401 `INVALID_CREDENTIALS`；403 `BANNED`（被禁用）
+- 401 `INVALID_CREDENTIALS`；403 `BANNED`（被禁用）；生产限流见 §1。
 
 ### POST /api/auth/logout  🔒
 删除当前 token。→ `{ ok: true }`
@@ -160,7 +179,8 @@ body: `{ currentPassword, newPassword }` → `{ ok: true }`；错误 400 `VALIDA
 
 ## 4. 卡片
 ### GET /api/cards
-公共卡片广场。query：`callSign`（**v3 起推荐**：按呼号搜索，大小写不敏感 contains，匹配卡片 callSign 或持有者 callSign）、`sort`（`latest` 默认 / `popular` / `oldest`）、`page`、`limit`；`q`、`band`、`mode` 为兼容参数保留（v3 起卡片不再填写波段/模式，前端只使用 `callSign` 搜索）。
+公共卡片广场。query：`callSign`（**v3 起推荐**，也接受 `callsign` 别名：按呼号搜索，大小写不敏感 contains，匹配卡片 callSign 或持有者 callSign）、`sort`（`latest` 默认 / `popular` / `oldest`）、`page`、`limit`。前端只使用 `callSign` 搜索，不再填写或筛选波段/模式。
+兼容参数仍实际生效：`q` 对标题、卡片呼号、持有者昵称/用户名进行大小写不敏感 contains；`band`、`mode` 按大小写不敏感的完整值筛选。多个筛选条件同时提供时需全部满足。
 → 分页列表（CardPublic，只含 approved 且 owner 未被禁用）。
 ### GET /api/cards/:id
 → `{ card: CardDetail, owner: UserPublic }`。
@@ -170,21 +190,24 @@ body: `{ currentPassword, newPassword }` → `{ ok: true }`；错误 400 `VALIDA
 ### POST /api/cards  🔒
 
 另须提交 `acceptTerms: true`、`termsVersion: "2026-10-25"`、`acceptContentLicense: true`，确认本次卡片内容授权。服务器保存版本、时间及确认账号；缺失或不匹配返回 `400 VALIDATION`（`legalConsent`），且不写入图片。
-body: `{ title, callSign?, band?, mode?, notes?, ratio: {w,h}, frontImage, backImage }`
-- `band` / `mode` 为兼容字段，v3 起可省略或传空字符串（不再作为卡片内容，前端不再填写）。
+body: `{ title, callSign?, band?, mode?, notes?, ratio: {w,h}, frontImage, backImage? }`
+- `callSign` 选填，去除首尾空白、≤20 个字符；服务端不强制格式或大写。
+- `band` / `mode` 为兼容字段，v3 起可省略或传空字符串；仍接受、保存并返回 ≤20 个字符的值，但前端不再填写或展示为筛选项。
+- 正面图片必需；背面可省略或为空，返回空字符串，由前端显示占位背面。
 - 创建后 `status: "pending"`（等待人工审核），同时生成 `shareToken`。
 - 201 → `{ card: CardPublic }`（含 status= pending、shareToken）
 ### PUT /api/cards/:id  🔒
 
 所有者编辑时须再次提交上述三个确认字段，服务器更新该卡片的授权记录。管理员编辑他人的卡片不替代所有者授权，不修改已有确认记录。旧账号和卡片无确认记录时保持 NULL，不推定已经授权；授权记录不包含在公开 API 响应中。
-owner 或 admin。body 同上（字段可选）。owner 修改后 `status` 重置为 `pending`（admin 修改不重置，除非显式传 status）。
+owner 或 admin。body 同上（字段可选）。普通 owner 修改后 `status` 重置为 `pending`（admin 修改不重置，除非显式传 status）。
 → `{ card: CardPublic }`
 ### DELETE /api/cards/:id  🔒
 owner 或 admin。级联删除其点赞与换卡申请。→ `{ ok: true }`
 ### POST /api/cards/:id/like  🔒
 切换点赞。→ `{ liked: true, likeCount: 19 }`
 ### GET /api/cards/:id/share  🔒 (owner/admin)
-→ `{ shareToken, url: "http://127.0.0.1:8787/share/aBcD1234" }`（url 基于请求 Host 生成）
+→ `{ shareToken, url: "https://qsl.example.com/share/aBcD1234" }`。
+优先以 `QSL_PUBLIC_ORIGIN` 为 URL 的站点地址；生产必须配置该值且使用 HTTPS。不配置时（仅非生产）以请求协议与 Host 拼接：协议优先取 `X-Forwarded-Proto` 的首项，否则根据连接是否加密选择 https/http。取得分享链接不代表卡片已公开；未通过审核时分享页数据接口仍返回 404。
 
 ## 5. 换卡申请
 ### POST /api/cards/:cardId/exchanges  🔒
