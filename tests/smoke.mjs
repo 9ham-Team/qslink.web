@@ -26,6 +26,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
+import { withLegalConsent } from './helpers/legal.mjs';
 
 // ---------------------------------------------------------------------------
 // Configuration / globals
@@ -264,7 +265,7 @@ async function api(method, pathname, opts = {}) {
     init.body = rawBody;
   } else if (body !== undefined) {
     init.headers['content-type'] = 'application/json';
-    init.body = JSON.stringify(body);
+    init.body = JSON.stringify(withLegalConsent(method, pathname, body));
   }
   const started = Date.now();
   let response;
