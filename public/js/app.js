@@ -85,8 +85,7 @@
           '<a href="/dashboard/profile" data-link>' + QSL.icon('user', 18) + '个人资料</a>' +
           (isAdmin ? '<a href="/admin" data-link>' + QSL.icon('shield', 18) + '管理后台</a>' : '') +
           '<button type="button" class="btn btn-ghost btn-block" data-logout>' + QSL.icon('logout', 18) + '退出登录</button>'
-        : '<a href="/login" data-link>' + QSL.icon('log-in', 18) + '登录</a>' +
-          '<a class="btn btn-primary btn-block" href="/register" data-link>免费注册</a>');
+        : '<a href="/login" data-link>' + QSL.icon('log-in', 18) + '登录</a>');
 
     headerEl.innerHTML =
       '<div class="nav-shell container">' +
