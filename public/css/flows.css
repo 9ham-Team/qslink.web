@@ -1577,11 +1577,53 @@
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
-.f-ex-tabs .tab { display: inline-flex; align-items: center; gap: 6px; }
+.f-ex-tabs { position: relative; isolation: isolate; }
+.f-ex-tabs .tab { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.f-ex-tabs .tab .icon { transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.f-ex-tabs .tab.is-active .icon { transform: scale(1.12) rotate(-6deg); }
+/* 滑块：替代原先各 Tab 自带的白底，切换时在两个按钮之间滑动 */
+.f-ex-tab-glider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 0;
+  z-index: -1;
+  border-radius: var(--r-pill);
+  background: #fff;
+  box-shadow: var(--shadow-xs), 0 0 0 1px rgba(14, 175, 143, 0.1), 0 8px 18px -12px rgba(14, 175, 143, 0.55);
+  pointer-events: none;
+}
+.f-ex-tabs.has-glider .f-ex-tab-glider {
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), width 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.f-ex-tabs .tab.is-active { background: transparent; box-shadow: none; }
+.f-ex-list.is-switch-left > *,
+.f-ex-list.is-switch-right > * { animation: fExSwitchIn 0.46s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.f-ex-list.is-switch-left > * { --f-ex-from: -18px; }
+.f-ex-list.is-switch-right > * { --f-ex-from: 18px; }
+.f-ex-list > *:nth-child(2) { animation-delay: 0.05s; }
+.f-ex-list > *:nth-child(3) { animation-delay: 0.1s; }
+.f-ex-list > *:nth-child(4) { animation-delay: 0.15s; }
+.f-ex-list > *:nth-child(n+5) { animation-delay: 0.2s; }
+@keyframes fExSwitchIn {
+  from { opacity: 0; transform: translateX(var(--f-ex-from, 0)); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .f-ex-tabs.has-glider .f-ex-tab-glider,
+  .f-ex-tabs .tab .icon { transition: none; }
+  .f-ex-tabs .tab.is-active .icon { transform: none; }
+  .f-ex-list.is-switch-left > *,
+  .f-ex-list.is-switch-right > * { animation: none; }
+}
 .f-ex-toolbar-side { display: flex; align-items: center; gap: 10px; }
 .f-ex-total { font-size: 12.4px; color: var(--muted); }
 .f-ex-filters { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 18px; }
+.f-ex-filters .chip { justify-content: center; }
 .f-ex-filter-count { margin-left: 1px; font-size: 10px; opacity: 0.62; }
+/* 计数为空时不占位，否则 chip 的 gap 会让文字视觉上偏左 */
+.f-ex-filter-count:empty { display: none; }
 .f-ex-list { display: flex; flex-direction: column; gap: 14px; min-height: 240px; }
 
 .f-ex {
