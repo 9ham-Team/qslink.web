@@ -162,7 +162,12 @@
 
   document.addEventListener('click', function (e) {
     const userEl = document.getElementById('nav-user');
-    if (userEl && !userEl.contains(e.target)) closeNav();
+    if (userEl && !userEl.contains(e.target)) {
+      userEl.classList.remove('is-open');
+      const btn = userEl.querySelector('.nav-avatar-btn');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+    if (!e.target.closest('.site-header')) closeNav();
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeNav();
