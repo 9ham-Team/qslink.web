@@ -82,6 +82,7 @@
       '</div>' +
       '</div>' +
       '<div class="g-share__main container" data-share-main>' +
+      '<div class="g-share__lead" data-share-lead hidden></div>' +
       '<div class="g-share__grid">' +
       '<div class="g-share__viewer g-panel" data-share-viewer>' + viewerSkeleton() + '</div>' +
       '<div class="g-share__aside" data-share-aside>' + asideSkeleton() + '</div>' +
@@ -246,10 +247,19 @@
       notice +
       ctaHtml(card, owner || card.owner || {}, user);
 
-    const registerBtn = aside.querySelector('[data-guest-register]');
-    if (registerBtn) registerBtn.addEventListener('click', goRegister);
-    const loginBtn = aside.querySelector('[data-guest-login]');
-    if (loginBtn) loginBtn.addEventListener('click', goLogin);
+    // 访客注册引导在手机端单列时会被排到卡片下方，额外放一份到顶部，由 CSS 按屏宽切换显示。
+    const lead = container.querySelector('[data-share-lead]');
+    if (lead) {
+      lead.innerHTML = user ? '' : ctaHtml(card, owner || card.owner || {}, user);
+      lead.hidden = !!user;
+    }
+
+    container.querySelectorAll('[data-guest-register]').forEach(function (btn) {
+      btn.addEventListener('click', goRegister);
+    });
+    container.querySelectorAll('[data-guest-login]').forEach(function (btn) {
+      btn.addEventListener('click', goLogin);
+    });
     const applyBtn = aside.querySelector('[data-apply]');
     if (applyBtn) {
       applyBtn.addEventListener('click', function () {
