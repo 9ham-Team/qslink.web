@@ -1,0 +1,85 @@
+name: qslink
+
+services:
+  app:
+    image: ghcr.io/9ham-team/qslink.web:main
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    tmpfs: [/tmp]
+    environment:
+      NODE_ENV: production
+      QSL_HOST: 0.0.0.0
+      QSL_PORT: "8787"
+      QSL_DATA_DIR: /var/lib/qslink
+      QSL_SEED_DEMO: "false"
+      QSL_PUBLIC_ORIGIN: https://${QSL_DOMAIN:?请在 .env 中设置域名}
+      QSL_TRUST_PROXY: "true"
+      DATABASE_URL: postgresql://qslink:${QSL_DB_PASSWORD:?请设置数据库应用密码}@db:5432/qslink
+      ALIBABA_CLOUD_ACCESS_KEY_ID: ${ALIBABA_CLOUD_ACCESS_KEY_ID:-}
+      ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET:-}
+      QSL_MAIL_REGION: ${QSL_MAIL_REGION:-cn-hangzhou}
+      QSL_MAIL_ENDPOINT: ${QSL_MAIL_ENDPOINT:-}
+      QSL_MAIL_FROM: ${QSL_MAIL_FROM:-}
+      QSL_MAIL_FROM_NAME: ${QSL_MAIL_FROM_NAME:-QSLink}
+    volumes:
+      - app-data:/var/lib/qslink
+    networks: [backend]
+    depends_on:
+      db:
+        condition: service_healthy
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请设置数据库管理员密码}
+      QSL_DB_PASSWORD: ${QSL_DB_PASSWORD:?请设置数据库应用密码}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-postgres.sh:/docker-entrypoint-initdb.d/010-qslink.sh:ro
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      QSL_DOMAIN: ${QSL_DOMAIN:?请在 .env 中设置域名}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [backend]
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+networks:
+  backend:
+
+volumes:
+  app-data:
+  postgres-data:
+  caddy-data:
+  caddy-config:
