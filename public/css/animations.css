@@ -447,6 +447,15 @@
   background-size: 200% 100%;
   animation: fxTextFlow 10s ease-in-out infinite;
 }
+/* 手机 WebView 中避免吸顶导航内动画渐变字的透明裁切合成问题。 */
+@media (max-width: 900px), (hover: none) and (pointer: coarse) {
+  .site-header .brand-text b {
+    animation: none;
+    background: none;
+    color: var(--brand-deep);
+    -webkit-text-fill-color: currentColor;
+  }
+}
 @keyframes fxTextFlow {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
