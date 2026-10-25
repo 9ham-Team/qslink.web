@@ -111,6 +111,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
 figure { margin: 0; }
 [hidden] { display: none !important; }
 
+html { -webkit-tap-highlight-color: transparent; }
+
 ::selection { background: rgba(14, 175, 143, 0.22); color: var(--ink); }
 
 :focus-visible {
@@ -444,6 +446,8 @@ figure { margin: 0; }
   color: var(--muted);
 }
 .footer-bottom .seventy-three { font-family: var(--font-display); color: var(--brand-deep); letter-spacing: 0.08em; }
+.footer-bottom a { color: var(--ink-2); transition: color var(--t-fast) var(--ease); }
+.footer-bottom a:hover { color: var(--brand-deep); }
 
 /* ---------------- 启动 / 路由占位 ---------------- */
 .boot-splash {
