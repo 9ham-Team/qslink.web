@@ -11,13 +11,13 @@
 | `qslink-be57db257036-linux-amd64.tar.gz` | 约 195 MiB，包含网站、PostgreSQL 17、Caddy 三个镜像和 Compose |
 | `migration-20261025T034857Z.tar.gz` | 约 13.3 MiB，包含旧服务器数据库、上传文件、配置和证书 |
 
-本地文件位置：
+本地文件位置示例：将 `<your_dir>` 替换成你保存这些文件的目录，各文件也可以分别使用自己的实际目录。
 
 ```text
-W:\Work\qslink\artifacts\qslink-be57db257036-linux-amd64.tar.gz
-W:\Work\qslink\artifacts\qslink-be57db257036-linux-amd64.tar.gz.sha256
-W:\Work\qslink\backups\old-server-20261025\migration-20261025T034857Z.tar.gz
-W:\Work\qslink\backups\old-server-20261025\migration-20261025T034857Z.tar.gz.sha256
+<your_dir>/qslink-be57db257036-linux-amd64.tar.gz
+<your_dir>/qslink-be57db257036-linux-amd64.tar.gz.sha256
+<your_dir>/migration-20261025T034857Z.tar.gz
+<your_dir>/migration-20261025T034857Z.tar.gz.sha256
 ```
 
 备份时间为 **2026-10-25 11:48:57（香港时间）**。该备份已通过校验，并在隔离 PostgreSQL 中实际恢复成功。如果旧站此后有新增或修改数据，应在最终切换前停止写入并重新备份，替换下面的备份文件名。
@@ -44,15 +44,15 @@ ss -lntp | grep -E ':(80|443)\b' || true
 
 ## 2. 从本机上传四个文件
 
-在 Windows PowerShell 中执行，将 `NEW_SERVER_IP` 替换成新服务器 IP：
+在本机终端中执行，将 `<your_dir>` 替换成文件所在目录，将 `NEW_SERVER_IP` 替换成新服务器 IP：
 
 ```powershell
 ssh root@NEW_SERVER_IP "install -d -m 700 /root/qslink-migration"
 
-scp 'W:\Work\qslink\artifacts\qslink-be57db257036-linux-amd64.tar.gz' root@NEW_SERVER_IP:/root/qslink-migration/
-scp 'W:\Work\qslink\artifacts\qslink-be57db257036-linux-amd64.tar.gz.sha256' root@NEW_SERVER_IP:/root/qslink-migration/
-scp 'W:\Work\qslink\backups\old-server-20261025\migration-20261025T034857Z.tar.gz' root@NEW_SERVER_IP:/root/qslink-migration/
-scp 'W:\Work\qslink\backups\old-server-20261025\migration-20261025T034857Z.tar.gz.sha256' root@NEW_SERVER_IP:/root/qslink-migration/
+scp '<your_dir>/qslink-be57db257036-linux-amd64.tar.gz' root@NEW_SERVER_IP:/root/qslink-migration/
+scp '<your_dir>/qslink-be57db257036-linux-amd64.tar.gz.sha256' root@NEW_SERVER_IP:/root/qslink-migration/
+scp '<your_dir>/migration-20261025T034857Z.tar.gz' root@NEW_SERVER_IP:/root/qslink-migration/
+scp '<your_dir>/migration-20261025T034857Z.tar.gz.sha256' root@NEW_SERVER_IP:/root/qslink-migration/
 
 ssh root@NEW_SERVER_IP
 ```
