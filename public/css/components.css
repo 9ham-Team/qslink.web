@@ -368,6 +368,8 @@
   font-weight: 700;
   box-shadow: var(--shadow-xs);
   border: 1px solid rgba(255, 255, 255, 0.7);
+  /* 卡片 3D 倾斜时处于 preserve-3d 上下文，z-index 无效，需在 Z 轴上抬到媒体链接前面 */
+  translate: 0 0 2px;
   transition: all var(--t-fast) var(--ease);
 }
 .qsl-like:hover { transform: scale(1.06); background: #fff; color: var(--accent); }
