@@ -1794,29 +1794,30 @@
   /* 基础规则位于本节更靠后的位置，这里用更高权重保证移动端单列堆叠 */
   .g-share .g-share__grid { grid-template-columns: minmax(0, 1fr); gap: 26px; }
   .g-share__viewer-stage { height: clamp(430px, 66vw, 550px); }
-  /* 单列时访客注册引导置顶，与下方卡片查看器拼成一张整体面板；侧栏里的那份隐藏 */
-  .g-share__lead:not([hidden]) { display: block; margin: -8px 0 0; position: relative; z-index: 1; }
+  /* 单列时访客注册引导紧接在卡片查看器下方，拼成一张整体面板；侧栏里的那份隐藏 */
+  .g-share__lead:not([hidden]) { display: block; margin-top: -26px; position: relative; z-index: 1; }
   .g-share__lead .g-share__cta {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     column-gap: 12px;
     margin-top: 0;
-    padding: 16px 18px 14px;
-    border-bottom: 0;
-    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    padding: 16px 18px;
+    border-top: 1px dashed var(--line-strong);
+    border-radius: 0 0 var(--r-xl) var(--r-xl);
     box-shadow: none;
   }
+  .g-share__lead .g-share__cta::before { display: none; }
   .g-share__lead .g-share__cta-icon { width: 38px; height: 38px; margin: 0; border-radius: 12px; }
   .g-share__lead .g-share__cta h2 { font-size: 18px; }
   .g-share__lead .g-share__cta p { grid-column: 1 / -1; margin-top: 8px; font-size: 12.8px; line-height: 1.7; }
   .g-share__lead .g-share__cta-actions { grid-column: 1 / -1; margin-top: 12px; }
   .g-share__lead .g-share__cta-hint { display: none; }
   /* 用虚线“撕口”衔接，像一张带存根的 QSL 卡 */
-  .g-share__lead:not([hidden]) + .g-share__grid .g-share__viewer {
-    border-top: 1px dashed var(--line-strong);
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
+  .g-share__grid.has-lead .g-share__viewer {
+    border-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
   }
   .g-share__aside .g-share__cta.is-guest { display: none; }
 }
@@ -1828,8 +1829,8 @@
   .g-share__title { font-size: clamp(26px, 8vw, 34px); }
   .g-share__cta-actions .btn { flex: 1 1 auto; justify-content: center; }
   /* 访客首屏需同时看到按钮和卡片，适当压低查看器高度 */
-  .g-share__lead:not([hidden]) + .g-share__grid .g-share__viewer-stage { height: clamp(320px, 88vw, 420px); }
-  .g-share__lead:not([hidden]) + .g-share__grid .g-share__viewer-skel { min-height: clamp(320px, 88vw, 420px); }
+  .g-share__grid.has-lead .g-share__viewer-stage { height: clamp(300px, 82vw, 400px); }
+  .g-share__grid.has-lead .g-share__viewer-skel { min-height: clamp(300px, 82vw, 400px); }
   .g-share__meta { display: grid; grid-template-columns: 1fr 1fr; }
   .g-share__meta div { padding: 10px 12px 10px 0; border-right: 1px dashed var(--line); }
   .g-share__meta div:nth-child(2n) { border-right: 0; padding-left: 14px; }
