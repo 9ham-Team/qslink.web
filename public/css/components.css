@@ -286,7 +286,8 @@
   transform-style: preserve-3d;
   will-change: transform;
 }
-.qsl-tile-frame { position: relative; transform-style: preserve-3d; }
+/* 内部使用二维叠层，避免倾斜时图片链接抢占爱心的鼠标命中区域。 */
+.qsl-tile-frame { position: relative; transform-style: flat; isolation: isolate; }
 .qsl-tile-media {
   position: relative;
   display: block;
@@ -368,8 +369,6 @@
   font-weight: 700;
   box-shadow: var(--shadow-xs);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  /* 卡片 3D 倾斜时处于 preserve-3d 上下文，z-index 无效，需在 Z 轴上抬到媒体链接前面 */
-  translate: 0 0 2px;
   transition: all var(--t-fast) var(--ease);
 }
 .qsl-like:hover { transform: scale(1.06); background: #fff; color: var(--accent); }
