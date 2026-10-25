@@ -1,6 +1,9 @@
 **
 !package.json
 !package-lock.json
+!LICENSE
+!COPYRIGHT
+!CONTENT-LICENSE.md
 !server/
 !server/**
 !public/

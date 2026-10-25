@@ -230,6 +230,13 @@ async function main() {
 
     // ---- 场景 1：注册空提交 ----
     await goto('/register');
+    const registerConsent = await cdp.evaluate(`(() => {
+      const input = document.querySelector('[name="legalConsent"]');
+      return !!input && !input.checked && input.required &&
+        !!document.querySelector('a[href="/legal/terms.html"]') &&
+        !!document.querySelector('a[href="/legal/privacy.html"]');
+    })()`);
+    record('register 条款确认默认未勾选且提供条款链接', registerConsent);
     await cdp.evaluate(CLICK_PRIMARY(['创建账号', '注册']));
     await sleep(900);
     const emptyRes = await cdp.evaluate(COLLECT_ERRORS);
@@ -257,8 +264,14 @@ async function main() {
 
     // ---- 场景 3：登录错误密码 ----
     await goto('/login');
-    await cdp.evaluate(SET_BY_PLACEHOLDER('bg7mom 或 you@example.com', 'bg7mom'));
-    await cdp.evaluate(SET_BY_PLACEHOLDER('输入登录密码', 'DefinitelyWrong123!'));
+    await cdp.evaluate(`(() => {
+      for (const [name, value] of [['identifier', 'bg7mom'], ['password', 'DefinitelyWrong123!']]) {
+        const input = document.querySelector('input[name="' + name + '"]');
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    })()`);
     await cdp.evaluate(CLICK_PRIMARY(['登录']));
     await sleep(1800);
     const wrongRes = await cdp.evaluate(COLLECT_ERRORS);
@@ -273,6 +286,18 @@ async function main() {
     // ---- 场景 4：新建卡片空提交（登录态） ----
     await goto(`/dashboard/cards/new?devToken=${encodeURIComponent(userToken || '')}`);
     await sleep(800);
+    const contentConsent = await cdp.evaluate(`(() => {
+      const input = document.querySelector('[name="contentConsent"]');
+      return !!input && !input.checked;
+    })()`);
+    record('card-new 内容授权默认未勾选', contentConsent);
+    await cdp.evaluate(CLICK_PRIMARY(['提交审核']));
+    const consentRefused = await cdp.evaluate(`(() => {
+      const error = document.querySelector('[data-consent-error]');
+      return !!error && !error.hidden && /授权/.test(error.textContent);
+    })()`);
+    record('card-new 未授权时阻止提交并提示', consentRefused);
+    await cdp.evaluate(`document.querySelector('[name="contentConsent"]').click()`);
     await cdp.evaluate(CLICK_PRIMARY(['提交审核']));
     await sleep(1200);
     const cardRes = await cdp.evaluate(COLLECT_ERRORS);

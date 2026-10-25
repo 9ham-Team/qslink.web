@@ -175,6 +175,7 @@
       '<p class="f-form-tip">' + ico('info', 14) + ' 宽高取值 1 - 1000 的整数；横版卡片推荐 3:2，竖版推荐 2:3。</p>' +
       '</section>' +
 
+      '<div class="f-form-card"><label class="f-consent"><input type="checkbox" name="contentConsent"><span>我确认拥有本次卡片内容的必要权利，同意<a href="/legal/terms.html" target="_blank" rel="noopener">用户条款及其中的内容授权</a>，并已阅读<a href="/legal/privacy.html" target="_blank" rel="noopener">隐私说明</a>。审核通过后卡片将公开展示，图片通过公开链接提供，请勿包含私人收件地址或电话。</span></label><p class="f-error" data-consent-error role="alert" hidden></p></div>' +
       '<div class="f-editor-actions">' +
       '<a class="btn btn-ghost" href="/dashboard/cards">取消</a>' +
       '<span class="f-unsaved" data-unsaved hidden>' + ico('alert', 14) + ' 有未保存的修改</span>' +
@@ -579,6 +580,14 @@
 
     async function onSubmit() {
       if (state.submitting) return;
+      const consent = container.querySelector('[name="contentConsent"]');
+      const consentError = container.querySelector('[data-consent-error]');
+      consentError.hidden = consent.checked;
+      if (!consent.checked) {
+        consentError.textContent = '请确认内容权利及授权后再提交';
+        consent.focus();
+        return;
+      }
       const values = collectValues();
       const errors = validate(values);
       if (errors.length) {
@@ -598,6 +607,9 @@
       setSubmitting(true);
       try {
         const payload = {
+          acceptTerms: true,
+          termsVersion: '2026-10-25',
+          acceptContentLicense: true,
           title: values.title,
           callSign: values.callSign,
           notes: values.notes,

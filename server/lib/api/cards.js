@@ -104,6 +104,7 @@ async function publicByShareToken(ctx) {
 async function create(ctx) {
   const user = auth.requireUser(ctx);
   const payload = validateCardCreate(ctx.body || {});
+  const contentConsent = { ...require('../legal').requireAcceptance(ctx.body, true), userId: user.id };
 
   const frontImage = await saveImage(payload.frontImage, ctx.uploadsDir, 'frontImage');
   const backImage = payload.backImage
@@ -114,6 +115,7 @@ async function create(ctx) {
   const card = {
     id: createId('c'),
     ownerId: user.id,
+    contentConsent,
     title: payload.title,
     callSign: payload.callSign,
     band: payload.band,
@@ -149,6 +151,10 @@ async function update(ctx) {
   if (!isOwner && !isAdmin) throw forbidden('只能修改自己的卡片');
 
   const patch = validateCardUpdate(isObj(ctx.body) ? ctx.body : {}, { allowStatus: isAdmin });
+  // An administrator moderating someone else's card cannot consent for its owner.
+  if (isOwner) {
+    patch.contentConsent = { ...require('../legal').requireAcceptance(ctx.body, true), userId: user.id };
+  }
 
   if (patch.frontImage) {
     patch.frontImage = await saveImage(patch.frontImage, ctx.uploadsDir, 'frontImage');

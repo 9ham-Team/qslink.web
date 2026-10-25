@@ -118,6 +118,8 @@
 
 ## 2. 认证
 ### POST /api/auth/register
+
+注册还必须提交 `acceptTerms: true` 和 `termsVersion: "2026-10-25"`，表示主动同意用户条款并确认阅读隐私说明。缺失、非布尔 true 或版本不符返回 `400 VALIDATION`，字段为 `legalConsent`。服务器记录版本和确认时间，不从客户端接受确认时间。
 body: `{ username, email, password, displayName?, callSign? }`
 - username 3-20 位字母/数字/下划线且唯一；email 合法且唯一；password ≥ 8 位且包含字母与数字；displayName 默认 username；callSign 默认空字符串。
 - 201 → `{ token, user: UserSelf }`
@@ -166,11 +168,15 @@ body: `{ currentPassword, newPassword }` → `{ ok: true }`；错误 400 `VALIDA
 ### GET /api/public/cards/:shareToken
 分享页专用（无需登录）。→ `{ card: CardDetail, owner: UserPublic }`（卡片必须 approved；否则 404）。
 ### POST /api/cards  🔒
+
+另须提交 `acceptTerms: true`、`termsVersion: "2026-10-25"`、`acceptContentLicense: true`，确认本次卡片内容授权。服务器保存版本、时间及确认账号；缺失或不匹配返回 `400 VALIDATION`（`legalConsent`），且不写入图片。
 body: `{ title, callSign?, band?, mode?, notes?, ratio: {w,h}, frontImage, backImage }`
 - `band` / `mode` 为兼容字段，v3 起可省略或传空字符串（不再作为卡片内容，前端不再填写）。
 - 创建后 `status: "pending"`（等待人工审核），同时生成 `shareToken`。
 - 201 → `{ card: CardPublic }`（含 status= pending、shareToken）
 ### PUT /api/cards/:id  🔒
+
+所有者编辑时须再次提交上述三个确认字段，服务器更新该卡片的授权记录。管理员编辑他人的卡片不替代所有者授权，不修改已有确认记录。旧账号和卡片无确认记录时保持 NULL，不推定已经授权；授权记录不包含在公开 API 响应中。
 owner 或 admin。body 同上（字段可选）。owner 修改后 `status` 重置为 `pending`（admin 修改不重置，除非显式传 status）。
 → `{ card: CardPublic }`
 ### DELETE /api/cards/:id  🔒
