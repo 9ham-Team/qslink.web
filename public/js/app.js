@@ -205,7 +205,7 @@
       '<a href="/legal/privacy.html" target="_blank" rel="noopener">隐私说明</a></div>' +
       '</div>' +
       '<div class="footer-bottom">' +
-      '<span>© 2026 QSLink · 9ham.net</span>' +
+      '<span>© 2026 QSLink · 9ham.net · 联系我们：<a href="mailto:services@9ham.net">services@9ham.net</a></span>' +
       '<span>让每一张 QSL 卡片，都抵达对的人 <span class="seventy-three">73!</span></span>' +
       '</div></div>';
   }
