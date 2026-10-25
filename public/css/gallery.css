@@ -254,6 +254,17 @@
     inset 0 -14px 28px rgba(9, 78, 66, 0.05);
 }
 
+/* 高 DPR 手机快速翻面时，五张整面厚度薄片和全息混合层会挤占卡图的
+   GPU 瓦片预算，造成已加载图片缺块/闪烁。移动端只合成两个真实卡面；
+   保留透视、正反面间距和玻璃边框，不用额外整面纹理模拟纸张厚度。 */
+@media (max-width: 900px), (hover: none), (pointer: coarse) {
+  .card3d-thickness,
+  .card3d-holo { display: none; }
+  .card3d-sheen { mix-blend-mode: normal; transition: none; }
+  .card3d.is-hover .card3d-sheen,
+  .card3d.is-dragging .card3d-sheen { opacity: 0.08; }
+}
+
 /* 地面投影 */
 .card3d-floor {
   position: absolute;

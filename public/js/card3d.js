@@ -246,6 +246,8 @@
       root.style.setProperty('--card3d-persp', Math.round(clamp(w * 2.15, 860, 1900)) + 'px');
       root.style.setProperty('--card3d-title-size', Math.round(clamp(w * 0.11, 22, 58)) + 'px');
       root.style.setProperty('--card3d-sub-size', Math.round(clamp(w * 0.021, 9, 14)) + 'px');
+      // A stable layout size, independent of the current rotation; the browser chooses DPR.
+      frontImg.sizes = backImg.sizes = w + 'px';
     }
 
     /* ---------------- 图片 ---------------- */
@@ -255,6 +257,7 @@
         faceEl.classList.remove('is-loaded');
         faceEl.classList.add('is-empty');
         imgEl.removeAttribute('src');
+        imgEl.removeAttribute('srcset');
         return;
       }
       faceEl.classList.remove('is-empty', 'is-loaded');
@@ -267,7 +270,7 @@
         faceEl.classList.add('is-empty');
       };
       imgEl.alt = label === 'back' ? '卡片背面' : '卡片正面';
-      imgEl.src = url;
+      QSL.images.apply(imgEl, url, cssWidth || 340);
     }
 
     function paintImages() {
@@ -715,6 +718,8 @@
 
     /* ---------------- 首帧 ---------------- */
     if (container.classList) container.classList.add('card3d-mounted');
+    // Measure before assigning image URLs, avoiding a full-resolution or oversized first request.
+    relayout();
     paintImages();
     syncSpinButton();
     applyTransform();

@@ -22,7 +22,7 @@ QSLink 是一个为业余无线电爱好者（HAM）打造的 QSL 卡片交换�
 
 ## 🚀 快速开始
 
-环境要求：**Node.js ≥ 18**（CI 使用 Node 24）和 **PostgreSQL 17**。先用 `npm ci` 安装锁定依赖，无需前端构建。数据库连接与本地启动见 [PostgreSQL 指南](docs/POSTGRESQL.md)。
+环境要求：**Node.js ≥ 20.9**（CI 和生产镜像使用 Node 24）和 **PostgreSQL 17**。先用 `npm ci` 安装锁定依赖，无需前端构建。数据库连接与本地启动见 [PostgreSQL 指南](docs/POSTGRESQL.md)。
 
 ```bash
 cd qsl-card-exchange

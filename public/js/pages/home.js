@@ -105,7 +105,7 @@
     el.innerHTML =
       '<div class="qsl-tile-frame"><a class="qsl-tile-media" href="' + esc(href) + '" data-link>' +
       '<span class="qsl-tile-img" style="aspect-ratio:' + esc(QSL.ratioCss(card.ratio)) + '">' +
-      '<img src="' + esc(card.frontImage || QSL.PLACEHOLDER_IMAGE) + '" alt="' + esc(card.title || '') + '" loading="lazy">' +
+      '<img ' + QSL.images.attributes(card.frontImage || QSL.PLACEHOLDER_IMAGE) + ' alt="' + esc(card.title || '') + '" loading="lazy">' +
       '</span></a></div>' +
       '<div class="qsl-tile-info"><a class="qsl-tile-title" href="' + esc(href) + '" data-link>' +
       esc(card.title || '未命名卡片') + '</a><div class="qsl-tile-meta">' +
@@ -398,11 +398,11 @@
     const back = withImages[1] || front;
     const imgs = art.querySelectorAll('img');
     if (imgs[0]) {
-      imgs[0].src = (front.backImage || front.frontImage);
+      QSL.images.apply(imgs[0], front.backImage || front.frontImage, imgs[0].clientWidth || 240);
       imgs[0].alt = '';
     }
     if (imgs[1]) {
-      imgs[1].src = back.frontImage || front.frontImage;
+      QSL.images.apply(imgs[1], back.frontImage || front.frontImage, imgs[1].clientWidth || 240);
       imgs[1].alt = '';
     }
   }

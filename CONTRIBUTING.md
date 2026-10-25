@@ -67,7 +67,7 @@ git switch -c feature/card-search upstream/dev
 4. **仅在用户明确授权 commit 时创建提交。** 完成修改或验证不构成提交授权；未获授权时保留工作区改动并报告。
 5. 获准提交后，明确暂存本次任务文件，避免用无差别暂存把其他人的工作带入提交。
 
-项目使用 Node.js ≥ 18（CI 为 24）和 PostgreSQL 17。先执行 `npm ci` 安装锁定依赖，无需前端构建。常用检查：
+项目使用 Node.js ≥ 20.9（CI 和生产镜像为 24）和 PostgreSQL 17。先执行 `npm ci` 安装锁定依赖，无需前端构建。常用检查：
 
 ```powershell
 git diff --check

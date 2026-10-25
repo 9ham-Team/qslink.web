@@ -106,7 +106,7 @@
       '<div class="f-xreq">' +
       '<div class="f-xreq-card">' +
       '<span class="f-xreq-thumb" style="aspect-ratio:' + esc(QSL.ratioCss(target.ratio || { w: 3, h: 2 })) + '">' +
-      '<img src="' + esc(target.frontImage || QSL.PLACEHOLDER_IMAGE) + '" alt="' + esc(target.title || '卡片') + '" loading="lazy">' +
+      '<img ' + QSL.images.attributes(target.frontImage || QSL.PLACEHOLDER_IMAGE, '100px') + ' alt="' + esc(target.title || '卡片') + '" loading="lazy">' +
       '</span>' +
       '<div class="f-xreq-card-info">' +
       '<span class="f-xreq-eyebrow">' + ico('send', 13) + ' APPLY TO EXCHANGE</span>' +
@@ -536,7 +536,7 @@
         '<div class="f-ex-side-card">' +
         '<a class="f-ex-thumb" href="/card/' + esc(card.id || '') + '" aria-label="查看卡片 ' + esc(card.title || '') + '">' +
         '<span style="aspect-ratio:' + esc(QSL.ratioCss(card.ratio || { w: 3, h: 2 })) + '">' +
-        '<img src="' + esc(card.frontImage || QSL.PLACEHOLDER_IMAGE) + '" alt="" loading="lazy"></span>' +
+        '<img ' + QSL.images.attributes(card.frontImage || QSL.PLACEHOLDER_IMAGE, '100px') + ' alt="" loading="lazy"></span>' +
         '<span class="f-ex-thumb-dir">' + ico(incoming ? 'inbox' : 'send', 15) + '</span>' +
         '</a>' +
         '<div class="f-ex-side-info">' +
