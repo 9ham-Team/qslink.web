@@ -122,7 +122,9 @@
   overflow: hidden;
   background: linear-gradient(150deg, #f6fffc 0%, #eff7ff 55%, #f5efff 100%);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  transform-style: preserve-3d;
+  /* 卡面内的光泽/全息层只与本面图片混合，不向外穿透到 3D 场景和毛玻璃面板，
+     否则旋转时每帧都要重新合成整块背景，移动端会整页卡顿并闪烁 */
+  isolation: isolate;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
@@ -1560,6 +1562,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+/* 3D 查看器面板不做背景模糊：毛玻璃包裹持续变换的 3D 图层，会让每一帧都重新模糊合成，
+   导致旋转时整页掉帧、卡面纹理闪烁丢失；改为更实的底色，观感基本一致 */
+.g-share__viewer.g-panel,
+.g-detail__viewer.g-panel {
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .g-share__viewer::before {
   content: "";
