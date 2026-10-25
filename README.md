@@ -40,6 +40,8 @@ Windows 用户在启动 PostgreSQL 并配置好 `DATABASE_URL` 后，也可以�
 
 **公网生产部署请先阅读 [部署指南](docs/DEPLOYMENT.md)**，使用 Docker Compose + Caddy HTTPS 或配置受保护的反向代理。生产必须显式配置独立数据目录、HTTPS 站点地址，并先运行离线管理员初始化。禁止复制开发演示库上线。
 
+迁移到新服务器时，可使用 [Docker 离线一键打包脚本](docs/DOCKER-BUNDLE.md) 构建、验证并导出三个镜像；数据迁移步骤见 [服务器迁移流程](docs/SERVER-MIGRATION.md)。
+
 ### 演示账号（仅显式开启的本地演示环境）
 
 | 角色 | 用户名 | 密码 | 说明 |

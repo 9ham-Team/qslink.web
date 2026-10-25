@@ -1,12 +1,17 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 // Prepare a credential-free Linux AMD64 distribution. Build/save images separately.
-const root = path.resolve(import.meta.dirname, '..');
-const revision = execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const revision = process.env.QSL_BUNDLE_REVISION || execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+if (!/^[a-f0-9]{12}(-dirty-[0-9]{14})?$/.test(revision)) throw new Error('Invalid bundle revision');
 const out = path.join(root, 'artifacts', `qslink-${revision}-linux-amd64`);
-await fs.mkdir(path.join(out, 'deploy'), { recursive: true });
+await fs.mkdir(path.join(root, 'artifacts'), { recursive: true });
+// Refuse existing output: it may already contain credentials or real backup data.
+await fs.mkdir(out);
+await fs.mkdir(path.join(out, 'deploy'));
 let compose = await fs.readFile(path.join(root, 'compose.yaml'), 'utf8');
 compose = 'name: qslink\n' + compose.replace('    build: .', `    image: qslink/app:${revision}\n    pull_policy: never`);
 compose = compose.replace('    image: postgres:17-alpine', '    image: qslink/postgres:17-alpine\n    pull_policy: never');
