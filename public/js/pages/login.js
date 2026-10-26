@@ -130,7 +130,7 @@
       '<li>' + ico('shield', 18) + '<span><b>人工审核</b> · 让每一张卡片都值得收藏</span></li>' +
       '</ul>' +
       '<div class="f-visual-card" aria-hidden="true">' +
-      '<div class="f-mini-card f-mini-front"><span class="f-mini-sign">QSL</span><span class="f-mini-call">BG7MOM</span><span class="f-mini-line"></span></div>' +
+      '<div class="f-mini-card f-mini-front"><span class="f-mini-sign">QSL</span><span class="f-mini-line"></span></div>' +
       '<div class="f-mini-card f-mini-back"><span class="f-mini-back-line"></span><span class="f-mini-back-line short"></span><span class="f-mini-stamp">QSL</span></div>' +
       '</div>' +
       '<p class="f-visual-foot">' + ico('antenna', 15) + ' 73 · 电波永不消逝，卡片永远抵达。</p>' +

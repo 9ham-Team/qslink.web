@@ -148,7 +148,7 @@
       '</div>' +
       '<div class="f-field f-span-2" data-field="callSign">' +
       '<label class="label" for="fCardCallSign">呼号</label>' +
-      '<input id="fCardCallSign" class="input" name="callSign" type="text" maxlength="20" placeholder="如 BG7MOM" autocomplete="off">' +
+      '<input id="fCardCallSign" class="input" name="callSign" type="text" maxlength="20" autocomplete="off">' +
       '<p class="f-error" data-error="callSign" role="alert" hidden></p>' +
       '</div>' +
       '<div class="f-field f-span-2" data-field="notes">' +
