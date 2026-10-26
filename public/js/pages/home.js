@@ -398,17 +398,12 @@
       return card.frontImage;
     });
     if (!withImages.length) return;
-    const front = withImages[0];
-    const back = withImages[1] || front;
     const imgs = art.querySelectorAll('img');
-    if (imgs[0]) {
-      QSL.images.apply(imgs[0], front.backImage || front.frontImage, imgs[0].clientWidth || 240);
-      imgs[0].alt = '';
-    }
-    if (imgs[1]) {
-      QSL.images.apply(imgs[1], back.frontImage || front.frontImage, imgs[1].clientWidth || 240);
-      imgs[1].alt = '';
-    }
+    imgs.forEach(function (img, index) {
+      const card = withImages[index] || withImages[0];
+      QSL.images.apply(img, card.frontImage, img.clientWidth || 240);
+      img.alt = '';
+    });
   }
 
   function renderShowcase(root, state, items) {
