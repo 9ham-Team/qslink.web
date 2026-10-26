@@ -2247,3 +2247,47 @@
 .f-consent { display: flex; align-items: flex-start; gap: 10px; line-height: 1.8; font-size: 14px; cursor: pointer; }
 .f-consent input { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 4px; accent-color: #0eaf8f; }
 .f-consent a { color: #087d69; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Registration consent: keep the native checkbox semantics and animate its visual state. */
+.f-auth-page-reg .f-consent input[type="checkbox"] {
+  appearance: none;
+  display: grid;
+  place-content: center;
+  padding: 0;
+  border: 1.5px solid var(--line-strong, #a8bbb5);
+  border-radius: 5px;
+  background-color: var(--surface, #fff);
+  cursor: pointer;
+  transition: background-color 180ms var(--ease), border-color 180ms var(--ease);
+}
+.f-auth-page-reg .f-consent input[type="checkbox"]::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: rotate(45deg) scale(0.65);
+  transition: opacity 160ms var(--ease), transform 200ms var(--ease);
+}
+.f-auth-page-reg .f-consent input[type="checkbox"]:checked {
+  background-color: var(--brand);
+  border-color: var(--brand);
+}
+.f-auth-page-reg .f-consent input[type="checkbox"]:checked::after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+.f-auth-page-reg .f-consent input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--brand-deep);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .f-auth-page-reg .f-consent input[type="checkbox"],
+  .f-auth-page-reg .f-consent input[type="checkbox"]::after { transition: none; }
+}
+@media (forced-colors: active) {
+  .f-auth-page-reg .f-consent input[type="checkbox"] { appearance: auto; }
+  .f-auth-page-reg .f-consent input[type="checkbox"]::after { display: none; }
+}
