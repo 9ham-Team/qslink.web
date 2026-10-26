@@ -16,26 +16,36 @@
       function showProfile(res) {
         const user = res.user;
         const own = QSL.state.user && QSL.state.user.uid === uid;
+        const bio = (user.bio || '').trim() || '在电波中相遇，73！';
+        const collapsibleBio = bio.length > 40 || /[\r\n]/.test(bio);
         document.title = (user.displayName || '火腿') + '的个人主页 · QSLink';
         container.innerHTML = '<div class="container g-space">' +
           '<nav class="g-crumbs" aria-label="面包屑"><a href="/explore" data-link>卡片广场</a><span>/</span><span>个人主页</span></nav>' +
           '<section class="g-space__hero">' +
-          '<div class="g-space__stamp" aria-hidden="true">CQ<br><small>WORLD</small></div>' +
-          '<div class="g-space__identity">' + QSL.avatar(user, 88) + '<div>' +
-          '<p class="eyebrow">ON THE AIR · 个人主页</p><h1>' + esc(user.displayName || '火腿') + '</h1>' +
-          (user.callSign ? '<p class="g-space__call mono">' + esc(user.callSign) + '</p>' : '') +
-          '<p class="g-space__uid mono">UID ' + esc(user.uid) + '</p></div></div>' +
-          '<p class="g-space__bio">' + esc(user.bio || '每一张 QSL，都是一次相遇的纪念。欢迎来我的卡片小站坐坐，73！') + '</p>' +
-          '<div class="g-space__foot"><span>' + esc(QSL.formatDate(user.joinedAt)) + ' 加入 QSLink</span>' +
-          '<div class="g-space__actions"><button class="btn btn-primary" type="button" data-space-share>' + QSL.icon('share', 17) + '分享主页</button>' +
-          (own ? '<a class="btn btn-ghost" href="/dashboard/profile" data-link>编辑资料</a><a class="btn btn-ghost" href="/dashboard" data-link>个人中心</a>' : '') +
+          '<div class="g-space__identity">' + QSL.avatar(user, 48) + '<div>' +
+          '<div class="g-space__name"><h1>' + esc(user.displayName || '火腿') + '</h1>' +
+          (user.callSign ? '<span class="g-space__call mono">' + esc(user.callSign) + '</span>' : '') + '</div>' +
+          '<p id="space-bio" class="g-space__bio' + (collapsibleBio ? ' is-collapsed' : '') + '">' + esc(bio) + '</p>' +
+          (collapsibleBio ? '<button class="g-space__bio-toggle" type="button" aria-expanded="false" aria-controls="space-bio" data-space-bio-toggle>展开简介</button>' : '') +
           '</div></div></section>' +
           '<section class="g-space__collection" aria-labelledby="space-cards-title"><header class="g-space__heading">' +
-          '<div><p class="eyebrow">QSL COLLECTION</p><h2 id="space-cards-title">电波留下的足迹</h2></div>' +
+          '<h2 id="space-cards-title">公开卡片</h2>' +
           '<div class="g-space__stats"><span><b>' + esc(String(user.stats.cards)) + '</b> 张公开卡片</span>' +
           '<span><b>' + esc(String(user.stats.likesReceived)) + '</b> 次喜欢</span></div></header>' +
           '<div class="g-space__grid" data-space-grid></div><p class="g-space__status" data-space-status role="status"></p>' +
-          '<div class="g-space__more"><button class="btn btn-soft" type="button" data-space-more hidden>加载更多</button></div></section></div>';
+          '<div class="g-space__more"><button class="btn btn-soft" type="button" data-space-more hidden>加载更多</button></div></section>' +
+          '<footer class="g-space__foot"><div class="g-space__meta"><span class="mono">UID ' + esc(user.uid) + '</span>' +
+          '<span>' + esc(QSL.formatDate(user.joinedAt)) + ' 加入 QSLink</span></div>' +
+          '<div class="g-space__actions">' +
+          (own ? '<a class="btn btn-ghost" href="/dashboard/profile" data-link>编辑资料</a><a class="btn btn-ghost" href="/dashboard" data-link>个人中心</a>' : '') +
+          '<button class="btn btn-primary" type="button" data-space-share>' + QSL.icon('share', 17) + '分享主页</button></div></footer></div>';
+        const bioToggle = container.querySelector('[data-space-bio-toggle]');
+        if (bioToggle) bioToggle.addEventListener('click', function () {
+          const expanded = bioToggle.getAttribute('aria-expanded') !== 'true';
+          container.querySelector('#space-bio').classList.toggle('is-collapsed', !expanded);
+          bioToggle.setAttribute('aria-expanded', String(expanded));
+          bioToggle.textContent = expanded ? '收起简介' : '展开简介';
+        });
         container.querySelector('[data-space-share]').addEventListener('click', function () {
           const url = res.url || location.origin + '/space/' + uid;
           if (shareModal) shareModal.close();
