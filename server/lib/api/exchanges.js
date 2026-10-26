@@ -77,7 +77,7 @@ async function detail(ctx) {
   return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) } };
 }
 
-/** POST /api/exchanges/:id/approve：仅卡片主人；批准后同卡其它 pending 自动拒绝 */
+/** POST /api/exchanges/:id/approve：仅卡片主人；每笔申请独立审批 */
 async function approve(ctx) {
   const user = auth.requireUser(ctx);
   const exchange = findExchange(ctx);
@@ -88,17 +88,6 @@ async function approve(ctx) {
   exchange.status = 'approved';
   exchange.decidedAt = now;
   exchange.updatedAt = now;
-  ctx.db.updateWhere(
-    'exchanges',
-    (item) =>
-      item.cardId === exchange.cardId && item.id !== exchange.id && item.status === 'pending',
-    {
-      status: 'rejected',
-      rejectReason: '该卡片已与其它申请者达成交换',
-      decidedAt: now,
-      updatedAt: now,
-    }
-  );
   await ctx.db.save();
   return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) } };
 }

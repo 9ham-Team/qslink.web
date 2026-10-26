@@ -437,7 +437,7 @@ test('PostgreSQL transactions roll back exceptions and enforce unique users acro
   assert.equal(await db.transaction(unit => unit.data.users[0].bio), '8', 'no lost updates across connections');
 });
 
-test('concurrent registration and exchange approval remain atomic across app processes', async t => {
+test('concurrent registration and independent exchange approvals remain atomic across app processes', async t => {
   const dir = await temp(t);
   assert.equal((await init(dir)).code, 0);
   const a = await start(t, dir), b = await start(t, dir);
@@ -449,6 +449,7 @@ test('concurrent registration and exchange approval remain atomic across app pro
   const card = (await (await request(a.base, '/api/cards', { token, method: 'POST', body: { title: 'Concurrent', ratio: { w: 3, h: 2 }, frontImage: svg } })).json()).card;
   await request(a.base, `/api/admin/cards/${card.id}`, { token, method: 'PUT', body: { status: 'approved' } });
   const address = { name: 'Test', line1: 'Test road', city: 'Test', country: 'Test' };
+  assert.equal((await request(a.base, '/api/me/profile', { token, method: 'PUT', body: { address } })).status, 200);
   const ids = [];
   for (let i = 0; i < 2; i++) {
     const user = await (await request(a.base, '/api/auth/register', { method: 'POST', body: await withCode(a, { username: 'applicant' + i, email: `applicant${i}@example.test`, password: 'Applicant-Password-42!' }) })).json();
@@ -456,15 +457,36 @@ test('concurrent registration and exchange approval remain atomic across app pro
     assert.equal(response.status, 201);
     ids.push((await response.json()).exchange.id);
   }
+  const { db, databaseSchema } = databases.get(dir);
+  // Exercise an upgrade of an existing database with the old index and pending rows.
+  await db.pool.query(`CREATE UNIQUE INDEX exchanges_approved_unique ON "${databaseSchema}".exchanges("cardId") WHERE status='approved'`);
+  await db.pool.query(`DELETE FROM "${databaseSchema}".schema_migrations WHERE version=6`);
+  const beforeMigration = await db.transaction(unit => unit.data.exchanges);
+  await db.migrate();
+  assert.deepEqual(await db.transaction(unit => unit.data.exchanges), beforeMigration, 'migration preserves existing applications');
   const approvals = await Promise.all(ids.map((id, i) => request((i ? a : b).base, `/api/exchanges/${id}/approve`, { token, method: 'POST', body: {} })));
-  assert.equal(approvals.filter(res => res.status === 200).length, 1);
-  const exchanges = await databases.get(dir).db.transaction(unit => unit.data.exchanges);
-  assert.equal(exchanges.filter(row => row.status === 'approved').length, 1);
-  assert.equal(exchanges.filter(row => row.status === 'rejected').length, 1);
-  const db = databases.get(dir).db;
+  assert.deepEqual(approvals.map(res => res.status), [200, 200]);
+  const exchanges = await db.transaction(unit => unit.data.exchanges);
+  assert.equal(exchanges.filter(row => row.status === 'approved').length, 2);
+  assert.equal(exchanges.filter(row => row.status === 'rejected').length, 0);
   await assert.rejects(db.transaction(unit => {
-    unit.data.exchanges.find(row => row.status === 'rejected').status = 'approved';
-  }, { write: true }), err => err.status === 409, 'database independently enforces one approval per card');
+    unit.insert('exchanges', { ...unit.data.exchanges[0], id: 'duplicate_application', status: 'pending' });
+  }, { write: true }), err => err.status === 409, 'database still rejects duplicate active applications for the same applicant');
+
+  const later = await (await request(a.base, '/api/auth/register', { method: 'POST', body: await withCode(a, {
+    username: 'laterapplicant', email: 'later@example.test', password: 'Later-Applicant-42!',
+  }) })).json();
+  const lateResponse = await request(a.base, `/api/cards/${card.id}/exchanges`, { token: later.token, method: 'POST', body: { contactName: 'Later', address } });
+  assert.equal(lateResponse.status, 201, 'new applicants may apply after earlier approvals');
+  const lateExchange = (await lateResponse.json()).exchange;
+  const repeated = await Promise.all([a, b].map(app => request(app.base, `/api/exchanges/${lateExchange.id}/approve`, { token, method: 'POST', body: {} })));
+  assert.deepEqual(repeated.map(res => res.status).sort(), [200, 400], 'same application can only be approved once');
+  const ownExchange = await request(a.base, `/api/exchanges/${lateExchange.id}`, { token: later.token });
+  assert.equal(ownExchange.status, 200);
+  assert.ok((await ownExchange.json()).exchange.toAddress);
+  assert.equal((await request(a.base, `/api/exchanges/${ids[0]}`, { token: later.token })).status, 403, 'another applicant cannot access a different exchange');
+  assert.equal((await request(a.base, `/api/exchanges/${lateExchange.id}/complete`, { token: later.token, method: 'POST', body: {} })).status, 200);
+  assert.equal(await db.transaction(unit => unit.data.exchanges.filter(row => row.status === 'approved').length), 2, 'completion leaves other approvals active');
   await assert.rejects(db.transaction(unit => {
     unit.data.likes.push({ id: 'l_bad', cardId: card.id, userId: 'nonexistent', createdAt: new Date().toISOString() });
   }, { write: true }), err => err.status === 400, 'foreign keys reject orphan likes');

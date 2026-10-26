@@ -247,7 +247,8 @@ body: `{ message?, contactName, address: Address }`
 ### GET /api/exchanges/:id  🔒
 参与者或 admin → `{ exchange: ExchangeItem }`（地址可见性同上）
 ### POST /api/exchanges/:id/approve  🔒 (仅卡片 owner)
-- 仅 pending 可操作；批准同时把该卡片其它 pending 申请自动置为 `rejected`（rejectReason: "该卡片已与其它申请者达成交换"）。
+- 仅 pending 可操作；每笔申请独立审批，同意后不改变同一卡片的其他申请。同一卡片可同时与多个不同用户处于 `approved` 状态，也允许其他用户继续提交申请。
+- 同一用户对同一卡片仍只能有一笔 `pending`/`approved` 活动申请；各笔交换独立完成，地址仅对该笔交换的双方及管理员可见。
 - → `{ exchange: ExchangeItem }`（包含双方地址）
 ### POST /api/exchanges/:id/reject  🔒 (仅卡片 owner)
 body: `{ reason? }` → `{ exchange }`
