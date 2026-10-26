@@ -156,7 +156,7 @@
       '<div class="f-form-error" data-form-error hidden></div>' +
       '<div class="f-form-grid">' +
       fieldHtml({ id: 'fProfileDisplayName', name: 'displayName', label: '昵称', value: init.displayName, placeholder: '展示给其他火腿的名字', required: true, maxlength: 40 }) +
-      fieldHtml({ id: 'fProfileCallSign', name: 'callSign', label: '呼号', value: init.callSign, placeholder: '如 BG7MOM', optional: true, maxlength: 20 }) +
+      fieldHtml({ id: 'fProfileCallSign', name: 'callSign', label: '呼号', value: init.callSign, optional: true, maxlength: 20 }) +
       fieldHtml({ id: 'fProfileBio', name: 'bio', label: '个人简介', value: init.bio, placeholder: '介绍一下你的电台与通联故事', optional: true, multiline: true, rows: 3, maxlength: 200, counter: 200, span: true }) +
       '</div>' +
       '<div class="f-form-actions">' +

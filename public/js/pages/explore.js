@@ -56,7 +56,7 @@
       '<span class="g-search__icon" aria-hidden="true">' + ic('search', 18) + '</span>' +
       '<input class="g-search__input" type="search" inputmode="search" autocomplete="off" ' +
       'autocapitalize="characters" spellcheck="false" ' +
-      'placeholder="输入呼号搜索，如 BG7MOM" aria-label="按呼号搜索卡片" value="' + esc(initial.callSign || '') + '">' +
+      'placeholder="输入呼号搜索" aria-label="按呼号搜索卡片" value="' + esc(initial.callSign || '') + '">' +
       '<button class="g-search__clear" type="button" data-search-clear aria-label="清空搜索"' +
       (initial.callSign ? '' : ' hidden') + '>' + ic('x', 15) + '</button>' +
       '</div>' +

@@ -207,7 +207,7 @@
       textField({ id: 'fRegUsername', name: 'username', label: '用户名', icon: 'user', placeholder: '3-20 位字母/数字/下划线', autocomplete: 'username', required: true, maxlength: 20 }) +
       textField({ id: 'fRegEmail', name: 'email', label: '邮箱', icon: 'mail', type: 'email', placeholder: 'you@example.com', autocomplete: 'email', required: true, maxlength: 120, inputmode: 'email' }) +
       textField({ id: 'fRegDisplayName', name: 'displayName', label: '昵称', icon: 'sparkles', placeholder: '展示给其他火腿的名字', autocomplete: 'nickname', maxlength: 40, optional: true }) +
-      textField({ id: 'fRegCallSign', name: 'callSign', label: '呼号', icon: 'radio', placeholder: '如 BG7MOM', autocomplete: 'off', maxlength: 20, optional: true, hint: '大写字母+数字' }) +
+      textField({ id: 'fRegCallSign', name: 'callSign', label: '呼号', icon: 'radio', autocomplete: 'off', maxlength: 20, optional: true, hint: '大写字母+数字' }) +
       '</div>' +
       '<div class="f-form-grid f-form-grid-2">' +
       textField({ id: 'fRegPassword', name: 'password', label: '密码', icon: 'lock', type: 'password', placeholder: '至少 8 位，含字母与数字', autocomplete: 'new-password', required: true, maxlength: 128, eye: true }) +

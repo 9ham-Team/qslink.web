@@ -160,7 +160,7 @@ Copyright (C) 2026 **BG4JEC and BG7MOM**。原创软件源代码采用 [GNU AGPL
 
 软件许可不覆盖用户上传的 QSL 卡片、照片、文字、个人信息及品牌商标；示例图片、截图和品牌素材也不默认随代码开源。详细边界见 [内容与品牌权利说明](CONTENT-LICENSE.md)。第三方材料适用各自许可。
 
-网站提供 [用户条款](public/legal/terms.html)、[隐私说明](public/legal/privacy.html) 和 [软件许可与源码入口](public/legal/software.html)。注册须主动确认条款；提交或编辑自己的卡片须单独确认内容授权。服务器记录版本、时间及卡片授权账号，旧数据保持未确认状态，不追溯授权。
+网站提供[用户条款](public/legal/terms.html)和[隐私说明](public/legal/privacy.html)。注册须主动确认条款；提交或编辑自己的卡片须单独确认内容授权。服务器记录版本、时间及卡片授权账号，旧数据保持未确认状态，不追溯授权。
 
 部署前请按 [条款上线检查](docs/LEGAL-DEPLOYMENT.md) 公布真实运营主体、联系渠道和数据保留安排，并将源码入口改为实际运行版本的对应源码。
 

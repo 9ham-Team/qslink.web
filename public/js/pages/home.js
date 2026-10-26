@@ -45,18 +45,22 @@
   const STEPS = [
     {
       title: '上传双面卡片',
+      href: '/dashboard/cards/new',
       desc: '准备卡片的正反面图片，写下这张卡片背后的故事，让它在 3D 中立体呈现。'
     },
     {
       title: '等待人工审核',
+      href: '/dashboard/cards?status=pending',
       desc: '管理员会检查卡片内容；通过后亮相卡片广场，被更多火腿发现与点赞。'
     },
     {
       title: '发起换卡申请',
+      href: '/explore',
       desc: '在喜欢的卡片下申请换卡，留下地址与想说的话，等待对方回应。'
     },
     {
       title: '互寄，完成交换',
+      href: '/dashboard/exchanges',
       desc: '双方同意后即可查看地址、邮寄卡片，在电波之外留下可触的纪念。'
     }
   ];
@@ -206,10 +210,10 @@
       return (
         '<li class="g-step" data-reveal data-reveal-delay="' + i * 70 + '">' +
         '<span class="g-step__no">' + String(i + 1).padStart(2, '0') + '</span>' +
-        '<div class="g-step__body"><h3>' + esc(step.title) +
+        '<div class="g-step__body"><h3><a class="g-step__link" href="' + QSL.escapeAttr(step.href) + '" data-link>' + esc(step.title) +
         (i === 1 ? '<span class="badge badge-amber">人工审核</span>' : '') +
         (i === 3 ? '<span class="badge badge-mint">73!</span>' : '') +
-        '</h3><p>' + esc(step.desc) + '</p></div>' +
+        '</a></h3><p>' + esc(step.desc) + '</p></div>' +
         '</li>'
       );
     }).join('');

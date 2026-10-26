@@ -56,7 +56,9 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 
 路由传参：`render(container, ctx)`，`ctx = { path, params: {id?, token?}, query: URLSearchParams }`。
 `render` 可返回 cleanup 函数（如 3D 动画销毁）。导航后容器自动清空。
-`/legal/terms.html`、`/legal/privacy.html`、`/legal/software.html` 为独立静态法律页面，不由 SPA 页面模块渲染。
+`/legal/terms.html`、`/legal/privacy.html` 为独立静态法律页面，不由 SPA 页面模块渲染。
+
+`/dashboard/cards?status=pending` 可直接进入“我的卡片”的“审核中”筛选；`status` 也支持 `approved`、`rejected`，无效或缺省时显示全部。切换筛选会同步更新查询参数。
 
 ## 4. 全局命名空间 `window.QSL`
 

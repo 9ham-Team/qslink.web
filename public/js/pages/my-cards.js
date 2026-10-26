@@ -121,11 +121,14 @@
     return cell;
   }
 
-  function render(container) {
+  function render(container, ctx) {
     if (!QSL.state.user) {
       QSL.navigate('/login?next=' + encodeURIComponent('/dashboard/cards'), { replace: true });
       return function cleanup() {};
     }
+
+    const requestedFilter = ctx && ctx.query ? ctx.query.get('status') : null;
+    let filter = FILTERS.some((f) => f.key === requestedFilter) ? requestedFilter : 'all';
 
     container.innerHTML =
       '<div class="f-page f-my-cards container">' +
@@ -138,8 +141,8 @@
       '<div class="f-cards-toolbar" data-reveal>' +
       '<div class="f-filters" role="tablist" aria-label="卡片状态筛选">' +
       FILTERS.map((f) =>
-        '<button class="f-filter' + (f.key === 'all' ? ' is-active' : '') + '" type="button" role="tab" aria-selected="' +
-        (f.key === 'all' ? 'true' : 'false') + '" data-filter="' + f.key + '">' + esc(f.label) +
+        '<button class="f-filter' + (f.key === filter ? ' is-active' : '') + '" type="button" role="tab" aria-selected="' +
+        (f.key === filter ? 'true' : 'false') + '" data-filter="' + f.key + '">' + esc(f.label) +
         '<b class="f-filter-count" data-count-for="' + f.key + '">0</b></button>'
       ).join('') +
       '</div>' +
@@ -151,7 +154,6 @@
     const gridWrap = container.querySelector('#fMyCardsGrid');
     const totalEl = container.querySelector('[data-cards-total]');
     let items = [];
-    let filter = 'all';
     let alive = true;
     let deleted = false;
 
@@ -203,6 +205,7 @@
           actionLabel: '查看全部卡片',
           onAction: () => {
             filter = 'all';
+            QSL.setQuery({ status: null });
             paintFilters();
             paint();
           }
@@ -239,6 +242,7 @@
       btn.addEventListener('click', () => {
         if (filter === btn.dataset.filter) return;
         filter = btn.dataset.filter;
+        QSL.setQuery({ status: filter === 'all' ? null : filter });
         paint();
       });
     });

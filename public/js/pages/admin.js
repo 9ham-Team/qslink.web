@@ -972,7 +972,7 @@
       (isSelf ? '<span class="badge badge-sky">当前登录账号</span>' : '') + '</div></div>' +
       '<div class="form-grid">' +
       QSL.field({ label: '显示名称', required: true, input: '<input class="input" name="displayName" type="text" maxlength="30" value="' + escAttr(user.displayName || '') + '" autocomplete="off">' }) +
-      QSL.field({ label: '呼号', input: '<input class="input" name="callSign" type="text" maxlength="20" value="' + escAttr(user.callSign || '') + '" placeholder="例如 BG7MOM" autocomplete="off">' }) +
+      QSL.field({ label: '呼号', input: '<input class="input" name="callSign" type="text" maxlength="20" value="' + escAttr(user.callSign || '') + '" autocomplete="off">' }) +
       QSL.field({ label: '邮箱', input: '<input class="input" name="email" type="email" value="' + escAttr(user.email || '') + '" autocomplete="off">' }) +
       QSL.field({ label: '角色', hint: isSelf ? '不能修改自己的角色' : '管理员可访问管理后台', input: '<select class="select" name="role"' + (isSelf ? ' disabled' : '') + '>' + roleOptions.map(function (o) {
         return '<option value="' + o.key + '"' + (o.key === (user.role || 'user') ? ' selected' : '') + '>' + o.label + '</option>';
