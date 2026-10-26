@@ -45,6 +45,7 @@ function publicUser(db, user) {
   const stats = userStats(db, user);
   return {
     id: user.id,
+    uid: user.uid,
     username: user.username,
     displayName: user.displayName,
     callSign: user.callSign || '',
@@ -103,6 +104,7 @@ function cardOwner(db, card) {
   }
   return {
     id: owner.id,
+    uid: owner.uid,
     username: owner.username,
     displayName: owner.displayName,
     callSign: owner.callSign || '',

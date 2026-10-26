@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
-const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql'];
 const SCHEMA_VERSION = MIGRATIONS.length;
 const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas'];
 const FIELDS = {
@@ -12,6 +12,7 @@ const FIELDS = {
   mailQuotas: ['id', 'count', 'windowAt'],
   users: [
     'id',
+    'uid',
     'username',
     'email',
     'displayName',
@@ -145,6 +146,10 @@ class UnitOfWork {
     if (!this.write) throw new Error('Cannot save a read-only transaction');
   }
   async persist() {
+    // Covers offline admin creation, demo seeding and legacy JSON imports too.
+    for (const user of this.data.users) {
+      if (user.uid == null) user.uid = require('./uid').createUid(this.data.users);
+    }
     for (const name of [...COLLECTIONS].reverse()) {
       const key = keyFor(name),
         remaining = new Set(this.data[name].map((row) => row[key]));

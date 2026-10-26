@@ -23,6 +23,7 @@
 ```json
 {
   "id": "u_xxx",
+  "uid": "012345678",
   "username": "bg7mom",
   "displayName": "小刻",
   "callSign": "BG7MOM",
@@ -35,6 +36,26 @@
 ```
 `UserSelf` 额外包含：`email`、`status`、`address`、`createdAt`、`updatedAt`、`stats.pendingExchanges`（待处理收到的申请数）。
 `AvatarColor` 为 `#RRGGBB`，前端用于生成渐变头像。
+
+`uid` 是注册时服务端随机分配且不可通过资料编辑修改的唯一九位字符串，范围 `000000001`–`999999999`，保留前导零。已有用户、离线初始化的管理员和导入用户也会分配 UID。卡片 `owner` 摘要同时包含 `uid`。
+
+### 公开个人主页
+
+`GET /api/public/spaces/:uid?page=1&limit=12` 无需登录。UID 格式错误、用户不存在或被禁用返回 `404 NOT_FOUND`。返回：
+
+```json
+{
+  "user": {
+    "uid": "012345678", "displayName": "小刻", "callSign": "BG7MOM",
+    "bio": "在电波中相遇", "avatarColor": "#0eaf8f", "joinedAt": "2026-10-01T12:00:00.000Z",
+    "stats": { "cards": 2, "likesReceived": 34 }
+  },
+  "cards": { "items": [], "total": 2, "page": 1, "limit": 12, "pages": 1 },
+  "url": "https://qsl.9ham.net/space/012345678"
+}
+```
+
+`cards.items` 为 `CardPublic[]`，按发布时间倒序，仅包含审核通过的卡片；本人和管理员访问也遵守此筛选。公开统计只计算这些卡片及其点赞。主页资料不含邮箱、地址、认证或审核数据；`liked` 随访问者登录状态变化。分页沿用公共接口约定。`url` 使用 `QSL_PUBLIC_ORIGIN`，未配置时为 `null`，前端使用当前 origin 构建链接。分享无需创建 token 或更改可见性，任何人都能直接访问 `/space/:uid`。
 
 地址对象 `Address`：
 ```json

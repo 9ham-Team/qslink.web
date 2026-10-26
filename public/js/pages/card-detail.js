@@ -186,7 +186,9 @@
       '</div>' +
       '<h1 class="g-detail__title">' + esc(card.title || '未命名卡片') + '</h1>' +
       '<div class="g-detail__owner">' +
+      (ownerData.uid ? '<a href="/space/' + esc(ownerData.uid) + '" data-link aria-label="查看上传者的公开主页">' : '') +
       (QSL.ownerLine ? QSL.ownerLine(ownerData) : esc(ownerData.displayName || ownerData.username || '未知火腿')) +
+      (ownerData.uid ? '</a>' : '') +
       '<span class="g-detail__owner-time">' + esc(QSL.timeAgo(card.createdAt)) + '发布</span>' +
       '</div>' +
       notes +

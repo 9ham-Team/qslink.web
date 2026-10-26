@@ -42,6 +42,7 @@ const ROUTES = [
   ...authApi.routes,
   ...meApi.routes,
   ...cardsApi.routes,
+  ...require('./lib/api/spaces').routes,
   ...exchangesApi.routes,
   ...adminApi.routes,
 ];

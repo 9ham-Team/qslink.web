@@ -166,6 +166,7 @@
       '<div class="f-dash-hero-actions">' +
       '<a class="btn btn-primary" href="/dashboard/cards/new">' + ico('upload', 17) + '上传新卡片</a>' +
       '<a class="btn btn-ghost" href="/explore">' + ico('compass', 17) + '逛逛卡片广场</a>' +
+      (user.uid ? '<a class="btn btn-ghost" href="/space/' + esc(user.uid) + '" data-link>' + ico('user', 17) + '我的公开主页</a>' : '') +
       '</div>' +
       '</div>' +
       '<div class="f-dash-hero-user">' +

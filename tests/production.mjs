@@ -11,6 +11,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
+import './profile-address.mjs';
 
 const require = createRequire(import.meta.url);
 const sharp = require('sharp');
@@ -64,6 +65,75 @@ const { Database } = require('../server/lib/db');
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const credentials = { username: 'operator', email: 'operator@example.test', password: 'Unique-Production-42!' };
 const databases = new Map();
+
+test('public spaces preserve nine-digit UIDs, paginate approved cards and protect private data', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const app = await start(t, dir);
+  const db = databases.get(dir).db;
+  const body = await withCode(app, { username: 'spaceuser', email: 'space@example.test', password: 'Space-Password-42!' });
+  const registration = await request(app.base, '/api/auth/register', { method: 'POST', body: { ...body, uid: '000000000' } });
+  assert.equal(registration.status, 201);
+  const { user, token } = await registration.json();
+  assert.match(user.uid, /^[0-9]{9}$/);
+  assert.notEqual(user.uid, '000000000');
+  const uid = user.uid;
+  const admin = await db.transaction(unit => unit.data.users.find(u => u.role === 'admin'));
+  assert.match(admin.uid, /^[0-9]{9}$/);
+  assert.notEqual(uid, admin.uid);
+  await request(app.base, '/api/me/profile', { token, method: 'PUT', body: { bio: 'Hello <script>world</script>', uid: '999999999' } });
+  assert.equal((await (await request(app.base, '/api/auth/me', { token })).json()).user.uid, uid);
+  const cardBody = { title: 'Space card', ratio: { w: 3, h: 2 }, frontImage: 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64') };
+  const created = await request(app.base, '/api/cards', { token, method: 'POST', body: cardBody });
+  assert.equal(created.status, 201);
+  const { card } = await created.json();
+  const path = '/api/public/spaces/' + uid;
+  const pending = await (await request(app.base, path, { token })).json();
+  assert.equal(pending.cards.total, 0, 'owner also sees only approved cards');
+  await db.transaction(unit => {
+    const saved = unit.find('cards', c => c.id === card.id);
+    saved.status = 'approved';
+    for (let i = 0; i < 13; i++) unit.insert('cards', { ...saved, id: 'space_' + i, shareToken: 'space_token_' + i });
+  }, { write: true });
+  const guest = await (await request(app.base, path + '?limit=12')).json();
+  const own = await (await request(app.base, path + '?limit=12', { token })).json();
+  assert.deepEqual(guest.user, own.user);
+  assert.equal(guest.user.uid, uid);
+  assert.equal(guest.user.stats.cards, 14);
+  assert.equal(guest.cards.items.length, 12);
+  assert.equal(guest.cards.pages, 2);
+  assert.equal(guest.url, 'https://qsl.example.test/space/' + uid);
+  for (const field of ['email', 'address', 'passwordHash', 'legalConsent', 'status']) assert.equal(guest.user[field], undefined);
+  assert.equal(guest.cards.items[0].owner.uid, uid);
+  const second = await (await request(app.base, path + '?page=2&limit=12')).json();
+  assert.equal(second.cards.items.length, 2);
+  assert.ok(second.cards.items.every(c => !guest.cards.items.some(first => first.id === c.id)));
+  assert.equal((await fetch(app.base + '/space/' + uid)).status, 200);
+  for (const bad of ['000000000', '1', '1234567890', 'abcdefghi']) assert.equal((await request(app.base, '/api/public/spaces/' + bad)).status, 404);
+  await app.stop();
+  const restarted = await start(t, dir);
+  assert.equal((await (await request(restarted.base, path)).json()).user.uid, uid);
+  await db.transaction(unit => { unit.find('users', u => u.id === user.id).status = 'banned'; }, { write: true });
+  assert.equal((await request(restarted.base, path)).status, 404);
+});
+
+test('UID migration backfills existing users and enforces uniqueness and format', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const { db, databaseSchema } = databases.get(dir);
+  // Recreate the pre-005 column layout in this isolated fixture only.
+  await db.pool.query(`ALTER TABLE "${databaseSchema}".users DROP COLUMN uid`);
+  await db.pool.query(`DELETE FROM "${databaseSchema}".schema_migrations WHERE version=5`);
+  await db.migrate();
+  const before = await db.transaction(unit => unit.data.users);
+  assert.ok(before.every(user => /^[0-9]{9}$/.test(user.uid) && user.uid !== '000000000'));
+  await db.migrate();
+  assert.deepEqual(await db.transaction(unit => unit.data.users), before);
+  for (const uid of ['000000000', '123', '1234567890', 'abcdefghi']) {
+    await assert.rejects(db.transaction(unit => { unit.data.users[0].uid = uid; }, { write: true }), err => err.status === 400);
+  }
+  await assert.rejects(db.transaction(unit => { unit.insert('users', { ...unit.data.users[0], id: 'duplicate_uid', username: 'different', email: 'different@example.test' }); }, { write: true }), err => err.status === 409);
+});
 
 test('legal acceptance: explicit version, persistence, content authorization and public pages', async (t) => {
   const dir = await temp(t);

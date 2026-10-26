@@ -41,6 +41,7 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 |---|---|---|
 | `/` | `home` | 公开 |
 | `/explore` | `explore` | 公开 |
+| `/space/:uid` | `space` | 公开，九位 UID |
 | `/card/:id` | `card-detail` | 公开（申请按钮需登录） |
 | `/share/:token` | `share` | 公开（卡片须通过审核） |
 | `/login` | `login` | 游客页（已登录访问会跳回首页/next） |
@@ -56,6 +57,10 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 
 路由传参：`render(container, ctx)`，`ctx = { path, params: {id?, token?}, query: URLSearchParams }`。
 `render` 可返回 cleanup 函数（如 3D 动画销毁）。导航后容器自动清空。
+
+个人资料的寄送地址支持本地解析粘贴文本（姓名、手机号、省市区、街道和邮编），支持常见分隔符及“地址 / 所在地区 / 详细地址”标签。解析只补充空字段，保留已有内容，用户核对后手动保存；保存城市时避免重复追加已有区县。解析使用规则识别，特殊地址仍需手动核对。
+
+公开主页模块 `pages/space.js` 在 `explore.js` 后显式加载，展示公开资料、已审核卡片和分页，提供可手动复制的分享链接。个人中心 `/dashboard` 增加自己的公开主页入口；卡片详情上传者头像及姓名可进入 `/space/:uid`。主页离开时忽略未完成请求并关闭分享弹窗。
 `/legal/terms.html`、`/legal/privacy.html` 为独立静态法律页面，不由 SPA 页面模块渲染。
 
 `/dashboard/cards?status=pending` 可直接进入“我的卡片”的“审核中”筛选；`status` 也支持 `approved`、`rejected`，无效或缺省时显示全部。切换筛选会同步更新查询参数。

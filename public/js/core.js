@@ -59,6 +59,7 @@
   QSL.routes = [
     { path: '/', page: 'home' },
     { path: '/explore', page: 'explore' },
+    { path: '/space/:uid', page: 'space' },
     { path: '/card/:id', page: 'card-detail' },
     { path: '/share/:token', page: 'share' },
     { path: '/login', page: 'login', guest: true },
