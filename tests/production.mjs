@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import './profile-address.mjs';
+import { testExchangeCardChoice } from './exchange-card-choice.mjs';
+test('exchange card choice: privacy, validation, empty confirmation and persistence', testExchangeCardChoice);
 import './poster-palette.mjs';
 import './qr.mjs';
 import { testShortTokens } from './short-tokens.mjs';
@@ -435,7 +437,7 @@ test('approve/reject notify only the applicant after commit; repeated decisions 
     assert.equal(response.status, 201);
     return (await response.json()).exchange;
   }
-  const decide = (id, status, target = app, token = owner.token, body = {}) => request(target.base,
+  const decide = (id, status, target = app, token = owner.token, body = { confirmNoCards: true }) => request(target.base,
     `/api/exchanges/${id}/${status === 'approved' ? 'approve' : 'reject'}`, { token, method: 'POST', body });
   const complete = id => request(app.base, `/api/exchanges/${id}/complete`, { token: owner.token, method: 'POST', body: {} });
   async function waitMails(target, count) {
@@ -450,7 +452,7 @@ test('approve/reject notify only the applicant after commit; repeated decisions 
     if (status === 'rejected') assert.equal((await decide(exchange.id, status, app, owner.token, { reason: 'x'.repeat(10000) })).status, 400);
     const handler = require('../server/lib/api/exchanges').routes.find(route => route.pattern.endsWith(status === 'approved' ? '/approve' : '/reject')).handler;
     await assert.rejects(db.transaction(async unit => {
-      await handler({ db: unit, user: unit.find('users', row => row.id === owner.user.id), params: { id: exchange.id }, body: {},
+      await handler({ db: unit, user: unit.find('users', row => row.id === owner.user.id), params: { id: exchange.id }, body: { confirmNoCards: true },
         config: { publicOrigin: 'https://qsl.example.test', sendExchangeMail: () => assert.fail('rollback must not mail') } });
       throw new Error('decision rollback');
     }, { write: true }), /decision rollback/);
@@ -472,7 +474,7 @@ test('approve/reject notify only the applicant after commit; repeated decisions 
   const failing = await start(t, dir, { QSL_TEST_FAIL_EXCHANGE_MAIL: 'true' });
   for (const [i, status] of ['approved', 'rejected'].entries()) {
     const exchange = await apply();
-    const response = await decide(exchange.id, status, failing, owner.token, status === 'rejected' ? { reason: 'Private reason' } : {});
+    const response = await decide(exchange.id, status, failing, owner.token, status === 'rejected' ? { reason: 'Private reason' } : { confirmNoCards: true });
     assert.equal(response.status, 200);
     assert.ok(!(await response.text()).includes('provider-secret'));
     assert.equal(await db.transaction(unit => unit.find('exchanges', row => row.id === exchange.id).status), status);
@@ -680,7 +682,7 @@ test('concurrent registration and independent exchange approvals remain atomic a
   const beforeMigration = await db.transaction(unit => unit.data.exchanges);
   await db.migrate();
   assert.deepEqual(await db.transaction(unit => unit.data.exchanges), beforeMigration, 'migration preserves existing applications');
-  const approvals = await Promise.all(ids.map((id, i) => request((i ? a : b).base, `/api/exchanges/${id}/approve`, { token, method: 'POST', body: {} })));
+  const approvals = await Promise.all(ids.map((id, i) => request((i ? a : b).base, `/api/exchanges/${id}/approve`, { token, method: 'POST', body: { confirmNoCards: true } })));
   assert.deepEqual(approvals.map(res => res.status), [200, 200]);
   const exchanges = await db.transaction(unit => unit.data.exchanges);
   assert.equal(exchanges.filter(row => row.status === 'approved').length, 2);
@@ -695,7 +697,7 @@ test('concurrent registration and independent exchange approvals remain atomic a
   const lateResponse = await request(a.base, `/api/cards/${card.id}/exchanges`, { token: later.token, method: 'POST', body: { contactName: 'Later', address } });
   assert.equal(lateResponse.status, 201, 'new applicants may apply after earlier approvals');
   const lateExchange = (await lateResponse.json()).exchange;
-  const repeated = await Promise.all([a, b].map(app => request(app.base, `/api/exchanges/${lateExchange.id}/approve`, { token, method: 'POST', body: {} })));
+  const repeated = await Promise.all([a, b].map(app => request(app.base, `/api/exchanges/${lateExchange.id}/approve`, { token, method: 'POST', body: { confirmNoCards: true } })));
   assert.deepEqual(repeated.map(res => res.status).sort(), [200, 400], 'same application can only be approved once');
   const ownExchange = await request(a.base, `/api/exchanges/${lateExchange.id}`, { token: later.token });
   assert.equal(ownExchange.status, 200);

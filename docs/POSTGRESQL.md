@@ -74,3 +74,7 @@ npm run db:import-json -- --file /backup/db.json
 核对导入前后用户、卡片、申请、点赞及会话数量，用原账号检查登录、分享、地址权限和换卡流程，再开放访问。原 JSON 可供回退，但新系统开始接收写入后它就不再是最新数据；不要直接切回旧 JSON 丢弃新写入，应先停止服务并制定反向迁移方案。
 
 `npm test` 和 `npm run test:production` 默认创建临时 PostgreSQL 17，测试后停止并清理；它们不使用 `DATABASE_URL`。需要外部测试库时，单独设置 `QSL_TEST_DATABASE_URL`，测试仅操作随机 `qslink_test_*` schema。测试凭据应仅能访问隔离测试库，不要使用生产连接。
+
+### 009：换卡偏好
+
+`009_exchange_card_preference.sql` 为 exchanges 增加可空的 `preferredCardId`（外键，删除卡片时 SET NULL）和 `preferredCardTitle`（标题快照）。旧记录两字段为 null，表示无偏好；新版本启动自动迁移到 schema 9。旧版本会拒绝较新的 schema，不能仅恢复旧镜像完成回滚。迁移不修改现有申请状态和地址。

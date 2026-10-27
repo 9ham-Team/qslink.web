@@ -112,7 +112,7 @@
     const kind = type || 'success';
     const iconName = kind === 'success' ? 'check-circle' : kind === 'error' ? 'alert' : kind === 'info' ? 'info' : 'sparkles';
     const el = document.createElement('div');
-    el.className = 'toast toast-' + kind;
+    el.className = 'toast qsl-notification toast-' + kind;
     el.innerHTML =
       '<span class="toast-icon">' + icon(iconName, 18) + '</span>' +
       '<span class="toast-msg">' + esc(message) + '</span>' +
@@ -205,6 +205,7 @@
       if (e.target === overlay && opts.dismissible !== false) instance.close();
     });
     const onKey = function (e) {
+      if (root.lastElementChild !== overlay) return;
       if (e.key === 'Escape' && opts.dismissible !== false) {
         instance.close();
         document.removeEventListener('keydown', onKey);

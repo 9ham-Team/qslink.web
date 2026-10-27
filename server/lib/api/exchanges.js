@@ -3,9 +3,9 @@
 /** 换卡申请路由：创建 / 详情 / 同意 / 拒绝 / 撤回 / 完成 */
 
 const { badRequest, conflict, forbidden, notFound } = require('../errors');
-const { validateExchangeCreate, validateRejectReason } = require('../validate');
+const { validateExchangeCreate, validateRejectReason, isObj, parsePagination } = require('../validate');
 const auth = require('../auth');
-const { createId } = require('../db');
+const { createId, paginate } = require('../db');
 const serialize = require('../serialize');
 
 function findExchange(ctx) {
@@ -112,14 +112,51 @@ async function detail(ctx) {
 }
 
 /** POST /api/exchanges/:id/approve：仅卡片主人；每笔申请独立审批 */
-async function approve(ctx) {
+function requirePendingOwner(ctx) {
   const user = auth.requireUser(ctx);
   const exchange = findExchange(ctx);
   if (exchange.toUserId !== user.id) throw forbidden('只有卡片主人可以处理申请');
   if (exchange.status !== 'pending') throw badRequest(null, '该申请已处理，无法再次审批');
+  return { user, exchange };
+}
+
+function applicantCards(ctx, exchange) {
+  const applicant = serialize.findUser(ctx.db, exchange.fromUserId);
+  const uploaded = ctx.db.filter('cards', card => card.ownerId === exchange.fromUserId);
+  return {
+    hasUploadedCards: uploaded.length > 0,
+    available: applicant && applicant.status !== 'banned' ? uploaded.filter(card => card.status === 'approved') : [],
+  };
+}
+
+/** GET /api/exchanges/:id/applicant-cards：仅该申请的接收人，公开卡片展柜。 */
+async function choices(ctx) {
+  const { exchange } = requirePendingOwner(ctx);
+  const { hasUploadedCards, available } = applicantCards(ctx, exchange);
+  available.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+  const { page, limit } = parsePagination(ctx.query);
+  const result = paginate(available, page, limit);
+  return { body: { ...result, hasUploadedCards, items: result.items.map(card => serialize.cardPublic(ctx.db, card, ctx.user)) } };
+}
+
+async function approve(ctx) {
+  const { user, exchange } = requirePendingOwner(ctx);
+  const body = ctx.body == null ? {} : ctx.body;
+  if (!isObj(body)) throw badRequest(null, '请检查选卡信息');
+  const id = body.preferredCardId == null ? null : body.preferredCardId;
+  if (id !== null && (typeof id !== 'string' || !id || id.length > 100)) throw badRequest({ preferredCardId: '请选择有效卡片或无所谓' });
+  if (body.confirmNoCards !== undefined && typeof body.confirmNoCards !== 'boolean') throw badRequest({ confirmNoCards: '请确认是否进行交换' });
+  const { hasUploadedCards, available } = applicantCards(ctx, exchange);
+  if (!hasUploadedCards && body.confirmNoCards !== true) {
+    throw conflict('APPLICANT_HAS_NO_CARDS', '该申请者没有上传卡片哦，请确认是否进行交换');
+  }
+  const preferred = id === null ? null : available.find(card => card.id === id);
+  if (id !== null && !preferred) throw badRequest({ preferredCardId: '所选卡片已不可用，请重新选择' });
 
   const now = new Date().toISOString();
   exchange.status = 'approved';
+  exchange.preferredCardId = preferred ? preferred.id : null;
+  exchange.preferredCardTitle = preferred ? preferred.title || '未命名卡片' : null;
   exchange.decidedAt = now;
   exchange.updatedAt = now;
   await ctx.db.save();
@@ -177,6 +214,7 @@ module.exports = {
   routes: [
     { method: 'POST', pattern: '/api/cards/:cardId/exchanges', handler: create },
     { method: 'GET', pattern: '/api/exchanges/:id', handler: detail },
+    { method: 'GET', pattern: '/api/exchanges/:id/applicant-cards', handler: choices },
     { method: 'POST', pattern: '/api/exchanges/:id/approve', handler: approve },
     { method: 'POST', pattern: '/api/exchanges/:id/reject', handler: reject },
     { method: 'POST', pattern: '/api/exchanges/:id/cancel', handler: cancel },

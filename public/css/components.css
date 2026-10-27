@@ -618,6 +618,9 @@
   align-items: center;
   gap: 10px;
   min-width: 220px;
+}
+/* Shared surface and lifecycle for transient tips and persistent announcements. */
+.qsl-notification {
   max-width: 100%;
   padding: 12px 14px;
   border-radius: 15px;
@@ -633,8 +636,11 @@
   opacity: 0;
   transition: transform var(--t-base) var(--ease-out), opacity var(--t-base) var(--ease);
 }
-.toast.is-show { transform: none; opacity: 1; }
-.toast.is-hide { transform: translateX(24px); opacity: 0; }
+.qsl-notification.is-show { transform: none; opacity: 1; }
+.qsl-notification.is-hide, .qsl-notification.is-paused { transform: translateX(24px); opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .qsl-notification { transition: none; }
+}
 .toast-icon {
   display: grid;
   place-items: center;

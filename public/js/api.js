@@ -143,7 +143,8 @@
       mine: (params) => request('GET', '/api/me/exchanges' + buildQuery(params)),
       detail: (id) => request('GET', '/api/exchanges/' + encodeURIComponent(id)),
       create: (cardId, payload) => request('POST', '/api/cards/' + encodeURIComponent(cardId) + '/exchanges', payload),
-      approve: (id) => request('POST', '/api/exchanges/' + encodeURIComponent(id) + '/approve', {}),
+      applicantCards: (id, params) => request('GET', '/api/exchanges/' + encodeURIComponent(id) + '/applicant-cards' + buildQuery(params)),
+      approve: (id, payload) => request('POST', '/api/exchanges/' + encodeURIComponent(id) + '/approve', payload || {}),
       reject: (id, payload) => request('POST', '/api/exchanges/' + encodeURIComponent(id) + '/reject', payload || {}),
       complete: (id) => request('POST', '/api/exchanges/' + encodeURIComponent(id) + '/complete', {}),
       cancel: (id) => request('POST', '/api/exchanges/' + encodeURIComponent(id) + '/cancel', {})

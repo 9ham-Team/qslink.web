@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import { testShortTokens } from './short-tokens.mjs';
+import { testExchangeCardChoice } from './exchange-card-choice.mjs';
 import { testAnnouncements } from './announcements.mjs';
 
 // ---------------------------------------------------------------------------
@@ -1350,7 +1351,7 @@ async function phaseExchangesApprove() {
   await test('exchanges: owner approves -> approved with both addresses in response', async () => {
     const owner = needUser('owner');
     const e2 = needExchange('e2');
-    const res = await api('POST', `/api/exchanges/${e2.id}/approve`, { token: owner.token });
+    const res = await api('POST', `/api/exchanges/${e2.id}/approve`, { token: owner.token, body: { confirmNoCards: true } });
     expectStatus(res, 200, 'POST /api/exchanges/:id/approve');
     const exchange = res.json.exchange;
     expectEqual(exchange.status, 'approved', 'approved exchange status', res);
@@ -1428,7 +1429,7 @@ async function phaseExchangesApprove() {
   });
 
   await test('exchanges: a second applicant can also be approved for the same card', async () => {
-    const res = await api('POST', `/api/exchanges/${needExchange('e3').id}/approve`, { token: needUser('owner').token });
+    const res = await api('POST', `/api/exchanges/${needExchange('e3').id}/approve`, { token: needUser('owner').token, body: { confirmNoCards: true } });
     expectStatus(res, 200, 'approve another applicant');
     expectEqual(res.json.exchange.status, 'approved', 'second approval status', res);
     expectObject(res.json.exchange.fromAddress, 'second approved fromAddress', res);
@@ -1443,7 +1444,7 @@ async function phaseExchangesApprove() {
     const created = await applyExchange('u4', 'card1', 'eLate');
     expectStatus(created, 201, 'create later application');
     const id = needExchange('eLate').id;
-    const approved = await api('POST', `/api/exchanges/${id}/approve`, { token: needUser('owner').token });
+    const approved = await api('POST', `/api/exchanges/${id}/approve`, { token: needUser('owner').token, body: { confirmNoCards: true } });
     expectStatus(approved, 200, 'approve later application');
     const completed = await api('POST', `/api/exchanges/${id}/complete`, { token: needUser('u4').token });
     expectStatus(completed, 200, 'complete later exchange independently');
@@ -1469,7 +1470,7 @@ async function phaseExchangesLifecycle() {
   await test('exchanges: non-owner cannot approve/reject someone else application (403)', async () => {
     const u2 = needUser('u2');
     const e4 = needExchange('e4');
-    const approveRes = await api('POST', `/api/exchanges/${e4.id}/approve`, { token: u2.token });
+    const approveRes = await api('POST', `/api/exchanges/${e4.id}/approve`, { token: u2.token, body: { confirmNoCards: true } });
     expectStatusSoftCode(approveRes, 403, 'FORBIDDEN', 'non-owner approve');
     const rejectRes = await api('POST', `/api/exchanges/${e4.id}/reject`, { token: u2.token, body: { reason: 'nope' } });
     expectStatusSoftCode(rejectRes, 403, 'FORBIDDEN', 'non-owner reject');
@@ -1539,7 +1540,7 @@ async function phaseExchangesLifecycle() {
   await test('exchanges: owner approves third attempt -> approved with addresses', async () => {
     const owner = needUser('owner');
     const e6 = needExchange('e6');
-    const res = await api('POST', `/api/exchanges/${e6.id}/approve`, { token: owner.token });
+    const res = await api('POST', `/api/exchanges/${e6.id}/approve`, { token: owner.token, body: { confirmNoCards: true } });
     expectStatus(res, 200, 'approve e6');
     expectEqual(res.json.exchange.status, 'approved', 'e6 approved status', res);
     expectObject(res.json.exchange.fromAddress, 'e6 fromAddress', res);
@@ -2113,6 +2114,7 @@ async function main() {
 
   try {
     await test('short tokens: collision, concurrency, migration and legacy protection', testShortTokens);
+    await test('exchange card choice: permissions, selection and confirmation', testExchangeCardChoice);
     await test('announcements: permissions, validation, publishing, pagination and persistence', testAnnouncements);
     await runPhases();
   } finally {
