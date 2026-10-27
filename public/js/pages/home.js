@@ -529,6 +529,79 @@
     });
   }
 
+  function mountAnnouncements(root, state) {
+    const entry = document.createElement('div');
+    entry.className = 'container g-announcement-entry';
+    entry.innerHTML = '<button class="btn btn-ghost btn-sm" type="button">' + ic('info', 16) + '公告板 · 查看全部</button>';
+    root.querySelector('.g-hero').after(entry);
+    let notice = null;
+    let modal = null;
+    let modalJob = 0;
+    let modalClosed = false;
+    const eventController = new AbortController();
+
+    function closeModal() {
+      modalClosed = true;
+      modalJob++;
+      if (!modal) return;
+      const overlay = modal.el.closest('.modal-overlay');
+      if (overlay && overlay._onKey) document.removeEventListener('keydown', overlay._onKey);
+      modal.close();
+      if (overlay) overlay.remove();
+      modal = null;
+    }
+    async function loadPage(page) {
+      const job = ++modalJob;
+      modal.body.innerHTML = '<p class="muted">正在加载公告…</p>';
+      try {
+        const res = await QSL.api.get('/api/announcements?page=' + page + '&limit=8');
+        if (state.cancelled || modalClosed || job !== modalJob) return;
+        modal.body.innerHTML = '<div class="g-announcement-list">' + (res.items.length ? res.items.map(function (item) {
+          return '<article><h3>' + esc(item.title) + '</h3><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p></article>';
+        }).join('') : '<p class="muted">暂无已发布公告</p>') + '</div><div class="g-announcement-pager"><button type="button" class="btn btn-ghost btn-sm" data-ann-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + '>上一页</button><span>' + page + ' / ' + Math.max(1, res.pages) + '</span><button type="button" class="btn btn-ghost btn-sm" data-ann-page="' + (page + 1) + '"' + (page >= res.pages ? ' disabled' : '') + '>下一页</button></div>';
+      } catch (err) {
+        if (state.cancelled || modalClosed || job !== modalJob) return;
+        modal.body.innerHTML = '<p>公告加载失败，请关闭后重试。</p>';
+        QSL.toast(err.message || '公告加载失败', 'error');
+      }
+    }
+    function openAll() {
+      closeModal();
+      modalClosed = false;
+      modal = QSL.modal({ title: '公告板', size: 'lg', content: '', onClose: function () {
+        modalClosed = true;
+        modalJob++;
+        const overlay = modal && modal.el.closest('.modal-overlay');
+        if (overlay && overlay._onKey) document.removeEventListener('keydown', overlay._onKey);
+      } });
+      modal.body.addEventListener('click', function (event) {
+        const btn = event.target.closest('[data-ann-page]');
+        if (btn && !btn.disabled) loadPage(Number(btn.dataset.annPage));
+      }, { signal: eventController.signal });
+      loadPage(1);
+    }
+    entry.querySelector('button').addEventListener('click', openAll, { signal: eventController.signal });
+    QSL.api.get('/api/announcements?page=1&limit=1').then(function (res) {
+      if (state.cancelled || !res.items.length) return;
+      const item = res.items[0];
+      notice = document.createElement('aside');
+      notice.className = 'g-announcement-notice';
+      notice.setAttribute('aria-label', '最新公告');
+      notice.innerHTML = '<div class="g-announcement-head"><span class="eyebrow">最新公告</span><button class="btn btn-ghost btn-icon btn-sm" type="button" data-ann-close aria-label="关闭公告">' + ic('close', 16) + '</button></div><h2>' + esc(item.title) + '</h2><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p><button type="button" class="btn btn-soft btn-sm" data-ann-all>查看全部公告</button>';
+      notice.querySelector('[data-ann-close]').addEventListener('click', function () { notice.remove(); }, { signal: eventController.signal });
+      notice.querySelector('[data-ann-all]').addEventListener('click', openAll, { signal: eventController.signal });
+      root.appendChild(notice);
+    }).catch(function (err) {
+      if (!state.cancelled) QSL.toast(err.message || '公告加载失败', 'error');
+    });
+    return function () {
+      eventController.abort();
+      closeModal();
+      if (notice) notice.remove();
+      entry.remove();
+    };
+  }
+
   /* ---------------- 页面注册 ---------------- */
   QSL.registerPage('home', {
     title: '首页',
@@ -538,6 +611,7 @@
 
       container.innerHTML = pageHtml(user);
       const cleanupFaq = mountFaq(container);
+      const cleanupAnnouncements = mountAnnouncements(container, state);
 
       // 先创建 3D 卡片（使用品牌占位面），卡片图片到达后再替换，避免空白等待
       mountHero(container, state, { ratio: { w: 104, h: 154 } });
@@ -553,6 +627,7 @@
       return function cleanup() {
         state.cancelled = true;
         cleanupFaq();
+        cleanupAnnouncements();
         if (state.viewer) {
           try { state.viewer.destroy(); } catch (err) { /* 忽略 */ }
           state.viewer = null;

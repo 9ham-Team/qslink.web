@@ -12,6 +12,10 @@ import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import './profile-address.mjs';
+import { testShortTokens } from './short-tokens.mjs';
+import { testAnnouncements } from './announcements.mjs';
+test('short tokens: collision, concurrent allocation, migration and legacy protection', testShortTokens);
+test('announcements: permissions, validation, publishing, pagination and persistence', testAnnouncements);
 
 const require = createRequire(import.meta.url);
 const sharp = require('sharp');
@@ -93,7 +97,7 @@ test('public spaces preserve nine-digit UIDs, paginate approved cards and protec
   await db.transaction(unit => {
     const saved = unit.find('cards', c => c.id === card.id);
     saved.status = 'approved';
-    for (let i = 0; i < 13; i++) unit.insert('cards', { ...saved, id: 'space_' + i, shareToken: 'space_token_' + i });
+    for (let i = 0; i < 13; i++) unit.insert('cards', { ...saved, id: 'space_' + i, shareToken: 'space_token_' + i, shortToken: undefined });
   }, { write: true });
   const guest = await (await request(app.base, path + '?limit=12')).json();
   const own = await (await request(app.base, path + '?limit=12', { token })).json();
@@ -314,7 +318,7 @@ test('production config fails closed for missing paths/origin/demo flag and inse
 test('default development startup has no implicit demo accounts', async t => {
   const dir = await temp(t);
   const app = await start(t, dir, { NODE_ENV: 'development', QSL_PUBLIC_ORIGIN: '' });
-  assert.deepEqual(await (await fetch(app.base + '/api/config')).json(), { demo: false, demoAccounts: [] });
+  assert.deepEqual(await (await fetch(app.base + '/api/config')).json(), { demo: false, demoAccounts: [], build: null });
   const db = await databases.get(dir).db.transaction(unit => unit.data);
   assert.equal(db.users.length, 0);
   assert.equal(db.cards.length, 0);
@@ -347,7 +351,7 @@ test('offline initialization is idempotent, never stores plaintext, and producti
   assert.equal(JSON.stringify(await databases.get(dir).db.transaction(unit => unit.data)), original);
 
   const app = await start(t, dir);
-  assert.deepEqual(await (await fetch(app.base + '/api/config')).json(), { demo: false, demoAccounts: [] });
+  assert.deepEqual(await (await fetch(app.base + '/api/config')).json(), { demo: false, demoAccounts: [], build: null });
   assert.equal((await (await fetch(app.base + '/api/cards')).json()).total, 0);
   for (const identifier of ['admin', 'bg7mom']) {
     assert.equal((await request(app.base, '/api/auth/login', { method: 'POST', body: { identifier, password: 'Admin@123456' } })).status, 401);
@@ -370,7 +374,8 @@ test('offline initialization is idempotent, never stores plaintext, and producti
   const upload = await fetch(app.base + card.frontImage);
   assert.match(upload.headers.get('content-security-policy'), /sandbox/);
   const shared = await (await request(app.base, `/api/cards/${card.id}/share`, { token, headers: { 'X-Forwarded-Proto': 'http' } })).json();
-  assert.ok(shared.url.startsWith('https://qsl.example.test/share/'));
+  assert.match(shared.shareToken, /^[A-Za-z]{6}$/);
+  assert.equal(shared.url, 'https://qsl.example.test/s/' + shared.shareToken);
   assert.notEqual((await init(dir)).code, 0, 'existing administrator is never overwritten');
   const second = await start(t, dir);
   assert.equal((await request(second.base, '/api/auth/me', { token })).status, 200, 'separate processes read the same committed state');
@@ -393,6 +398,29 @@ test('production throttles repeated login attempts, including spoofed forwarding
   assert.equal(res.status, 429);
   assert.ok(Number(res.headers.get('retry-after')) > 0);
   assert.equal((await fetch(app.base + '/api/health')).status, 200);
+});
+
+test('build metadata is validated from the fixed build file and footer uses HKT', async () => {
+  const serverSource = await fs.readFile(path.join(ROOT, 'server/server.js'), 'utf8');
+  const buildSource = serverSource.slice(serverSource.indexOf('const publicBuild ='), serverSource.indexOf('\nfunction publicConfig'));
+  const revision = '8c3f2c1'.padEnd(40, '0');
+  const created = '2026-10-27T18:35:00Z';
+  function readBuild(value) {
+    const context = { __dirname: path.join(ROOT, 'server'), path, process: { env: { QSL_BUILD_REVISION: revision, QSL_BUILD_CREATED: created } },
+      fs: { readFileSync(file) { assert.equal(file, path.join(ROOT, 'build-info.json')); if (value === undefined) throw new Error('missing'); return value; } } };
+    return vm.runInNewContext(buildSource + '\nJSON.stringify(publicBuild)', context);
+  }
+  assert.equal(readBuild(JSON.stringify({ revision, created, private: 'not public' })), JSON.stringify({ revision, created }));
+  for (const value of [undefined, 'broken', 'null', '{}', JSON.stringify({ revision: revision.slice(0, 7), created }),
+    JSON.stringify({ revision, created: '2026-02-30T00:00:00Z' }), JSON.stringify({ revision, created: '2026-10-27T18:35:00+00:00' })]) {
+    assert.equal(readBuild(value), 'null');
+  }
+  const source = await fs.readFile(path.join(ROOT, 'public/js/core.js'), 'utf8');
+  const context = { window: {}, document: {}, console, URLSearchParams, Intl, Map, Set };
+  vm.runInNewContext(source, context);
+  const format = context.window.QSL.footerBuildText;
+  assert.equal(format({ revision, created }), revision.slice(0, 7) + ' · 镜像构建于 2026-10-28 02:35 HKT');
+  for (const build of [null, {}, { revision, created: '2026-02-30T00:00:00Z' }]) assert.match(format(build), /^开发版/);
 });
 
 test('production frontend ignores devToken and does not render demo login UI', async () => {
@@ -503,6 +531,8 @@ test('JSON import supports dry-run, preserves source, refuses overwrite, and rol
   const sourceDir = await temp(t), targetDir = await temp(t), invalidDir = await temp(t);
   assert.equal((await init(sourceDir)).code, 0);
   const source = await databases.get(sourceDir).db.transaction(unit => unit.data);
+  const now = new Date().toISOString();
+  source.cards.push({ id: 'legacy_card', ownerId: source.users[0].id, title: 'Legacy', callSign: '', band: '', mode: '', notes: '', ratio: { w: 3, h: 2 }, frontImage: '', backImage: '', shareToken: 'AbCdEf', status: 'approved', rejectReason: null, contentConsent: null, createdAt: now, updatedAt: now });
   const file = path.join(sourceDir, 'legacy.json');
   await fs.writeFile(file, JSON.stringify(source));
   const runImport = async (dir, flags = []) => {
@@ -516,7 +546,11 @@ test('JSON import supports dry-run, preserves source, refuses overwrite, and rol
   assert.equal((await runImport(targetDir, ['--dry-run'])).code, 0);
   assert.equal(await databases.get(targetDir).db.transaction(unit => unit.data.users.length), 0);
   assert.equal((await runImport(targetDir)).code, 0);
-  assert.deepEqual(await databases.get(targetDir).db.transaction(unit => unit.data), source);
+  const imported = await databases.get(targetDir).db.transaction(unit => unit.data);
+  assert.match(imported.cards[0].shortToken, /^[A-Za-z]{6}$/);
+  assert.notEqual(imported.cards[0].shortToken, source.cards[0].shareToken);
+  delete imported.cards[0].shortToken;
+  assert.deepEqual(imported, source);
   assert.notEqual((await runImport(targetDir)).code, 0);
   assert.deepEqual(JSON.parse(await fs.readFile(file, 'utf8')), source);
   source.likes.push({ id: 'l_orphan', userId: 'missing', cardId: 'missing', createdAt: new Date().toISOString() });

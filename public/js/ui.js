@@ -353,7 +353,7 @@
         token = res && res.shareToken;
       } catch (err) { /* 非 owner 时回退到普通链接 */ }
     }
-    const url = token ? location.origin + '/share/' + token : location.origin + '/card/' + (c.id || '');
+    const url = token ? location.origin + '/s/' + encodeURIComponent(token) : location.origin + '/card/' + (c.id || '');
     return QSL.copyText(url, '分享链接已复制，快发给朋友吧');
   };
 

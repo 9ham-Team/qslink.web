@@ -62,6 +62,7 @@
     { path: '/space/:uid', page: 'space' },
     { path: '/card/:id', page: 'card-detail' },
     { path: '/share/:token', page: 'share' },
+    { path: '/s/:token', page: 'share' },
     { path: '/login', page: 'login', guest: true },
     { path: '/register', page: 'register', guest: true },
     { path: '/dashboard', page: 'dashboard', auth: true },
@@ -403,6 +404,26 @@
       '<circle cx="300" cy="200" r="86"/><circle cx="300" cy="200" r="54"/><circle cx="300" cy="200" r="122" stroke-dasharray="4 10"/></g>' +
       '<text x="300" y="214" text-anchor="middle" font-family="Georgia,serif" font-size="44" fill="#0b8f77" fill-opacity=".55" letter-spacing="6">QSL</text></svg>'
     );
+
+  /* ---------------- 页脚构建信息 ---------------- */
+  QSL.footerBuildText = function (build) {
+    if (!build || typeof build.revision !== 'string' || typeof build.created !== 'string' ||
+        !/^[a-f0-9]{40}$/.test(build.revision) ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(build.created)) {
+      return '开发版 · 镜像构建时间未知';
+    }
+    const date = new Date(build.created);
+    if (!Number.isFinite(date.getTime()) || date.toISOString() !== build.created.replace('Z', '.000Z')) {
+      return '开发版 · 镜像构建时间未知';
+    }
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Hong_Kong', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return build.revision.slice(0, 7) + ' · 镜像构建于 ' + values.year + '-' + values.month + '-' +
+      values.day + ' ' + values.hour + ':' + values.minute + ' HKT';
+  };
 
   /* ---------------- 启动辅助 ---------------- */
   QSL.boot = async function () {

@@ -27,6 +27,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
+import { testShortTokens } from './short-tokens.mjs';
+import { testAnnouncements } from './announcements.mjs';
 
 // ---------------------------------------------------------------------------
 // Configuration / globals
@@ -1621,7 +1623,8 @@ async function phaseShare() {
     expectString(res.json.shareToken, 'share.shareToken', res);
     expectEqual(res.json.shareToken, card1.shareToken, 'share token matches card shareToken', res);
     expectString(res.json.url, 'share.url', res);
-    assert(res.json.url.includes(`/share/${res.json.shareToken}`), `share.url 应包含 /share/<token>，实际 ${res.json.url}`, res);
+    assert(/^[A-Za-z]{6}$/.test(res.json.shareToken), 'shareToken 应为六位大小写字母', res);
+    assert(res.json.url.includes(`/s/${res.json.shareToken}`), `share.url 应包含 /s/<token>，实际 ${res.json.url}`, res);
     if (!/^https?:\/\//.test(res.json.url)) softNote(`share.url 不是绝对 URL: ${res.json.url}`);
   });
 
@@ -1665,6 +1668,9 @@ async function phaseShare() {
 
   await test('share: GET /share/:token route falls back to index.html', async () => {
     const card1 = needCard('card1');
+    const short = await api('GET', `/s/${card1.shareToken}`, { redirect: 'manual' });
+    expectStatus(short, 200, 'GET /s/<real token>');
+    assert(/id=["']app["']/.test(short.text), '/s/:token 应回退到 index.html', short);
     const res = await api('GET', `/share/${card1.shareToken}`, { redirect: 'manual' });
     expectStatus(res, 200, 'GET /share/<real token>');
     assert(/id=["']app["']/.test(res.text), '分享页路由未回退到 index.html', res);
@@ -2106,6 +2112,8 @@ async function main() {
   console.log(`  data:    ${KEEP_DATA ? `${dataDir} (kept)` : dataDir}`);
 
   try {
+    await test('short tokens: collision, concurrency, migration and legacy protection', testShortTokens);
+    await test('announcements: permissions, validation, publishing, pagination and persistence', testAnnouncements);
     await runPhases();
   } finally {
     await stopServer();

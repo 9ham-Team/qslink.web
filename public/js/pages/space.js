@@ -10,6 +10,11 @@
       let cancelled = false;
       let loading = false;
       let page = 0;
+      let sort = 'latest';
+      let requestId = 0;
+      let profileShown = false;
+      let view = 'grid';
+      try { if (localStorage.getItem('qsl_space_view') === 'large') view = 'large'; } catch (_) {}
       let shareModal = null;
       container.innerHTML = '<div class="container g-space"><p role="status">正在接收这位火腿的电波…</p></div>';
 
@@ -30,9 +35,13 @@
           '</div></div></section>' +
           '<section class="g-space__collection" aria-labelledby="space-cards-title"><header class="g-space__heading">' +
           '<h2 id="space-cards-title">公开卡片</h2>' +
+          '<div class="g-space__controls"><div class="g-space__views" role="group" aria-label="卡片显示模式">' +
+          '<button type="button" data-space-view="grid" aria-pressed="' + (view === 'grid') + '">紧凑</button>' +
+          '<button type="button" data-space-view="large" aria-pressed="' + (view === 'large') + '">大图</button></div>' +
+          '<select class="g-space__sort" data-space-sort aria-label="卡片排序"><option value="latest">最新</option><option value="popular">最热</option></select></div>' +
           '<div class="g-space__stats"><span><b>' + esc(String(user.stats.cards)) + '</b> 张公开卡片</span>' +
           '<span><b>' + esc(String(user.stats.likesReceived)) + '</b> 次喜欢</span></div></header>' +
-          '<div class="g-space__grid" data-space-grid></div><p class="g-space__status" data-space-status role="status"></p>' +
+          '<div class="g-space__grid" data-space-grid data-view="' + view + '"></div><p class="g-space__status" data-space-status role="status"></p>' +
           '<div class="g-space__more"><button class="btn btn-soft" type="button" data-space-more hidden>加载更多</button></div></section>' +
           '<footer class="g-space__foot"><div class="g-space__meta"><span class="mono">UID ' + esc(user.uid) + '</span>' +
           '<span>' + esc(QSL.formatDate(user.joinedAt)) + ' 加入 QSLink</span></div>' +
@@ -58,18 +67,41 @@
           const input = shareModal.body.querySelector('[data-space-url]');
           input.addEventListener('click', function () { input.select(); });
         });
-        container.querySelector('[data-space-more]').addEventListener('click', load);
+        container.querySelector('[data-space-more]').addEventListener('click', function () { load(); });
+        const sortSelect = container.querySelector('[data-space-sort]');
+        sortSelect.value = sort;
+        sortSelect.addEventListener('change', function () {
+          sort = sortSelect.value === 'popular' ? 'popular' : 'latest';
+          load(true);
+        });
+        container.querySelectorAll('[data-space-view]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            view = button.dataset.spaceView;
+            container.querySelector('[data-space-grid]').dataset.view = view;
+            container.querySelectorAll('[data-space-view]').forEach(function (item) {
+              item.setAttribute('aria-pressed', String(item.dataset.spaceView === view));
+            });
+            try { localStorage.setItem('qsl_space_view', view); } catch (_) {}
+          });
+        });
+        profileShown = true;
       }
 
-      async function load() {
-        if (loading || cancelled) return;
+      async function load(reset) {
+        if (cancelled || (loading && !reset)) return;
+        const currentRequest = ++requestId;
+        if (reset) {
+          page = 0;
+          container.querySelector('[data-space-grid]').replaceChildren();
+          container.querySelector('[data-space-status]').textContent = '正在加载卡片…';
+        }
         loading = true;
         const more = container.querySelector('[data-space-more]');
         if (more) { more.disabled = true; more.textContent = '加载中…'; }
         try {
-          const res = await QSL.api.spaces.get(uid, { page: page + 1, limit: 12 });
-          if (cancelled) return;
-          if (!page) showProfile(res);
+          const res = await QSL.api.spaces.get(uid, { sort: sort, page: page + 1, limit: 12 });
+          if (cancelled || currentRequest !== requestId) return;
+          if (!profileShown) showProfile(res);
           page = res.cards.page;
           const grid = container.querySelector('[data-space-grid]');
           res.cards.items.forEach(function (card) { grid.appendChild(QSL.cardTile(card)); });
@@ -77,21 +109,22 @@
           status.textContent = res.cards.total ? '' : '这里的卡片故事，正等待第一张开始。';
           container.querySelector('[data-space-more]').hidden = page >= res.cards.pages;
         } catch (err) {
-          if (cancelled) return;
-          if (!page) {
+          if (cancelled || currentRequest !== requestId) return;
+          if (!profileShown) {
             container.innerHTML = '<div class="container g-space"><div class="g-error-panel"><h1>' +
               (err.status === 404 ? '这个主页暂时无法访问' : '主页加载失败') + '</h1><p>' +
               (err.status === 404 ? '请检查九位 UID，或到广场发现更多同好。' : '电波暂时有点杂音，请稍后重试。') +
               '</p><a class="btn btn-soft" href="/explore" data-link>逛逛卡片广场</a>' +
               (err.status === 404 ? '' : '<button class="btn btn-primary" type="button" data-space-retry>重新加载</button>') + '</div></div>';
             const retry = container.querySelector('[data-space-retry]');
-            if (retry) retry.addEventListener('click', load);
+            if (retry) retry.addEventListener('click', function () { load(); });
           } else {
             container.querySelector('[data-space-status]').textContent = '加载失败，请点击加载更多重试。';
+            container.querySelector('[data-space-more]').hidden = false;
           }
         } finally {
-          loading = false;
-          if (!cancelled) {
+          if (!cancelled && currentRequest === requestId) {
+            loading = false;
             const button = container.querySelector('[data-space-more]');
             if (button) { button.disabled = false; button.textContent = '加载更多'; }
           }

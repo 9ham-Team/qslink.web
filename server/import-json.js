@@ -17,6 +17,7 @@ async function main() {
   const data = JSON.parse(
     await fs.readFile(path.resolve(args[fileAt + 1]), 'utf8'),
   );
+  if (data.announcements === undefined) data.announcements = [];
   if (
     data.version !== 1 ||
     COLLECTIONS.some((name) => !Array.isArray(data[name]))

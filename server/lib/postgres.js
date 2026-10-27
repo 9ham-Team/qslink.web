@@ -4,10 +4,11 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
-const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql'];
 const SCHEMA_VERSION = MIGRATIONS.length;
-const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas'];
+const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements'];
 const FIELDS = {
+  announcements: ['id', 'title', 'body', 'status', 'publishedAt', 'createdAt', 'updatedAt'],
   emailVerifications: ['id', 'nonce', 'codeHash', 'attempts', 'status', 'sentAt', 'expiresAt'],
   mailQuotas: ['id', 'count', 'windowAt'],
   users: [
@@ -39,6 +40,7 @@ const FIELDS = {
     'frontImage',
     'backImage',
     'shareToken',
+    'shortToken',
     'contentConsent',
     'status',
     'rejectReason',
@@ -150,6 +152,9 @@ class UnitOfWork {
     for (const user of this.data.users) {
       if (user.uid == null) user.uid = require('./uid').createUid(this.data.users);
     }
+    for (const card of this.data.cards) {
+      if (card.shortToken == null) card.shortToken = require('./short-token').createShortToken(this.data.cards);
+    }
     for (const name of [...COLLECTIONS].reverse()) {
       const key = keyFor(name),
         remaining = new Set(this.data[name].map((row) => row[key]));
@@ -229,6 +234,15 @@ class Database {
       for (const [index, filename] of MIGRATIONS.entries()) {
         const version = index + 1;
         if (versions.includes(version)) continue;
+        if (filename === '008_short_tokens.sql') {
+          await client.query('ALTER TABLE cards ADD COLUMN IF NOT EXISTS "shortToken" text COLLATE "C"');
+          const cards = (await client.query('SELECT id, "shareToken", "shortToken" FROM cards ORDER BY id')).rows;
+          for (const card of cards) {
+            if (card.shortToken != null) continue;
+            card.shortToken = require('./short-token').createShortToken(cards);
+            await client.query('UPDATE cards SET "shortToken"=$1 WHERE id=$2', [card.shortToken, card.id]);
+          }
+        }
         await client.query(
           await fs.readFile(
             path.join(__dirname, '..', 'migrations', filename),

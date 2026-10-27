@@ -161,7 +161,7 @@ function cardPublic(db, card, viewer, options = {}) {
     createdAt: card.createdAt,
     owner,
   };
-  if (options.shareToken) result.shareToken = card.shareToken;
+  if (options.shareToken) result.shareToken = card.shortToken;
   if (options.rejectReason) result.rejectReason = card.rejectReason || null;
   return result;
 }
@@ -191,7 +191,7 @@ function cardDetail(db, card, viewer) {
     ...base,
     canApply,
     isOwner,
-    shareToken: card.shareToken,
+    shareToken: card.shortToken,
     myExchange: myExchangeRecord ? { id: myExchangeRecord.id, status: myExchangeRecord.status } : null,
   };
 }
@@ -207,7 +207,7 @@ function exchangeCardBrief(db, card) {
     ratio: card.ratio,
     frontImage: card.frontImage,
     backImage: card.backImage || '',
-    shareToken: card.shareToken,
+    shareToken: card.shortToken,
   };
 }
 

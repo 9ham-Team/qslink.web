@@ -20,7 +20,11 @@ cp .env.example .env
 
 ```sh
 docker compose config --quiet
-docker compose build app
+# 仅为干净、已提交的源码注入身份；构建时采集 UTC，不能使用提交时间或启动时间。
+test -z "$(git status --porcelain)" || { echo '工作区有修改，请先确认发布源码'; exit 1; }
+QSL_BUILD_REVISION=$(git rev-parse HEAD)
+QSL_BUILD_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+docker compose build --build-arg "QSL_BUILD_REVISION=$QSL_BUILD_REVISION" --build-arg "QSL_BUILD_CREATED=$QSL_BUILD_CREATED" app
 docker compose up -d --wait db
 docker compose run --rm --no-deps app node server/init-admin.js
 docker compose up -d --wait
@@ -51,7 +55,7 @@ docker compose ps
 docker compose logs --tail=50 app db proxy
 ```
 
-健康响应应含 storage=postgresql；配置响应应为 demo=false、demoAccounts=[]。检查：无演示登录入口；新管理员可登录；普通用户上传、审核、分享可用；两位用户完成换卡流程且地址仅对授权用户可见。不要用真实地址做验收。生产演示模式、默认管理员密码和示例数据均会被拒绝。
+健康响应应含 storage=postgresql；配置响应应为 demo=false、demoAccounts=[]。构建时传入完整 SHA 与 UTC 时间的镜像还应返回 `build: { revision, created }`，与镜像 OCI revision / created 标签完全一致；页脚口号下会显示七位版本及香港时间。镜像内 `/app/build-info.json` 是唯一来源，不接受运行时 ENV 覆盖；本地直接 Node 运行或缺失/无效元数据返回 `build: null`，页脚显示“开发版 · 镜像构建时间未知”。未传构建参数可构建开发镜像，勿将其冒充正式发布；非空但无效或只传一个参数会使构建失败。检查：无演示登录入口；新管理员可登录；普通用户上传、审核、分享可用；两位用户完成换卡流程且地址仅对授权用户可见。不要用真实地址做验收。生产演示模式、默认管理员密码和示例数据均会被拒绝。
 
 ## 备份
 
@@ -75,7 +79,7 @@ docker compose exec -T app tar -czf - -C /var/lib/qslink uploads > "backups/$bac
 
 可选的 `deploy/qslink-backup.service` 和 `.timer` 假定 `/opt/qslink/current` 指向已部署版本，每日香港时间 03:15 起随机延后最多五分钟执行。安装前核对目录、建立权限为 700 的备份目录，再复制单元至 `/etc/systemd/system/` 并启用 timer。先手动运行一次 service，验证 dump 可列出、tar 可解压和校验和正确；定期在隔离环境演练完整恢复。本机备份不能代替异地备份。
 
-按 CONTRIBUTING.md 经 dev 验证、发布 PR 合入 main、选定版本标签，再部署。升级前成套备份，阅读迁移说明，然后 `docker compose build app` 和 `docker compose up -d --wait`。启动时按 schema_migrations 执行 SQL 迁移。
+按 CONTRIBUTING.md 经 dev 验证、发布 PR 合入 main、选定版本标签，再部署。升级前成套备份，阅读迁移说明，然后按“首次部署”示例在本次构建前重新取得完整 SHA 和当前 UTC 时间、通过两个 `--build-arg` 执行 `docker compose build`，再 `docker compose up -d --wait`。不要复用上次构建时间；直接 `docker build` 时同样传入 `QSL_BUILD_REVISION` 和 `QSL_BUILD_CREATED`。启动时按 schema_migrations 执行 SQL 迁移。
 
 不要执行 `docker compose down --volumes`，这会删除数据库和图片。保持 Compose 项目名、部署目录和卷配置不变。PostgreSQL 大版本升级必须按官方升级流程操作，不能直接将已有 17 数据卷挂到其他大版本镜像。
 

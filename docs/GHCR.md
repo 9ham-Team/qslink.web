@@ -18,6 +18,12 @@
 
 工作流会构建 **Linux AMD64** 应用镜像，生成 OCI 标签、构建来源信息和 SBOM，并使用 GitHub Actions 构建缓存。
 
+CI 冒烟构建和发布构建均以 `github.sha`（完整 40 位；PR 为被测试的合并提交）传入 `QSL_BUILD_REVISION`，各自在实际开始构建前采集 UTC 时间 `QSL_BUILD_CREATED`（`yyyy-MM-ddTHH:mm:ssZ`），不是提交时间或工作流启动时间。两次独立构建的时间可以不同。Dockerfile 将同一组参数写入镜像内 `/app/build-info.json` 和 OCI `org.opencontainers.image.revision` / `org.opencontainers.image.created`；发布时显式覆盖 metadata-action 的同名标签，避免时间来源不同。CI 容器检查同时核对公共配置和 OCI 标签。
+
+公开 `/api/config` 仅增加 `build: { revision, created }`（无有效构建信息时为 `null`），不公开构建机器、环境或凭据。服务端只读固定镜像内文件，不采用运行时环境变量、启动/访问时间或文件 mtime。公共页脚口号下显示前七位 SHA 与 `Asia/Hong_Kong` 的 `yyyy-MM-dd HH:mm HKT`；缺少或无效时显示开发版占位。本地 Node 运行、未传参数的镜像及允许脏工作区的离线开发包不会伪装成已提交版本。已有旧镜像须重新构建才有这些信息。
+
+其他本地 `docker build` / Compose 构建应按照 [部署指南](DEPLOYMENT.md) 在构建当时传入这两个参数，且不要用 `--label` 单独覆盖这两个 OCI 标签。`tools/build-migration-images.sh` 自动为干净源码注入元数据，`--allow-dirty` 的脏源码保留开发版占位。不要用运行时 `-e` 或服务器 `.env` 冒充镜像构建信息。
+
 ## 镜像地址
 
 根据运行工作流的仓库自动生成，并转为小写：
