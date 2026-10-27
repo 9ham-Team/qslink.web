@@ -565,7 +565,7 @@
           : '') +
         ((status === 'approved' || status === 'completed')
           ? '<p class="f-ex-preference">' + ico('cards', 15) + '<span>' + (incoming ? '希望收到的卡片：' : '对方希望收到的卡片：') +
-            (ex.preferredCard ? esc(ex.preferredCard.title || '未命名卡片') : ex.preferredCardTitle ? esc(ex.preferredCardTitle) + '（已不可用）' : '无所谓') + '</span></p>' : '') +
+            (ex.preferredCard ? (!incoming ? '<a class="f-ex-preference-link" href="/card/' + esc(encodeURIComponent(ex.preferredCard.id)) + '" data-link>' + esc(ex.preferredCard.title || '未命名卡片') + '</a>' : esc(ex.preferredCard.title || '未命名卡片')) : ex.preferredCardTitle ? esc(ex.preferredCardTitle) + '（已不可用）' : '无所谓') + '</span></p>' : '') +
         addressesHtml +
         actionButtons(ex) +
         '</div>' +

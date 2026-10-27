@@ -2258,6 +2258,9 @@
 .f-ex-choice input:checked ~ .f-ex-choice__check { opacity: 1; }
 .f-ex-choice:has(input:disabled) { cursor: wait; }
 .f-ex-preference { display: flex; gap: 7px; align-items: baseline; font-size: 13px; color: var(--brand-deep); overflow-wrap: anywhere; }
+.f-ex-preference-link { text-decoration: underline; text-underline-offset: 3px; }
+.f-ex-preference-link:hover { color: var(--brand); }
+.f-ex-preference-link:focus-visible { outline: 2px solid var(--brand-deep); outline-offset: 3px; border-radius: 2px; }
 @media (max-width: 620px) {
   .f-ex-showcase { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
   .f-ex-choice { padding: 7px; }
