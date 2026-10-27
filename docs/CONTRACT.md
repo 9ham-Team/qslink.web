@@ -154,7 +154,7 @@ QSL.cardThumb(card, {height}) -> HTML
 
 图标清单（`QSL.icon` 支持）：`heart, share, cards, upload, camera, check, x, close, plus, edit, trash, arrow-right, arrow-left, chevron-down, search, filter, sort, user, users, shield, clock, map-pin, mail, lock, eye, logout, menu, sparkles, flame, globe, radio, antenna, wave, copy, external, refresh, image, info, alert, star, settings, inbox, send, sun, moon, layout, list, grid, download, 3d, flip`（不存在的 name 返回空字符串，不抛错）。
 
-桌面分享菜单悬浮停留 350ms 后展开，离开后缓冲 220ms 再收起；展开和收起均使用 180ms 的透明度 / 轻微位移动画，减少动态效果模式取消动画。键盘方向下键即时展开，离页清理全部等待计时器。分享图采用信笺布局：顶部品牌与邮戳装饰、圆角白边正面图片、独立标题/呼号、底部二维码信息栏和页脚。卡片完整等比显示，不裁切内容；二维码保留完整静区。卡片右下角不叠加徽章，标题下方仅保留“双面 3D 卡片”标注，不放“无需登录”提示或品牌标语；顶部与页脚右下角使用本站 `/assets/logo-mark.svg` 图标。
+桌面分享菜单悬浮停留 100ms 后展开，鼠标仍停留在分享按钮或菜单上时，点击分享按钮复制链接不会收起菜单（包括复制回退导致临时焦点移出时）；鼠标离开后缓冲 220ms 再收起，即使分享按钮因点击仍保留焦点也会收起；展开和收起均使用 180ms 的透明度 / 轻微位移动画，减少动态效果模式取消动画。键盘方向下键即时展开，离页清理全部等待计时器。分享图采用信笺布局：顶部品牌与邮戳装饰、圆角白边正面图片、独立标题/呼号、底部二维码信息栏和页脚。卡片完整等比显示，不裁切内容；二维码保留完整静区。卡片右下角不叠加徽章，标题下方仅保留“双面 3D 卡片”标注，不放“无需登录”提示或品牌标语；顶部与页脚右下角使用本站 `/assets/logo-mark.svg` 图标。
 
 分享图配色由 `poster-palette.js` 在本地从卡片正面抽样生成，加载于 `qr.js` 后、`card-share.js` 前。采用 Monet 风格流程：64×64 抽样、5-bit RGB 量化、邻近色相占比与感知色度评分，弱化黑白区域与极少量彩色噪声；以 OKLCH 生成同源低饱和背景、容器底色、文字、强调色和分隔线，越界色度压缩至 sRGB。此实现使用 OKLCH，不是 Google CAM16/HCT 的原版实现。所有文字色在渐变两端及容器底色上的 WCAG 对比度均检查为至少 4.5:1，按钮白色箭头也满足该阈值。灰度卡片使用中性色，无图/完全透明/取色不可用时回退站点配色；二维码保持原有深色与白色静区，网站图标及原卡片不改色。不请求外部取色服务，不重复加载卡片图片。
 
