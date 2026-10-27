@@ -250,14 +250,26 @@ body: `{ message?, contactName, address: Address }`
 - 不能申请自己的卡片；卡片须 approved 且 owner 未被禁用。
 - 同一用户对同一卡片存在 `pending`/`approved` 的活动申请时 → 409 `CONFLICT`（message："你已申请过这张卡片，请等待对方处理"）。
 - 201 → `{ exchange: ExchangeItem }`（允许被拒绝/取消后重新申请）
+- 新申请事务提交后，使用现有阿里云 Direct Mail 服务向卡片主人的注册邮箱发送一次提醒；等待本次投递调用完成后返回 201，网络发送不占用数据库事务锁。邮件含申请人昵称/呼号、卡片标题及 `${QSL_PUBLIC_ORIGIN}/dashboard/exchanges?box=incoming&status=pending`，用户需登录后查看；不含联系姓名、寄送地址或申请留言。
+- 仅创建成功才触发；未登录、申请自己/未审核卡片、主人禁用、重复活动申请或事务失败均不发送。取消/拒绝后重新创建成功属于新申请，可再次提醒。
+- 未配置邮件服务、卡片主人无邮箱或未配置 `QSL_PUBLIC_ORIGIN` 时跳过提醒，不从请求 Host 构造邮件链接。邮件服务失败仍返回原来的 201 并保留申请，仅记录无收件人/凭据的通用失败日志；不自动重试、不向申请人泄露主人邮箱或邮件服务错误。提醒为提交后尽力发送一次，无持久化投递队列；进程中断可能漏发，邮件服务接受投递不代表已进入收件箱。接口响应结构不变。
 ### GET /api/exchanges/:id  🔒
 参与者或 admin → `{ exchange: ExchangeItem }`（地址可见性同上）
+### GET /api/exchanges/:id/applicant-cards 🔒 (仅该待处理申请的接收人)
+query：`page`、`limit`。返回分页列表 `{ items: CardPublic[], total, page, limit, pages, hasUploadedCards }`，按创建时间倒序、ID 倒序稳定排列；仅含申请者已审核公开且账号未被禁用的卡片。`hasUploadedCards` 表示当前是否存在任何上传卡片，包含待审核及被拒绝卡片。
+
+`ExchangeItem` 增加 `preferredCardId`、`preferredCardTitle`、`preferredCard`（卡片简要信息）。无偏好时均为 null；已选择卡片删除后 ID 为 null，标题快照保留；卡片变为非公开或账号被禁用后 `preferredCard` 为 null。选择仅记录希望收到的卡片，不自动创建反向申请。
 ### POST /api/exchanges/:id/approve  🔒 (仅卡片 owner)
+- body：`{ preferredCardId?: string | null, confirmNoCards?: boolean }`。省略或 null 表示“无所谓”；指定卡片必须属于申请人、已审核公开且用户未被禁用，否则 400 `VALIDATION`（`fields.preferredCardId`）。
+- 申请人当前没有任何上传卡片时，须明确传 `confirmNoCards: true`，否则 409 `APPLICANT_HAS_NO_CARDS`，提示“该申请者没有上传卡片哦，请确认是否进行交换”。有上传但暂无公开卡片时可选择“无所谓”。
 - 仅 pending 可操作；每笔申请独立审批，同意后不改变同一卡片的其他申请。同一卡片可同时与多个不同用户处于 `approved` 状态，也允许其他用户继续提交申请。
 - 同一用户对同一卡片仍只能有一笔 `pending`/`approved` 活动申请；各笔交换独立完成，地址仅对该笔交换的双方及管理员可见。
 - → `{ exchange: ExchangeItem }`（包含双方地址）
+- 成功将 `pending` 更新为 `approved` 并提交后，向申请人的注册邮箱发送“换卡申请已被同意”提醒，链接为 `${QSL_PUBLIC_ORIGIN}/dashboard/exchanges?box=outgoing&status=approved`，登录后查看寄送信息；邮件不含地址。
 ### POST /api/exchanges/:id/reject  🔒 (仅卡片 owner)
 body: `{ reason? }` → `{ exchange }`
+- 成功将 `pending` 更新为 `rejected` 并提交后，向申请人的注册邮箱发送“换卡申请已被拒绝”提醒，链接为 `${QSL_PUBLIC_ORIGIN}/dashboard/exchanges?box=outgoing&status=rejected`；拒绝原因仅在站内查看，不放入邮件。
+- 两种处理结果的邮件均包含卡片主人昵称/呼号与卡片标题，不包含申请留言、联系姓名或地址。仅成功的状态变更触发一次；未登录、无权处理、校验失败、重复/并发审批的失败请求、事务回滚均不触发。申请人已禁用或缺少邮箱时跳过。邮件配置、可信链接来源、提交后发送、不自动重试及投递失败不撤销状态的规则同创建申请；失败仍返回 200，不泄露申请人的邮箱或邮件服务细节。
 ### POST /api/exchanges/:id/cancel  🔒 (仅申请人)
 仅 pending → `{ exchange }`（status=cancelled）
 ### POST /api/exchanges/:id/complete  🔒 (参与者双方)

@@ -357,6 +357,7 @@
     const initialStatus = STATUS_FILTERS.some((s) => s.key === query.get('status')) ? query.get('status') : 'all';
     const state = { items: [], counts: {}, box: initialBox, status: initialStatus, alive: true, loading: false };
     let listEl = null;
+    let approvalModal = null, approvalCheck = null;
 
     container.innerHTML =
       '<div class="f-page f-exchanges container">' +
@@ -562,6 +563,9 @@
         (ex.rejectReason && (status === 'rejected' || status === 'cancelled')
           ? '<p class="f-ex-reject">' + ico('alert', 14) + '<span>拒绝理由：' + esc(ex.rejectReason) + '</span></p>'
           : '') +
+        ((status === 'approved' || status === 'completed')
+          ? '<p class="f-ex-preference">' + ico('cards', 15) + '<span>' + (incoming ? '希望收到的卡片：' : '对方希望收到的卡片：') +
+            (ex.preferredCard ? (!incoming ? '<a class="f-ex-preference-link" href="/card/' + esc(encodeURIComponent(ex.preferredCard.id)) + '" data-link>' + esc(ex.preferredCard.title || '未命名卡片') + '</a>' : esc(ex.preferredCard.title || '未命名卡片')) : ex.preferredCardTitle ? esc(ex.preferredCardTitle) + '（已不可用）' : '无所谓') + '</span></p>' : '') +
         addressesHtml +
         actionButtons(ex) +
         '</div>' +
@@ -616,26 +620,97 @@
       row.querySelectorAll('button').forEach((btn) => { if (btn.dataset.exAct !== 'copy-address') btn.disabled = !!busy; });
     }
 
-    async function approveExchange(ex, row) {
-      const ok = await QSL.confirm({
-        title: '同意换卡申请',
-        message: '同意与「' + personLabel(ex.fromUser) + '」交换卡片？同意后你们双方的寄送地址将互相可见。',
-        confirmText: '同意交换',
-        cancelText: '再想想'
-      });
-      if (!ok || !state.alive) return;
-      setRowBusy(row, true);
-      try {
-        await QSL.api.exchanges.approve(ex.id);
-        QSL.toast('已同意换卡申请，双方地址已解锁', 'success');
-        if (QSL.fx && QSL.fx.confetti) {
-          try { QSL.fx.confetti(); } catch (e) { /* ignore */ }
-        }
-        await load();
-      } catch (err) {
-        setRowBusy(row, false);
-        QSL.toast((err && err.message) || '操作失败，请稍后重试', 'error');
+    function approveExchange(ex, row) {
+      if (approvalModal) return;
+      let closed = false, ready = false, busy = false, hasUploads = true, selected = null, job = 0;
+      const events = new AbortController();
+      const options = {
+        title: '选择希望交换的卡片', size: 'lg',
+        content: '<p class="modal-text">申请者：' + esc(personLabel(ex.fromUser)) + '。请选择希望收到的卡片，也可以保持“无所谓”。确认同意后，双方寄送地址将互相可见。</p>' +
+          '<p class="muted" data-choice-status role="status">正在加载申请者的卡片…</p><div class="f-ex-showcase" role="radiogroup" aria-label="希望收到的卡片"></div>' +
+          '<p class="f-modal-error" data-choice-error hidden></p><button type="button" class="btn btn-ghost btn-sm" data-choice-reload>重新加载卡片</button>',
+        onClose: function () {
+          closed = true; job++; events.abort();
+          if (approvalCheck) approvalCheck.close();
+          approvalModal = null; setRowBusy(row, false);
+        },
+        actions: [
+          { label: '取消', type: 'ghost' },
+          { label: '确认交换', type: 'primary', disabled: true, closeOnClick: false, onClick: function () {
+            if (!ready || busy || closed) return false;
+            if (!hasUploads) confirmEmpty(); else submit(false);
+            return false;
+          } }
+        ]
+      };
+      const modal = QSL.modal(options); approvalModal = modal;
+      const grid = modal.body.querySelector('.f-ex-showcase');
+      const status = modal.body.querySelector('[data-choice-status]');
+      const error = modal.body.querySelector('[data-choice-error]');
+      const confirm = modal.el.querySelector('.modal-actions .btn-primary');
+      const reload = modal.body.querySelector('[data-choice-reload]');
+      function paint(cards) {
+        selected = null;
+        grid.innerHTML = '<label class="f-ex-choice"><input type="radio" name="preferred-card" value="" checked><span class="f-ex-choice__stage is-any">' + ico('cards', 40) + '<b>无所谓</b><small>不指定对方寄送的卡片</small></span><span class="f-ex-choice__name">无所谓</span><span class="f-ex-choice__check" aria-hidden="true">' + ico('check', 16) + '</span></label>' +
+          cards.map(function (card) {
+            return '<label class="f-ex-choice"><input type="radio" name="preferred-card" value="' + esc(card.id) + '"><span class="f-ex-choice__stage">' +
+              (card.frontImage ? '<img alt="' + esc(card.title || '未命名卡片') + '" loading="lazy" decoding="async" ' + QSL.images.attributes(card.frontImage, '(max-width: 620px) calc((100vw - 96px) / 2), 220px') + '>' : ico('cards', 40)) +
+              '</span><span class="f-ex-choice__name">' + esc(card.title || '未命名卡片') + '</span><span class="f-ex-choice__check" aria-hidden="true">' + ico('check', 16) + '</span></label>';
+          }).join('');
+        status.textContent = cards.length ? '申请者的已审核公开卡片 · 默认选择“无所谓”' : hasUploads ? '申请者已上传卡片，暂无已审核公开卡片可选。' : '该申请者没有上传卡片，可选择“无所谓”继续。';
       }
+      async function loadChoices() {
+        const current = ++job; ready = false; confirm.disabled = true; reload.disabled = true;
+        status.textContent = '正在加载申请者的卡片…'; grid.innerHTML = '';
+        try {
+          const cards = new Map(); let lastPage = 1;
+          for (let page = 1; page <= lastPage; page++) {
+            const result = await QSL.api.exchanges.applicantCards(ex.id, { page: page, limit: 48 });
+            if (closed || !state.alive || current !== job) return;
+            if (page === 1) { lastPage = Math.max(1, result.pages); hasUploads = result.hasUploadedCards; }
+            result.items.forEach(card => cards.set(card.id, card));
+          }
+          paint(Array.from(cards.values())); ready = true; confirm.disabled = false;
+        } catch (err) {
+          if (closed || !state.alive || current !== job) return;
+          status.textContent = '卡片加载失败，暂时无法确认交换。'; error.hidden = false; error.textContent = err.message || '请重新加载卡片';
+        } finally { if (!closed && current === job) reload.disabled = false; }
+      }
+      function confirmEmpty() {
+        if (approvalCheck || closed) return;
+        modal.el.inert = true;
+        approvalCheck = QSL.modal({ title: '请确认是否交换', size: 'sm',
+          content: '<p class="modal-text">该申请者没有上传卡片哦，请确认是否进行交换</p>',
+          onClose: function () { approvalCheck = null; modal.el.inert = false; if (!closed && state.alive) confirm.focus({ preventScroll: true }); },
+          actions: [ { label: '再想想', type: 'ghost' }, { label: '确认交换', type: 'primary', closeOnClick: false, onClick: function () {
+            const check = approvalCheck; if (!check || closed) return false;
+            check.close(); submit(true); return false;
+          } } ]
+        });
+      }
+      async function submit(confirmNoCards) {
+        if (busy || closed || !ready || !state.alive) return;
+        busy = true; options.dismissible = false; error.hidden = true; setRowBusy(row, true);
+        modal.el.querySelectorAll('button, input').forEach(node => { node.disabled = true; });
+        QSL.setBusy(confirm, true, '提交中');
+        try {
+          await QSL.api.exchanges.approve(ex.id, { preferredCardId: selected, confirmNoCards: confirmNoCards });
+          if (!state.alive) return;
+          modal.close(); QSL.toast('已同意换卡申请，双方地址已解锁', 'success');
+          if (QSL.fx && QSL.fx.confetti) { try { QSL.fx.confetti(); } catch (e) { /* optional effect */ } }
+          await load();
+        } catch (err) {
+          if (closed || !state.alive) return;
+          error.hidden = false; error.textContent = err.fields && err.fields.preferredCardId || err.message || '操作失败，请稍后重试';
+          if (err.code === 'APPLICANT_HAS_NO_CARDS' || err.fields && err.fields.preferredCardId) await loadChoices();
+        } finally {
+          busy = false; options.dismissible = true; setRowBusy(row, false);
+          if (!closed) { QSL.setBusy(confirm, false); modal.el.querySelectorAll('button, input').forEach(node => { node.disabled = false; }); confirm.disabled = !ready; }
+        }
+      }
+      grid.addEventListener('change', function (event) { if (event.target.matches('input[type="radio"]')) selected = event.target.value || null; }, { signal: events.signal });
+      reload.addEventListener('click', function () { if (!busy) { error.hidden = true; loadChoices(); } }, { signal: events.signal });
+      loadChoices();
     }
 
     function rejectExchange(ex, row) {
@@ -837,6 +912,8 @@
     load();
     return function cleanup() {
       state.alive = false;
+      if (approvalCheck) approvalCheck.close();
+      if (approvalModal) approvalModal.close();
       clearTimeout(switchTimer);
       if (tabsObserver) tabsObserver.disconnect();
     };

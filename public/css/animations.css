@@ -513,7 +513,7 @@
 .toast {
   position: relative;
 }
-.toast::after {
+.qsl-notification::after {
   content: "";
   position: absolute;
   left: 15px;
@@ -530,7 +530,7 @@
   40% { opacity: 0.8; }
   100% { opacity: 0.28; transform: scaleX(1); transform-origin: left center; }
 }
-.toast .toast-icon {
+.qsl-notification .toast-icon {
   animation: fxPopIn 0.48s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
 }
 @keyframes fxPopIn {

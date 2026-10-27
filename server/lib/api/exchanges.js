@@ -3,15 +3,41 @@
 /** 换卡申请路由：创建 / 详情 / 同意 / 拒绝 / 撤回 / 完成 */
 
 const { badRequest, conflict, forbidden, notFound } = require('../errors');
-const { validateExchangeCreate, validateRejectReason } = require('../validate');
+const { validateExchangeCreate, validateRejectReason, isObj, parsePagination } = require('../validate');
 const auth = require('../auth');
-const { createId } = require('../db');
+const { createId, paginate } = require('../db');
 const serialize = require('../serialize');
 
 function findExchange(ctx) {
   const exchange = ctx.db.find('exchanges', (item) => item.id === ctx.params.id);
   if (!exchange) throw notFound('换卡申请不存在');
   return exchange;
+}
+
+function mailAfterCommit(ctx, recipient, notification, path) {
+  if (!ctx.config.publicOrigin || !ctx.config.sendExchangeMail || !recipient ||
+      !recipient.email || recipient.status === 'banned') return undefined;
+  const email = recipient.email;
+  const payload = { ...notification, url: ctx.config.publicOrigin + path };
+  return async () => {
+    try { await ctx.config.sendExchangeMail(email, payload); }
+    catch {
+      // Never undo committed changes or log recipient data / SDK errors.
+      console.warn('[mail] 换卡申请提醒发送失败');
+    }
+  };
+}
+
+function decisionMail(ctx, exchange, owner) {
+  const applicant = serialize.findUser(ctx.db, exchange.fromUserId);
+  const card = ctx.db.find('cards', item => item.id === exchange.cardId);
+  return mailAfterCommit(ctx, applicant, {
+    exchangeId: exchange.id,
+    status: exchange.status,
+    ownerName: owner.displayName || owner.username,
+    callSign: owner.callSign || '',
+    cardTitle: card && card.title || '未命名卡片',
+  }, '/dashboard/exchanges?box=outgoing&status=' + exchange.status);
 }
 
 /** POST /api/cards/:cardId/exchanges：发起换卡申请 */
@@ -60,9 +86,17 @@ async function create(ctx) {
   };
   ctx.db.insert('exchanges', exchange);
   await ctx.db.save();
+  // Snapshot only public identity/card fields. Addresses and the private message stay in QSLink.
+  // Use the configured origin rather than an untrusted Host header in outbound mail.
   return {
     status: 201,
     body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) },
+    afterCommit: mailAfterCommit(ctx, owner, {
+      exchangeId: exchange.id,
+      applicantName: user.displayName || user.username,
+      callSign: user.callSign || '',
+      cardTitle: card.title || '未命名卡片',
+    }, '/dashboard/exchanges?box=incoming&status=pending'),
   };
 }
 
@@ -78,18 +112,55 @@ async function detail(ctx) {
 }
 
 /** POST /api/exchanges/:id/approve：仅卡片主人；每笔申请独立审批 */
-async function approve(ctx) {
+function requirePendingOwner(ctx) {
   const user = auth.requireUser(ctx);
   const exchange = findExchange(ctx);
   if (exchange.toUserId !== user.id) throw forbidden('只有卡片主人可以处理申请');
   if (exchange.status !== 'pending') throw badRequest(null, '该申请已处理，无法再次审批');
+  return { user, exchange };
+}
+
+function applicantCards(ctx, exchange) {
+  const applicant = serialize.findUser(ctx.db, exchange.fromUserId);
+  const uploaded = ctx.db.filter('cards', card => card.ownerId === exchange.fromUserId);
+  return {
+    hasUploadedCards: uploaded.length > 0,
+    available: applicant && applicant.status !== 'banned' ? uploaded.filter(card => card.status === 'approved') : [],
+  };
+}
+
+/** GET /api/exchanges/:id/applicant-cards：仅该申请的接收人，公开卡片展柜。 */
+async function choices(ctx) {
+  const { exchange } = requirePendingOwner(ctx);
+  const { hasUploadedCards, available } = applicantCards(ctx, exchange);
+  available.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+  const { page, limit } = parsePagination(ctx.query);
+  const result = paginate(available, page, limit);
+  return { body: { ...result, hasUploadedCards, items: result.items.map(card => serialize.cardPublic(ctx.db, card, ctx.user)) } };
+}
+
+async function approve(ctx) {
+  const { user, exchange } = requirePendingOwner(ctx);
+  const body = ctx.body == null ? {} : ctx.body;
+  if (!isObj(body)) throw badRequest(null, '请检查选卡信息');
+  const id = body.preferredCardId == null ? null : body.preferredCardId;
+  if (id !== null && (typeof id !== 'string' || !id || id.length > 100)) throw badRequest({ preferredCardId: '请选择有效卡片或无所谓' });
+  if (body.confirmNoCards !== undefined && typeof body.confirmNoCards !== 'boolean') throw badRequest({ confirmNoCards: '请确认是否进行交换' });
+  const { hasUploadedCards, available } = applicantCards(ctx, exchange);
+  if (!hasUploadedCards && body.confirmNoCards !== true) {
+    throw conflict('APPLICANT_HAS_NO_CARDS', '该申请者没有上传卡片哦，请确认是否进行交换');
+  }
+  const preferred = id === null ? null : available.find(card => card.id === id);
+  if (id !== null && !preferred) throw badRequest({ preferredCardId: '所选卡片已不可用，请重新选择' });
 
   const now = new Date().toISOString();
   exchange.status = 'approved';
+  exchange.preferredCardId = preferred ? preferred.id : null;
+  exchange.preferredCardTitle = preferred ? preferred.title || '未命名卡片' : null;
   exchange.decidedAt = now;
   exchange.updatedAt = now;
   await ctx.db.save();
-  return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) } };
+  return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) }, afterCommit: decisionMail(ctx, exchange, user) };
 }
 
 /** POST /api/exchanges/:id/reject：仅卡片主人，可附拒绝原因 */
@@ -106,7 +177,7 @@ async function reject(ctx) {
   exchange.decidedAt = now;
   exchange.updatedAt = now;
   await ctx.db.save();
-  return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) } };
+  return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) }, afterCommit: decisionMail(ctx, exchange, user) };
 }
 
 /** POST /api/exchanges/:id/cancel：仅申请人，仅 pending */
@@ -143,6 +214,7 @@ module.exports = {
   routes: [
     { method: 'POST', pattern: '/api/cards/:cardId/exchanges', handler: create },
     { method: 'GET', pattern: '/api/exchanges/:id', handler: detail },
+    { method: 'GET', pattern: '/api/exchanges/:id/applicant-cards', handler: choices },
     { method: 'POST', pattern: '/api/exchanges/:id/approve', handler: approve },
     { method: 'POST', pattern: '/api/exchanges/:id/reject', handler: reject },
     { method: 'POST', pattern: '/api/exchanges/:id/cancel', handler: cancel },

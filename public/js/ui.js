@@ -112,7 +112,7 @@
     const kind = type || 'success';
     const iconName = kind === 'success' ? 'check-circle' : kind === 'error' ? 'alert' : kind === 'info' ? 'info' : 'sparkles';
     const el = document.createElement('div');
-    el.className = 'toast toast-' + kind;
+    el.className = 'toast qsl-notification toast-' + kind;
     el.innerHTML =
       '<span class="toast-icon">' + icon(iconName, 18) + '</span>' +
       '<span class="toast-msg">' + esc(message) + '</span>' +
@@ -164,6 +164,7 @@
       close: function () {
         if (closed) return;
         closed = true;
+        document.removeEventListener('keydown', onKey);
         overlay.classList.remove('is-show');
         setTimeout(() => overlay.remove(), 220);
         if (!document.querySelector('.modal-overlay.is-show')) document.body.classList.remove('modal-open');
@@ -204,6 +205,7 @@
       if (e.target === overlay && opts.dismissible !== false) instance.close();
     });
     const onKey = function (e) {
+      if (root.lastElementChild !== overlay) return;
       if (e.key === 'Escape' && opts.dismissible !== false) {
         instance.close();
         document.removeEventListener('keydown', onKey);
@@ -343,18 +345,22 @@
     return ok;
   };
 
-  QSL.shareCard = async function (card) {
+  QSL.cardShareUrl = async function (card) {
     const c = card || {};
     let token = c.shareToken;
     if (c.canShare !== false && !token && c.id) {
       try {
         const res = await QSL.api.cards.share(c.id);
-        if (res && res.url) return QSL.copyText(res.url, '分享链接已复制，快发给朋友吧');
+        if (res && res.url) return res.url;
         token = res && res.shareToken;
       } catch (err) { /* 非 owner 时回退到普通链接 */ }
     }
     const url = token ? location.origin + '/s/' + encodeURIComponent(token) : location.origin + '/card/' + (c.id || '');
-    return QSL.copyText(url, '分享链接已复制，快发给朋友吧');
+    return url;
+  };
+
+  QSL.shareCard = async function (card) {
+    return QSL.copyText(await QSL.cardShareUrl(card), '分享链接已复制，快发给朋友吧');
   };
 
   /* ---------------- 页面结构 ---------------- */

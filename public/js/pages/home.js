@@ -535,10 +535,21 @@
     entry.innerHTML = '<button class="btn btn-ghost btn-sm" type="button">' + ic('info', 16) + '公告板 · 查看全部</button>';
     root.querySelector('.g-hero').after(entry);
     let notice = null;
+    let noticeFrame = 0, noticeTimer = 0, noticeClosing = false;
     let modal = null;
     let modalJob = 0;
     let modalClosed = false;
     const eventController = new AbortController();
+    const toastRoot = document.getElementById('toast-root');
+    function syncNoticePause() {
+      if (!notice || noticeClosing) return;
+      const paused = !!(toastRoot && toastRoot.querySelector('.toast'));
+      notice.classList.toggle('is-paused', paused);
+      if (paused && notice.contains(document.activeElement)) entry.querySelector('button').focus({ preventScroll: true });
+      notice.inert = paused;
+    }
+    const toastObserver = toastRoot ? new MutationObserver(syncNoticePause) : null;
+    if (toastObserver) toastObserver.observe(toastRoot, { childList: true });
 
     function closeModal() {
       modalClosed = true;
@@ -600,14 +611,19 @@
       if (state.cancelled || !res.items.length) return;
       const item = res.items[0];
       notice = document.createElement('aside');
-      notice.className = 'g-announcement-notice';
+      notice.className = 'g-announcement-notice qsl-notification toast-info';
       notice.setAttribute('aria-labelledby', 'home-announcement-title');
-      notice.innerHTML = '<div class="g-announcement-head"><span class="eyebrow">最新公告</span><button class="btn btn-ghost btn-icon btn-sm" type="button" data-ann-close aria-label="关闭公告">' + ic('close', 16) + '</button></div><h2 id="home-announcement-title">' + esc(item.title) + '</h2><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p><button type="button" class="btn btn-soft btn-sm" data-ann-all>查看全部公告</button>';
+      notice.innerHTML = '<div class="g-announcement-head"><span class="g-announcement-label"><span class="toast-icon">' + ic('info', 18) + '</span>最新公告</span><button class="toast-close" type="button" data-ann-close aria-label="关闭公告">' + ic('close', 14) + '</button></div><h2 id="home-announcement-title">' + esc(item.title) + '</h2><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p><button type="button" class="btn btn-soft btn-sm" data-ann-all>查看全部公告</button>';
       function dismissNotice() {
-        if (!notice) return;
+        if (!notice || noticeClosing) return;
+        noticeClosing = true;
+        cancelAnimationFrame(noticeFrame);
         const hadFocus = notice.contains(document.activeElement);
-        notice.remove();
-        notice = null;
+        notice.classList.remove('is-show');
+        notice.classList.add('is-hide');
+        notice.inert = true;
+        const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 280;
+        noticeTimer = setTimeout(function () { notice.remove(); notice = null; }, delay);
         if (hadFocus) entry.querySelector('button').focus({ preventScroll: true });
       }
       notice.querySelector('[data-ann-close]').addEventListener('click', dismissNotice, { signal: eventController.signal });
@@ -616,12 +632,21 @@
         if (event.key !== 'Escape' || !notice || modal || document.querySelector('.modal-overlay')) return;
         dismissNotice();
       }, { signal: eventController.signal });
-      root.appendChild(notice);
+      document.body.appendChild(notice);
+      syncNoticePause();
+      // Commit the initial offscreen style before adding the same show state as toast.
+      notice.getBoundingClientRect();
+      noticeFrame = requestAnimationFrame(function () {
+        if (!state.cancelled && !noticeClosing && notice) notice.classList.add('is-show');
+      });
     }).catch(function (err) {
       if (!state.cancelled) QSL.toast(err.message || '公告加载失败', 'error');
     });
     return function () {
       eventController.abort();
+      if (toastObserver) toastObserver.disconnect();
+      cancelAnimationFrame(noticeFrame);
+      clearTimeout(noticeTimer);
       closeModal();
       if (notice) notice.remove();
       entry.remove();

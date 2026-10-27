@@ -320,26 +320,12 @@
       openExchange(card);
     }
 
-    function onShare(e) {
-      const btn = e.currentTarget;
-      if (btn) btn.disabled = true;
-      const done = function () { if (btn) btn.disabled = false; };
-      if (QSL.shareCard) {
-        Promise.resolve(QSL.shareCard(card)).then(done, done);
-      } else if (QSL.copyText) {
-        QSL.copyText(location.origin + '/card/' + card.id, '链接已复制').then(done, done);
-      } else {
-        done();
-      }
-    }
-
     const likeBtn = info.querySelector('[data-like]');
     const applyBtn = info.querySelector('[data-apply]');
     const shareBtns = info.querySelectorAll('[data-share]');
     if (likeBtn) likeBtn.addEventListener('click', onLike);
     if (applyBtn) applyBtn.addEventListener('click', onApply);
-    shareBtns.forEach(function (btn) { btn.addEventListener('click', onShare); });
-    void state;
+    shareBtns.forEach(function (btn) { state.shareCleanup = QSL.cardShare.bind(btn, card); });
   }
 
   /* ---------------- 页面注册 ---------------- */
@@ -399,6 +385,7 @@
 
       return function cleanup() {
         state.cancelled = true;
+        if (state.shareCleanup) state.shareCleanup();
         if (state.viewer) {
           try { state.viewer.destroy(); } catch (err) { /* 忽略 */ }
           state.viewer = null;

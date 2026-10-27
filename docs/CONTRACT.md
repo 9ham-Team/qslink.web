@@ -70,7 +70,7 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 
 ### 公告展示与管理
 
-首页 `home.js` 使用 `QSL.api.get('/api/announcements?page=1&limit=1')` 请求最新已发布公告，展示可关闭的公告浮层（桌面位于导航栏下方 16px 右侧，≤620px 改为贴底卡片，最高 40svh；toast 出现时暂时隐藏）。浮层以 `aria-labelledby` 关联标题，可按 Esc 关闭（存在其他弹窗时不响应），关闭时若焦点在浮层内则移回公告入口。关闭仅影响本次页面实例，不写入持久化已读状态。Hero 下方始终保留“公告板 · 查看全部”入口，打开弹窗按每页 8 条加载；有加载、空状态和失败提示，可关闭后重试；翻页时保留当前列表并标记 `aria-busy`、禁用分页按钮，成功后回到弹窗顶部，失败保留当前页并恢复按钮。标题、正文及时间均转义，正文以纯文本保留换行，不解释 HTML / Markdown。显示的是服务端 `publishedAt`，不以更新时间冒充发布时间。
+首页 `home.js` 使用 `QSL.api.get('/api/announcements?page=1&limit=1')` 请求最新已发布公告，展示可关闭的公告浮层。公告与 toast 共用 `.qsl-notification` 的半透明卡片、圆角、阴影、图标、顶部光带及右侧滑入 / 淡出动效（280ms）；桌面右侧距导航栏 16px，手机与 toast 一样位于导航栏下方 10px、左右留 12px。普通 toast 出现时公告平滑暂隐，toast 移除后恢复。公告不自动关闭，长正文可滚动，减少动态效果模式禁用过渡。浮层挂载到 body，离页取消入场帧和关闭计时器并立即移除；关闭过渡期间禁用交互。浮层以 `aria-labelledby` 关联标题，可按 Esc 关闭（存在其他弹窗时不响应），关闭时若焦点在浮层内则移回公告入口。关闭仅影响本次页面实例，不写入持久化已读状态。Hero 下方始终保留“公告板 · 查看全部”入口，打开弹窗按每页 8 条加载；有加载、空状态和失败提示，可关闭后重试；翻页时保留当前列表并标记 `aria-busy`、禁用分页按钮，成功后回到弹窗顶部，失败保留当前页并恢复按钮。标题、正文及时间均转义，正文以纯文本保留换行，不解释 HTML / Markdown。显示的是服务端 `publishedAt`，不以更新时间冒充发布时间。
 
 管理员 `/admin` 的“公告管理”页签通过通用 `QSL.api.get/post/put` 调用 `/api/admin/announcements` 及 `/:id`，不新增专用 API 包装。每页 8 条，支持新建、编辑、发布及撤下；撤下前需确认，从未发布的公告发布时间显示“未发布”，标题/正文按服务端规则（去除首尾空白后的字符数）实时显示 `n / 120`、`n / 10000`，超限标红但仍由服务端校验。保存按钮和状态切换按钮在请求中禁用，表单错误显示在弹窗及对应字段旁。草稿与撤下共用 `draft`，公开接口仅显示 `published`；编辑已发布公告保留发布时间，撤下保留历史发布时间，再发布由服务端重设。权限必须由服务端验证，前端守卫不是权限边界。
 
@@ -139,6 +139,9 @@ QSL.button({ label, variant, size, icon, onClick, loading }) -> HTMLButtonElemen
 QSL.skeletonCard() / QSL.skeletonRows(n)
 QSL.copyText(text) -> Promise<boolean>       // 复制并 toast "链接已复制"
 QSL.shareCard(card) -> Promise               // 分享链接规则见下文
+QSL.cardShareUrl(card) -> Promise<string>    // 解析同一规则的分享 URL，不操作剪贴板
+QSL.cardShare.bind(button, card) -> cleanup  // 详情页桌面菜单 / 触屏分享弹窗；离页调用 cleanup
+QSL.qr.canvas(url, scale=5, maxPixels?) -> HTMLCanvasElement // 本地二维码，按 UTF-8 字节长度自动选择 1–6-L，最多 134 字节；maxPixels 指定整数模块适配的边长上限
 QSL.formGroup({ label, input, hint, required }) -> HTML 字符串/元素
 QSL.ratioLabel(ratio)                         // "3 : 2"
 QSL.bandTone(band) / QSL.modeTone(mode)       // 历史兼容辅助方法，不代表当前 UI 提供波段/模式筛选
@@ -147,7 +150,15 @@ QSL.cardThumb(card, {height}) -> HTML
 ```
 分享规则：API 输出的 `shareToken` 为新六位短 token，已有 `shareToken` 时直接复制当前 `location.origin + '/s/' + token`；无 token、有卡片 id 且 `canShare !== false` 时尝试 `GET /api/cards/:id/share`（仅 owner/admin），优先复制响应的完整 URL；失败后回退当前站点的 `/s/<token>` 或 `/card/<id>`。服务端分享 URL 优先使用 `QSL_PUBLIC_ORIGIN`（生产必需 HTTPS），仅非生产未配置时从请求协议与 Host 拼接。分享 token 存在不代表已经审核通过。
 
+详情页分享按钮：精细指针且支持悬浮时，点击直接复制；悬浮或按方向下键展开菜单，Escape 关闭。触屏点击打开选择弹窗。菜单和弹窗提供生成分享图、复制链接、二维码及 QQ / 微信 / X / Threads 入口；可用时显示系统分享。微信快捷打开后需用户粘贴链接，QQ 使用网页分享入口，浏览器可能限制唤起客户端。分享图由本地 Canvas 绘制卡片正面、标题、呼号与相同分享 URL 的二维码，可下载 PNG、长按保存，可用时通过系统发送图片。图片仅从本站加载，不调用第三方图片 / 二维码服务；生成失败会提示，超长 URL 保留复制功能。审核状态与公开访问权限继续由服务端控制。退出详情页关闭弹窗、移除监听并释放图片 Object URL。`qr.js` 与 `card-share.js` 显式加载于 `ui.js` 之后、页面脚本之前。
+
 图标清单（`QSL.icon` 支持）：`heart, share, cards, upload, camera, check, x, close, plus, edit, trash, arrow-right, arrow-left, chevron-down, search, filter, sort, user, users, shield, clock, map-pin, mail, lock, eye, logout, menu, sparkles, flame, globe, radio, antenna, wave, copy, external, refresh, image, info, alert, star, settings, inbox, send, sun, moon, layout, list, grid, download, 3d, flip`（不存在的 name 返回空字符串，不抛错）。
+
+桌面分享菜单悬浮停留 350ms 后展开，离开后缓冲 220ms 再收起；展开和收起均使用 180ms 的透明度 / 轻微位移动画，减少动态效果模式取消动画。键盘方向下键即时展开，离页清理全部等待计时器。分享图采用信笺布局：顶部品牌与邮戳装饰、圆角白边正面图片、独立标题/呼号、底部二维码信息栏和页脚。卡片完整等比显示，不裁切内容；二维码保留完整静区。卡片右下角不叠加徽章，标题下方仅保留“双面 3D 卡片”标注，不放“无需登录”提示或品牌标语；顶部与页脚右下角使用本站 `/assets/logo-mark.svg` 图标。
+
+分享图配色由 `poster-palette.js` 在本地从卡片正面抽样生成，加载于 `qr.js` 后、`card-share.js` 前。采用 Monet 风格流程：64×64 抽样、5-bit RGB 量化、邻近色相占比与感知色度评分，弱化黑白区域与极少量彩色噪声；以 OKLCH 生成同源低饱和背景、容器底色、文字、强调色和分隔线，越界色度压缩至 sRGB。此实现使用 OKLCH，不是 Google CAM16/HCT 的原版实现。所有文字色在渐变两端及容器底色上的 WCAG 对比度均检查为至少 4.5:1，按钮白色箭头也满足该阈值。灰度卡片使用中性色，无图/完全透明/取色不可用时回退站点配色；二维码保持原有深色与白色静区，网站图标及原卡片不改色。不请求外部取色服务，不重复加载卡片图片。
+
+分享图的图片外框随图片实际宽高比调整，在 858×572 的图片区中完整等比居中，使用固定窄边距，不保留横版外框的侧边填充。没有图片时按卡片比例展示占位框。二维码按实际链接选择最小可用版本（1–6，L 级纠错），比较全部八种掩模的连续块、重复定位形状和深浅比例惩罚分；不删减标准纠错、填充位或四模块静区。典型短链接由原先 41×41 降至 25×25 或 29×29 个模块。导出二维码在 245px 上限内使用整数像素模块并居中，避免非整数缩放模糊。
 
 ### 4.4 effects.js（动效层）
 ```js
@@ -222,3 +233,7 @@ viewer = { el, flip(), showFront(), showBack(), reset(), setImages(front, back),
 - 首页调用 `QSL.api.cards.list({sort:'popular', limit:48})`，优先取返回列表中第一张有正面图的卡片作为 Hero；无卡片时使用品牌占位。**不要求使用任何真实个人卡图**，也不按特定账号或标题挑选。
 - 首页卡片数取 `/api/cards` 返回的 `total`；独立呼号数与点赞数由本次返回的最多 48 张卡片计算，不是全库统计，也不是固定种子数据。
 - 演示数据只用于显式启用的开发/测试环境，当前 seed 的卡图为程序生成 SVG；不要求默认展示演示账号、固定数量的申请或待审核卡片。生产禁止演示开关，并检查演示数据及默认管理员密码。
+
+### 收到的换卡申请：同意选卡
+
+点击同意先打开申请者的卡片展柜，仅列出已审核公开卡片，分页全部加载后允许确认。首项“无所谓”默认选中；其余项使用原生单选交互、响应式图片和适应手机的两列布局。选择作为“希望收到的卡片”保存在申请记录中供双方查看，不创建反向申请。发出的申请中，“对方希望收到的卡片”名称链接到 `/card/:id`，与“我的卡片”的“查看”入口一致；无偏好或卡片已不可用时不生成链接。若没有上传任何卡片，仅展示“无所谓”，底部确认再打开三级确认框：“该申请者没有上传卡片哦，请确认是否进行交换”。有上传但暂无公开卡片时单独说明。加载失败可重试，提交时禁止重复操作，服务端复核卡片可用性与无卡确认。嵌套弹窗 Escape 仅关闭顶层，关闭或路由离开清理弹窗和监听并忽略迟到的加载结果；遵循减少动态效果偏好。

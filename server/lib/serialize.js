@@ -230,6 +230,8 @@ function exchangeItem(db, exchange, viewer) {
   const card = findCard(db, exchange.cardId);
   const fromUser = findUser(db, exchange.fromUserId);
   const toUser = findUser(db, exchange.toUserId);
+  const preferred = exchange.preferredCardId ? findCard(db, exchange.preferredCardId) : null;
+  const preferredOwner = preferred ? findUser(db, preferred.ownerId) : null;
   const viewerIsAdmin = !!viewer && viewer.role === 'admin';
 
   let direction = 'admin';
@@ -252,6 +254,10 @@ function exchangeItem(db, exchange, viewer) {
     decidedAt: exchange.decidedAt || null,
     direction,
     card: exchangeCardBrief(db, card),
+    preferredCardId: exchange.preferredCardId || null,
+    preferredCardTitle: exchange.preferredCardTitle || null,
+    preferredCard: preferred && preferred.ownerId === exchange.fromUserId && preferred.status === 'approved' && preferredOwner && preferredOwner.status !== 'banned'
+      ? exchangeCardBrief(db, preferred) : null,
     fromUser: exchangeUserBrief(fromUser),
     toUser: exchangeUserBrief(toUser),
     fromAddress: addressesVisible ? exchange.fromAddress || null : null,
