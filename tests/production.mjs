@@ -419,7 +419,7 @@ test('build metadata is validated from the fixed build file and footer uses HKT'
   const context = { window: {}, document: {}, console, URLSearchParams, Intl, Map, Set };
   vm.runInNewContext(source, context);
   const format = context.window.QSL.footerBuildText;
-  assert.equal(format({ revision, created }), revision.slice(0, 7) + ' · 镜像构建于 2026-10-28 02:35 HKT');
+  assert.equal(format({ revision, created }), '版本 ' + revision.slice(0, 7) + ' · 镜像构建于 2026-10-28 02:35 HKT');
   for (const build of [null, {}, { revision, created: '2026-02-30T00:00:00Z' }]) assert.match(format(build), /^开发版/);
 });
 

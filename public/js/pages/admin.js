@@ -391,7 +391,7 @@
     const modal = QSL.modal({
       title: item ? '编辑公告' : '新建公告',
       size: 'lg',
-      content: '<form class="a-announcement-form"><label>标题（最多 120 字）<input class="input" name="title" required value="' + escAttr(item ? item.title : '') + '"></label><label>正文（纯文本，最多 10000 字）<textarea class="textarea" name="body" required>' + esc(item ? item.body : '') + '</textarea></label><label>状态<select class="select" name="status"><option value="draft">草稿 / 已撤下</option><option value="published"' + (item && item.status === 'published' ? ' selected' : '') + '>已发布</option></select></label><p class="a-hint-error" data-error role="alert"></p><button class="btn btn-primary" type="submit">保存公告</button></form>',
+      content: '<form class="a-announcement-form"><div class="a-announcement-field"><label>标题<input class="input" name="title" required aria-describedby="a-ann-count-title" value="' + escAttr(item ? item.title : '') + '"></label><small class="muted a-announcement-count" id="a-ann-count-title" data-count-for="title" data-max="120"></small></div><div class="a-announcement-field"><label>正文（纯文本）<textarea class="textarea" name="body" required aria-describedby="a-ann-count-body">' + esc(item ? item.body : '') + '</textarea></label><small class="muted a-announcement-count" id="a-ann-count-body" data-count-for="body" data-max="10000"></small></div><label>状态<select class="select" name="status"><option value="draft">草稿 / 已撤下</option><option value="published"' + (item && item.status === 'published' ? ' selected' : '') + '>已发布</option></select></label><p class="a-hint-error" data-error role="alert"></p><button class="btn btn-primary" type="submit">保存公告</button></form>',
       onClose: function () {
         closed = true;
         const overlay = modal.el.closest('.modal-overlay');
@@ -401,6 +401,17 @@
     });
     owner.announcementModal = modal;
     const form = modal.body.querySelector('form');
+    form.querySelectorAll('[data-count-for]').forEach(function (counter) {
+      const field = form.elements[counter.dataset.countFor];
+      const max = Number(counter.dataset.max);
+      const update = function () {
+        const length = Array.from(field.value.trim()).length;
+        counter.textContent = length + ' / ' + max;
+        counter.classList.toggle('is-over', length > max);
+      };
+      field.addEventListener('input', update);
+      update();
+    });
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
       if (busy || closed || S !== owner || !isLive(root, 'announcements')) return;
@@ -438,7 +449,7 @@
       if (S !== owner || !aliveRoot(root, 'announcements', job)) return;
       const list = root.querySelector('[data-ann-list]');
       list.innerHTML = res.items.length ? res.items.map(function (item) {
-        return '<article class="a-announcement-row"><h3>' + esc(item.title) + '</h3>' + badge(item.status === 'published' ? '已发布' : '草稿 / 已撤下', item.status === 'published' ? 'mint' : 'slate') + '<p class="a-announcement-body">' + esc(item.body) + '</p><small class="muted">更新：' + esc(fmtDateTime(item.updatedAt)) + ' · 发布时间：' + esc(fmtDateTime(item.publishedAt)) + '</small><div class="a-announcement-actions"><button class="btn btn-ghost btn-sm" type="button" data-ann-edit="' + escAttr(item.id) + '">编辑</button><button class="btn btn-soft btn-sm" type="button" data-ann-toggle="' + escAttr(item.id) + '">' + (item.status === 'published' ? '撤下' : '发布') + '</button></div></article>';
+        return '<article class="a-announcement-row"><h3>' + esc(item.title) + '</h3>' + badge(item.status === 'published' ? '已发布' : '草稿 / 已撤下', item.status === 'published' ? 'mint' : 'slate') + '<p class="a-announcement-body">' + esc(item.body) + '</p><small class="muted">更新：' + esc(fmtDateTime(item.updatedAt)) + ' · 发布时间：' + esc(item.publishedAt ? fmtDateTime(item.publishedAt) : '未发布') + '</small><div class="a-announcement-actions"><button class="btn btn-ghost btn-sm" type="button" data-ann-edit="' + escAttr(item.id) + '">编辑</button><button class="btn btn-soft btn-sm" type="button" data-ann-toggle="' + escAttr(item.id) + '">' + (item.status === 'published' ? '撤下' : '发布') + '</button></div></article>';
       }).join('') : '<p class="muted">暂无公告，点击「新建公告」开始。</p>';
       list.onclick = async function (event) {
         const btn = event.target.closest('[data-ann-edit], [data-ann-toggle]');
@@ -446,6 +457,16 @@
         const item = res.items.find(function (row) { return row.id === (btn.dataset.annEdit || btn.dataset.annToggle); });
         if (!item) return;
         if (btn.dataset.annEdit) { editAnnouncement(root, item); return; }
+        if (item.status === 'published') {
+          const ok = await QSL.confirm({
+            title: '撤下公告',
+            message: '确定撤下公告「' + item.title + '」吗？撤下后首页不再显示，可稍后重新发布。',
+            confirmText: '撤下',
+            cancelText: '取消',
+            danger: true
+          });
+          if (!ok || S !== owner || !isLive(root, 'announcements')) return;
+        }
         animateBusy(btn, true);
         try {
           await QSL.api.put('/api/admin/announcements/' + encodeURIComponent(item.id), { status: item.status === 'published' ? 'draft' : 'published' });

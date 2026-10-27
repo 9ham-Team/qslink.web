@@ -12,6 +12,7 @@
       let page = 0;
       let sort = 'latest';
       let requestId = 0;
+      let resetPending = false;
       let profileShown = false;
       let view = 'grid';
       try { if (localStorage.getItem('qsl_space_view') === 'large') view = 'large'; } catch (_) {}
@@ -34,13 +35,13 @@
           (collapsibleBio ? '<button class="g-space__bio-toggle" type="button" aria-expanded="false" aria-controls="space-bio" data-space-bio-toggle>展开简介</button>' : '') +
           '</div></div></section>' +
           '<section class="g-space__collection" aria-labelledby="space-cards-title"><header class="g-space__heading">' +
-          '<h2 id="space-cards-title">公开卡片</h2>' +
+          '<div class="g-space__title"><h2 id="space-cards-title">公开卡片</h2>' +
+          '<div class="g-space__stats"><span><b>' + esc(String(user.stats.cards)) + '</b> 张公开卡片</span>' +
+          '<span><b>' + esc(String(user.stats.likesReceived)) + '</b> 次喜欢</span></div></div>' +
           '<div class="g-space__controls"><div class="g-space__views" role="group" aria-label="卡片显示模式">' +
           '<button type="button" data-space-view="grid" aria-pressed="' + (view === 'grid') + '">紧凑</button>' +
           '<button type="button" data-space-view="large" aria-pressed="' + (view === 'large') + '">大图</button></div>' +
-          '<select class="g-space__sort" data-space-sort aria-label="卡片排序"><option value="latest">最新</option><option value="popular">最热</option></select></div>' +
-          '<div class="g-space__stats"><span><b>' + esc(String(user.stats.cards)) + '</b> 张公开卡片</span>' +
-          '<span><b>' + esc(String(user.stats.likesReceived)) + '</b> 次喜欢</span></div></header>' +
+          '<select class="g-space__sort" data-space-sort aria-label="卡片排序"><option value="latest">最新</option><option value="popular">最热</option></select></div></header>' +
           '<div class="g-space__grid" data-space-grid data-view="' + view + '"></div><p class="g-space__status" data-space-status role="status"></p>' +
           '<div class="g-space__more"><button class="btn btn-soft" type="button" data-space-more hidden>加载更多</button></div></section>' +
           '<footer class="g-space__foot"><div class="g-space__meta"><span class="mono">UID ' + esc(user.uid) + '</span>' +
@@ -89,11 +90,16 @@
 
       async function load(reset) {
         if (cancelled || (loading && !reset)) return;
+        reset = Boolean(reset || resetPending);
+        resetPending = false;
         const currentRequest = ++requestId;
+        const sortSelect = container.querySelector('[data-space-sort]');
         if (reset) {
           page = 0;
-          container.querySelector('[data-space-grid]').replaceChildren();
-          container.querySelector('[data-space-status]').textContent = '正在加载卡片…';
+          const grid = container.querySelector('[data-space-grid]');
+          grid.setAttribute('aria-busy', 'true');
+          if (!grid.children.length) container.querySelector('[data-space-status]').textContent = '正在加载卡片…';
+          if (sortSelect) sortSelect.disabled = true;
         }
         loading = true;
         const more = container.querySelector('[data-space-more]');
@@ -104,7 +110,9 @@
           if (!profileShown) showProfile(res);
           page = res.cards.page;
           const grid = container.querySelector('[data-space-grid]');
-          res.cards.items.forEach(function (card) { grid.appendChild(QSL.cardTile(card)); });
+          const tiles = res.cards.items.map(function (card) { return QSL.cardTile(card); });
+          if (reset) grid.replaceChildren.apply(grid, tiles);
+          else tiles.forEach(function (tile) { grid.appendChild(tile); });
           const status = container.querySelector('[data-space-status]');
           status.textContent = res.cards.total ? '' : '这里的卡片故事，正等待第一张开始。';
           container.querySelector('[data-space-more]').hidden = page >= res.cards.pages;
@@ -119,12 +127,17 @@
             const retry = container.querySelector('[data-space-retry]');
             if (retry) retry.addEventListener('click', function () { load(); });
           } else {
+            resetPending = reset;
             container.querySelector('[data-space-status]').textContent = '加载失败，请点击加载更多重试。';
             container.querySelector('[data-space-more]').hidden = false;
           }
         } finally {
           if (!cancelled && currentRequest === requestId) {
             loading = false;
+            const grid = container.querySelector('[data-space-grid]');
+            if (grid) grid.removeAttribute('aria-busy');
+            const select = container.querySelector('[data-space-sort]');
+            if (select) select.disabled = false;
             const button = container.querySelector('[data-space-more]');
             if (button) { button.disabled = false; button.textContent = '加载更多'; }
           }

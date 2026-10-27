@@ -421,7 +421,7 @@
       hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
     }).formatToParts(date);
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    return build.revision.slice(0, 7) + ' · 镜像构建于 ' + values.year + '-' + values.month + '-' +
+    return '版本 ' + build.revision.slice(0, 7) + ' · 镜像构建于 ' + values.year + '-' + values.month + '-' +
       values.day + ' ' + values.hour + ':' + values.minute + ' HKT';
   };
 

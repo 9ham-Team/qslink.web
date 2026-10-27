@@ -1237,8 +1237,11 @@
 .a-announcement-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; margin: 12px 0; max-height: 180px; overflow-y: auto; }
 .a-announcement-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .a-announcement-form { display: grid; gap: 16px; }
-.a-announcement-form label { display: grid; gap: 6px; }
+.a-announcement-form label,
+.a-announcement-field { display: grid; gap: 6px; }
 .a-announcement-form textarea { min-height: 220px; resize: vertical; }
+.a-announcement-count { justify-self: end; font-size: 12px; font-variant-numeric: tabular-nums; }
+.a-announcement-count.is-over { color: var(--danger); }
 
 /* 尊重系统降低动态偏好 */
 @media (prefers-reduced-motion: reduce) {

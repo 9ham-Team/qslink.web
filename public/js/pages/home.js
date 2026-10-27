@@ -552,16 +552,31 @@
     }
     async function loadPage(page) {
       const job = ++modalJob;
-      modal.body.innerHTML = '<p class="muted">正在加载公告…</p>';
+      const list = modal.body.querySelector('.g-announcement-list');
+      const pageButtons = Array.from(modal.body.querySelectorAll('[data-ann-page]')).map(function (btn) {
+        return { btn: btn, disabled: btn.disabled };
+      });
+      if (list) {
+        list.setAttribute('aria-busy', 'true');
+        pageButtons.forEach(function (entry) { entry.btn.disabled = true; });
+      } else {
+        modal.body.innerHTML = '<p class="muted">正在加载公告…</p>';
+      }
       try {
         const res = await QSL.api.get('/api/announcements?page=' + page + '&limit=8');
         if (state.cancelled || modalClosed || job !== modalJob) return;
         modal.body.innerHTML = '<div class="g-announcement-list">' + (res.items.length ? res.items.map(function (item) {
           return '<article><h3>' + esc(item.title) + '</h3><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p></article>';
         }).join('') : '<p class="muted">暂无已发布公告</p>') + '</div><div class="g-announcement-pager"><button type="button" class="btn btn-ghost btn-sm" data-ann-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + '>上一页</button><span>' + page + ' / ' + Math.max(1, res.pages) + '</span><button type="button" class="btn btn-ghost btn-sm" data-ann-page="' + (page + 1) + '"' + (page >= res.pages ? ' disabled' : '') + '>下一页</button></div>';
+        modal.body.scrollTop = 0;
       } catch (err) {
         if (state.cancelled || modalClosed || job !== modalJob) return;
-        modal.body.innerHTML = '<p>公告加载失败，请关闭后重试。</p>';
+        if (list) {
+          list.removeAttribute('aria-busy');
+          pageButtons.forEach(function (entry) { entry.btn.disabled = entry.disabled; });
+        } else {
+          modal.body.innerHTML = '<p>公告加载失败，请关闭后重试。</p>';
+        }
         QSL.toast(err.message || '公告加载失败', 'error');
       }
     }
@@ -586,10 +601,21 @@
       const item = res.items[0];
       notice = document.createElement('aside');
       notice.className = 'g-announcement-notice';
-      notice.setAttribute('aria-label', '最新公告');
-      notice.innerHTML = '<div class="g-announcement-head"><span class="eyebrow">最新公告</span><button class="btn btn-ghost btn-icon btn-sm" type="button" data-ann-close aria-label="关闭公告">' + ic('close', 16) + '</button></div><h2>' + esc(item.title) + '</h2><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p><button type="button" class="btn btn-soft btn-sm" data-ann-all>查看全部公告</button>';
-      notice.querySelector('[data-ann-close]').addEventListener('click', function () { notice.remove(); }, { signal: eventController.signal });
-      notice.querySelector('[data-ann-all]').addEventListener('click', openAll, { signal: eventController.signal });
+      notice.setAttribute('aria-labelledby', 'home-announcement-title');
+      notice.innerHTML = '<div class="g-announcement-head"><span class="eyebrow">最新公告</span><button class="btn btn-ghost btn-icon btn-sm" type="button" data-ann-close aria-label="关闭公告">' + ic('close', 16) + '</button></div><h2 id="home-announcement-title">' + esc(item.title) + '</h2><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p><button type="button" class="btn btn-soft btn-sm" data-ann-all>查看全部公告</button>';
+      function dismissNotice() {
+        if (!notice) return;
+        const hadFocus = notice.contains(document.activeElement);
+        notice.remove();
+        notice = null;
+        if (hadFocus) entry.querySelector('button').focus({ preventScroll: true });
+      }
+      notice.querySelector('[data-ann-close]').addEventListener('click', dismissNotice, { signal: eventController.signal });
+      notice.querySelector('[data-ann-all]').addEventListener('click', function () { dismissNotice(); openAll(); }, { signal: eventController.signal });
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape' || !notice || modal || document.querySelector('.modal-overlay')) return;
+        dismissNotice();
+      }, { signal: eventController.signal });
       root.appendChild(notice);
     }).catch(function (err) {
       if (!state.cancelled) QSL.toast(err.message || '公告加载失败', 'error');
