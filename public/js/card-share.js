@@ -309,25 +309,29 @@
         }
       }
       function desktop() { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; }
-      let leaveTimer;
+      let leaveTimer, pointerInside = false;
       function inside(node) { return !!node && (wrapper.contains(node) || panel.contains(node)); }
-      function enter() { clearTimeout(leaveTimer); }
+      function enter() { pointerInside = true; clearTimeout(leaveTimer); }
       function leave() {
+        pointerInside = false;
         clearTimeout(openTimer);
         clearTimeout(leaveTimer);
-        leaveTimer = setTimeout(() => { if (!inside(document.activeElement)) setOpen(false); }, 220);
+        leaveTimer = setTimeout(() => { if (!pointerInside) setOpen(false); }, 220);
       }
       listen(wrapper, 'pointerenter', event => {
         enter();
         if (event.pointerType === 'mouse' && desktop()) {
           clearTimeout(openTimer);
-          openTimer = setTimeout(() => setOpen(true), 350);
+          openTimer = setTimeout(() => setOpen(true), 100);
         }
       });
       listen(panel, 'pointerenter', enter);
       listen(wrapper, 'pointerleave', leave);
       listen(panel, 'pointerleave', leave);
-      function focusOut(event) { if (!inside(event.relatedTarget)) setOpen(false); }
+      function focusOut(event) {
+        // Clipboard fallback temporarily focuses a textarea outside the menu.
+        if (!pointerInside && !inside(event.relatedTarget)) setOpen(false);
+      }
       listen(wrapper, 'focusout', focusOut);
       listen(panel, 'focusout', focusOut);
       function keyboard(event) {
