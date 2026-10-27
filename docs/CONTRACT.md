@@ -139,6 +139,9 @@ QSL.button({ label, variant, size, icon, onClick, loading }) -> HTMLButtonElemen
 QSL.skeletonCard() / QSL.skeletonRows(n)
 QSL.copyText(text) -> Promise<boolean>       // 复制并 toast "链接已复制"
 QSL.shareCard(card) -> Promise               // 分享链接规则见下文
+QSL.cardShareUrl(card) -> Promise<string>    // 解析同一规则的分享 URL，不操作剪贴板
+QSL.cardShare.bind(button, card) -> cleanup  // 详情页桌面菜单 / 触屏分享弹窗；离页调用 cleanup
+QSL.qr.canvas(url, scale=5) -> HTMLCanvasElement // 本地二维码，版本 6-L，最多 134 UTF-8 字节
 QSL.formGroup({ label, input, hint, required }) -> HTML 字符串/元素
 QSL.ratioLabel(ratio)                         // "3 : 2"
 QSL.bandTone(band) / QSL.modeTone(mode)       // 历史兼容辅助方法，不代表当前 UI 提供波段/模式筛选
@@ -146,6 +149,8 @@ QSL.ownerLine(user) -> HTML
 QSL.cardThumb(card, {height}) -> HTML
 ```
 分享规则：API 输出的 `shareToken` 为新六位短 token，已有 `shareToken` 时直接复制当前 `location.origin + '/s/' + token`；无 token、有卡片 id 且 `canShare !== false` 时尝试 `GET /api/cards/:id/share`（仅 owner/admin），优先复制响应的完整 URL；失败后回退当前站点的 `/s/<token>` 或 `/card/<id>`。服务端分享 URL 优先使用 `QSL_PUBLIC_ORIGIN`（生产必需 HTTPS），仅非生产未配置时从请求协议与 Host 拼接。分享 token 存在不代表已经审核通过。
+
+详情页分享按钮：精细指针且支持悬浮时，点击直接复制；悬浮或按方向下键展开菜单，Escape 关闭。触屏点击打开选择弹窗。菜单和弹窗提供生成分享图、复制链接、二维码及 QQ / 微信 / X / Threads 入口；可用时显示系统分享。微信快捷打开后需用户粘贴链接，QQ 使用网页分享入口，浏览器可能限制唤起客户端。分享图由本地 Canvas 绘制卡片正面、标题、呼号与相同分享 URL 的二维码，可下载 PNG、长按保存，可用时通过系统发送图片。图片仅从本站加载，不调用第三方图片 / 二维码服务；生成失败会提示，超长 URL 保留复制功能。审核状态与公开访问权限继续由服务端控制。退出详情页关闭弹窗、移除监听并释放图片 Object URL。`qr.js` 与 `card-share.js` 显式加载于 `ui.js` 之后、页面脚本之前。
 
 图标清单（`QSL.icon` 支持）：`heart, share, cards, upload, camera, check, x, close, plus, edit, trash, arrow-right, arrow-left, chevron-down, search, filter, sort, user, users, shield, clock, map-pin, mail, lock, eye, logout, menu, sparkles, flame, globe, radio, antenna, wave, copy, external, refresh, image, info, alert, star, settings, inbox, send, sun, moon, layout, list, grid, download, 3d, flip`（不存在的 name 返回空字符串，不抛错）。
 

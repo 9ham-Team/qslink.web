@@ -164,6 +164,7 @@
       close: function () {
         if (closed) return;
         closed = true;
+        document.removeEventListener('keydown', onKey);
         overlay.classList.remove('is-show');
         setTimeout(() => overlay.remove(), 220);
         if (!document.querySelector('.modal-overlay.is-show')) document.body.classList.remove('modal-open');
@@ -343,18 +344,22 @@
     return ok;
   };
 
-  QSL.shareCard = async function (card) {
+  QSL.cardShareUrl = async function (card) {
     const c = card || {};
     let token = c.shareToken;
     if (c.canShare !== false && !token && c.id) {
       try {
         const res = await QSL.api.cards.share(c.id);
-        if (res && res.url) return QSL.copyText(res.url, '分享链接已复制，快发给朋友吧');
+        if (res && res.url) return res.url;
         token = res && res.shareToken;
       } catch (err) { /* 非 owner 时回退到普通链接 */ }
     }
     const url = token ? location.origin + '/s/' + encodeURIComponent(token) : location.origin + '/card/' + (c.id || '');
-    return QSL.copyText(url, '分享链接已复制，快发给朋友吧');
+    return url;
+  };
+
+  QSL.shareCard = async function (card) {
+    return QSL.copyText(await QSL.cardShareUrl(card), '分享链接已复制，快发给朋友吧');
   };
 
   /* ---------------- 页面结构 ---------------- */
