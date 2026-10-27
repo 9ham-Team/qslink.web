@@ -7,6 +7,7 @@ IMAGE=ghcr.io/9ham-team/qslink.web:dev
 APP=qslink-test-app
 NETWORK=qslink-test-net
 VOLUME=qslink-test-uploads
+MAIL_ENV_FILE=${QSL_MAIL_ENV_FILE:-}
 
 [[ $(id -u) -eq 0 ]] || { echo '请以 root 身份执行。' >&2; exit 1; }
 exec 9>/var/lock/qslink-deploy-dev.lock
@@ -16,12 +17,29 @@ docker inspect "$APP" >/dev/null
 docker network inspect "$NETWORK" >/dev/null
 docker volume inspect "$VOLUME" >/dev/null
 
-echo "拉取 $IMAGE（如无权限，请先 docker login ghcr.io）"
-docker pull "$IMAGE"
-# 固定刚拉取的镜像 ID，避免部署中 tag 被另一个进程更新。
-NEW_IMAGE=$(docker image inspect "$IMAGE" --format '{{.Id}}')
+if [[ -n "$MAIL_ENV_FILE" ]]; then
+  [[ "$MAIL_ENV_FILE" == /* && -f "$MAIL_ENV_FILE" && ! -L "$MAIL_ENV_FILE" ]] || { echo '邮件配置必须是绝对路径的常规文件。' >&2; exit 1; }
+  [[ $(stat -c '%u:%a' "$MAIL_ENV_FILE") =~ ^0:(400|600)$ ]] || { echo '邮件配置须属于 root，权限为 400 或 600。' >&2; exit 1; }
+  # Docker reads literal values; never source/eval a file containing credentials.
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line=${line%$'\r'}
+    [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+    [[ "$line" == *=* ]] || { echo '邮件配置行必须使用 KEY=VALUE 格式。' >&2; exit 1; }
+    case "${line%%=*}" in
+      QSL_MAIL_FROM|QSL_MAIL_FROM_NAME|QSL_MAIL_REGION|QSL_MAIL_ENDPOINT|ALIBABA_CLOUD_ACCESS_KEY_ID|ALIBABA_CLOUD_ACCESS_KEY_SECRET|QSL_PUBLIC_ORIGIN) ;;
+      *) echo '邮件配置包含不允许覆盖的环境变量。' >&2; exit 1 ;;
+    esac
+  done < "$MAIL_ENV_FILE"
+  echo '仅重载邮件配置，保留当前应用镜像版本。'
+else
+  echo "拉取 $IMAGE（如无权限，请先 docker login ghcr.io）"
+  docker pull "$IMAGE"
+fi
+# 常规部署固定刚拉取的镜像 ID；邮件重载固定现有容器镜像。
 OLD_IMAGE=$(docker inspect "$APP" --format '{{.Image}}')
-if [[ "$NEW_IMAGE" == "$OLD_IMAGE" ]] && [[ $(docker inspect "$APP" --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}') == healthy ]]; then
+NEW_IMAGE=$OLD_IMAGE
+if [[ -z "$MAIL_ENV_FILE" ]]; then NEW_IMAGE=$(docker image inspect "$IMAGE" --format '{{.Id}}'); fi
+if [[ -z "$MAIL_ENV_FILE" && "$NEW_IMAGE" == "$OLD_IMAGE" ]] && [[ $(docker inspect "$APP" --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}') == healthy ]]; then
   echo '当前已运行最新 dev 镜像且健康，无需重新部署。'
   exit 0
 fi
@@ -57,6 +75,19 @@ trap 'exit 143' TERM
 
 # 从原容器继承环境变量，避免在脚本中存储数据库密码。
 docker inspect "$APP" --format '{{range .Config.Env}}{{println .}}{{end}}' > "$ENV_FILE"
+EXTRA_ENV_ARGS=()
+if [[ -n "$MAIL_ENV_FILE" ]]; then
+  EXTRA_ENV_ARGS=(--env-file "$MAIL_ENV_FILE")
+  # Validate the merged config before stopping the app. Network and data are unavailable.
+  docker run --rm --network none --read-only --env-file "$ENV_FILE" "${EXTRA_ENV_ARGS[@]}" \
+    --entrypoint node "$NEW_IMAGE" -e '
+      try {
+        const config = require("./server/lib/config").readConfig();
+        if (!config.mail.from || !config.mail.accessKeyId || !config.mail.accessKeySecret || !config.publicOrigin) throw new Error();
+        console.log("邮件配置校验通过（未发送邮件）。");
+      } catch { console.error("邮件配置无效或不完整，请检查配置文件。"); process.exit(1); }
+    '
+fi
 
 echo "保留原容器为 $BACKUP"
 # 先标记停止，确保 stop 被中断时也尝试恢复。
@@ -70,6 +101,7 @@ docker create --name "$APP" \
   --restart unless-stopped \
   -p 44380:8787 \
   --env-file "$ENV_FILE" \
+  "${EXTRA_ENV_ARGS[@]}" \
   -v "$VOLUME:/var/lib/qslink" \
   "$NEW_IMAGE" >/dev/null
 CREATED=1

@@ -13,6 +13,7 @@ import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import './profile-address.mjs';
 import './poster-palette.mjs';
+import './qr.mjs';
 import { testShortTokens } from './short-tokens.mjs';
 import { testAnnouncements } from './announcements.mjs';
 test('short tokens: collision, concurrent allocation, migration and legacy protection', testShortTokens);

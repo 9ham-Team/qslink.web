@@ -141,7 +141,7 @@ QSL.copyText(text) -> Promise<boolean>       // 复制并 toast "链接已复制
 QSL.shareCard(card) -> Promise               // 分享链接规则见下文
 QSL.cardShareUrl(card) -> Promise<string>    // 解析同一规则的分享 URL，不操作剪贴板
 QSL.cardShare.bind(button, card) -> cleanup  // 详情页桌面菜单 / 触屏分享弹窗；离页调用 cleanup
-QSL.qr.canvas(url, scale=5) -> HTMLCanvasElement // 本地二维码，版本 6-L，最多 134 UTF-8 字节
+QSL.qr.canvas(url, scale=5, maxPixels?) -> HTMLCanvasElement // 本地二维码，按 UTF-8 字节长度自动选择 1–6-L，最多 134 字节；maxPixels 指定整数模块适配的边长上限
 QSL.formGroup({ label, input, hint, required }) -> HTML 字符串/元素
 QSL.ratioLabel(ratio)                         // "3 : 2"
 QSL.bandTone(band) / QSL.modeTone(mode)       // 历史兼容辅助方法，不代表当前 UI 提供波段/模式筛选
@@ -157,6 +157,8 @@ QSL.cardThumb(card, {height}) -> HTML
 桌面分享菜单悬浮停留 350ms 后展开，离开后缓冲 220ms 再收起；展开和收起均使用 180ms 的透明度 / 轻微位移动画，减少动态效果模式取消动画。键盘方向下键即时展开，离页清理全部等待计时器。分享图采用信笺布局：顶部品牌与邮戳装饰、圆角白边正面图片、独立标题/呼号、底部二维码信息栏和页脚。卡片完整等比显示，不裁切内容；二维码保留完整静区。卡片右下角不叠加徽章，标题下方仅保留“双面 3D 卡片”标注，不放“无需登录”提示或品牌标语；顶部与页脚右下角使用本站 `/assets/logo-mark.svg` 图标。
 
 分享图配色由 `poster-palette.js` 在本地从卡片正面抽样生成，加载于 `qr.js` 后、`card-share.js` 前。采用 Monet 风格流程：64×64 抽样、5-bit RGB 量化、邻近色相占比与感知色度评分，弱化黑白区域与极少量彩色噪声；以 OKLCH 生成同源低饱和背景、容器底色、文字、强调色和分隔线，越界色度压缩至 sRGB。此实现使用 OKLCH，不是 Google CAM16/HCT 的原版实现。所有文字色在渐变两端及容器底色上的 WCAG 对比度均检查为至少 4.5:1，按钮白色箭头也满足该阈值。灰度卡片使用中性色，无图/完全透明/取色不可用时回退站点配色；二维码保持原有深色与白色静区，网站图标及原卡片不改色。不请求外部取色服务，不重复加载卡片图片。
+
+分享图的图片外框随图片实际宽高比调整，在 858×572 的图片区中完整等比居中，使用固定窄边距，不保留横版外框的侧边填充。没有图片时按卡片比例展示占位框。二维码按实际链接选择最小可用版本（1–6，L 级纠错），比较全部八种掩模的连续块、重复定位形状和深浅比例惩罚分；不删减标准纠错、填充位或四模块静区。典型短链接由原先 41×41 降至 25×25 或 29×29 个模块。导出二维码在 245px 上限内使用整数像素模块并居中，避免非整数缩放模糊。
 
 ### 4.4 effects.js（动效层）
 ```js

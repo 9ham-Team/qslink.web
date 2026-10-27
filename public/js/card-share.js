@@ -89,13 +89,15 @@
     });
     ctx.save(); ctx.translate(30, 580); ctx.rotate(Math.PI / 2); small('Q S L   C A R D   E X C H A N G E', 0, 0); ctx.restore();
     ctx.save(); ctx.translate(1045, 610); ctx.rotate(Math.PI / 2); small('P U B L I C   S H A R E  /  7 3', 0, 0); ctx.restore();
-    rounded(88, 160, 904, 616, 24, palette.surface, true);
-    rounded(99, 170, 882, 595, 17, palette.inset);
+    const ratio = img ? img.naturalWidth / img.naturalHeight : Number(card.ratio && card.ratio.w) / Number(card.ratio && card.ratio.h);
+    const imageRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 1.5;
+    const w = Math.min(858, 572 * imageRatio), h = w / imageRatio;
+    const imageX = (1080 - w) / 2, imageY = 181 + (572 - h) / 2;
+    rounded(imageX - 23, imageY - 21, w + 46, h + 44, 24, palette.surface, true);
+    rounded(imageX - 12, imageY - 11, w + 24, h + 23, 17, palette.inset);
     if (img) {
-      const scale = Math.min(858 / img.naturalWidth, 572 / img.naturalHeight);
-      const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
-      ctx.save(); ctx.beginPath(); ctx.roundRect(111, 181, 858, 572, 9); ctx.clip();
-      ctx.drawImage(img, 111 + (858 - w) / 2, 181 + (572 - h) / 2, w, h); ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.roundRect(imageX, imageY, w, h, 9); ctx.clip();
+      ctx.drawImage(img, imageX, imageY, w, h); ctx.restore();
     } else {
       ctx.fillStyle = muted; ctx.font = '36px ' + serif; ctx.fillText('QSL 卡片', 135, 490);
     }
@@ -111,7 +113,8 @@
     // QR modules retain square geometry and a full four-module quiet zone.
     rounded(88, 946, 904, 296, 24, palette.surface, true);
     rounded(112, 972, 246, 246, 18, '#ffffff');
-    ctx.drawImage(QSL.qr.canvas(url, 5), 112, 972);
+    const qr = QSL.qr.canvas(url, 5, 245);
+    ctx.drawImage(qr, 112 + Math.floor((246 - qr.width) / 2), 972 + Math.floor((246 - qr.height) / 2));
     small('S C A N  T O  V I E W', 384, 1044, green);
     ctx.fillStyle = ink; ctx.font = '28px ' + serif; ctx.fillText('扫码欣赏双面 3D 卡片', 384, 1085);
     ctx.fillStyle = muted; ctx.font = '14px ' + sans; ctx.fillText('申请换卡 · 地址仅在双方同意后可见', 384, 1118);
