@@ -1468,8 +1468,14 @@ body:has(.toast-root .toast) .g-announcement-notice { visibility: hidden; }
   border: 1px solid var(--line); border-radius: 20px;
   background: #fff; box-shadow: 0 16px 55px rgba(16, 43, 50, .16);
   text-align: left;
+  opacity: 0; transform: translateY(var(--g-share-offset, 8px)); visibility: hidden; pointer-events: none;
+  transition: opacity 180ms var(--ease), transform 180ms var(--ease), visibility 0s 180ms;
 }
+.g-card-share__panel.is-open { opacity: 1; transform: translateY(0); visibility: visible; pointer-events: auto; transition-delay: 0s; }
 .g-card-share__panel[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .g-card-share__panel { transition: none; transform: none; }
+}
 .g-card-share__summary { display: grid; grid-template-columns: minmax(0, 1fr) 142px; gap: 20px; align-items: center; }
 .g-card-share__card { min-width: 0; }
 .g-card-share__card img { display: block; width: 100%; height: 112px; object-fit: contain; background: var(--surface); border-radius: 10px; }

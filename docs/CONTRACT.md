@@ -154,6 +154,8 @@ QSL.cardThumb(card, {height}) -> HTML
 
 图标清单（`QSL.icon` 支持）：`heart, share, cards, upload, camera, check, x, close, plus, edit, trash, arrow-right, arrow-left, chevron-down, search, filter, sort, user, users, shield, clock, map-pin, mail, lock, eye, logout, menu, sparkles, flame, globe, radio, antenna, wave, copy, external, refresh, image, info, alert, star, settings, inbox, send, sun, moon, layout, list, grid, download, 3d, flip`（不存在的 name 返回空字符串，不抛错）。
 
+桌面分享菜单悬浮停留 350ms 后展开，离开后缓冲 220ms 再收起；展开和收起均使用 180ms 的透明度 / 轻微位移动画，减少动态效果模式取消动画。键盘方向下键即时展开，离页清理全部等待计时器。分享图不显示品牌标语，右下角绘制本站 `/assets/logo-mark.svg` 图标。
+
 ### 4.4 effects.js（动效层）
 ```js
 QSL.fx = {

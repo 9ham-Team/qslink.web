@@ -55,9 +55,10 @@
     ctx.fillStyle = '#52716e'; ctx.font = '28px sans-serif';
     line(card.callSign || owner.callSign || owner.displayName || '来自 QSLink 的 QSL 卡片', 64, 956, 952);
     ctx.drawImage(QSL.qr.canvas(url, 5), 64, 1000);
-    ctx.fillStyle = '#102b32'; ctx.font = 'bold 34px sans-serif'; ctx.fillText('让每张卡片，抵达对的人', 344, 1070);
-    ctx.fillStyle = '#52716e'; ctx.font = '27px sans-serif'; ctx.fillText('扫码欣赏双面 3D 卡片 · 申请换卡', 344, 1124);
-    line(new URL(url).host, 344, 1188, 650);
+    ctx.fillStyle = '#52716e'; ctx.font = '27px sans-serif'; ctx.fillText('扫码欣赏双面 3D 卡片 · 申请换卡', 344, 1092);
+    line(new URL(url).host, 344, 1152, 540);
+    const logo = await image('/assets/logo-mark.svg', signal);
+    ctx.drawImage(logo, 920, 1160, 96, 96);
     return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('图片生成失败')), 'image/png'));
   }
 
@@ -204,7 +205,7 @@
           if (host === panel && menuOpen) placePanel();
         }).catch(fail);
       }
-      let prepared = false;
+      let prepared = false, openTimer, hideTimer;
       function placePanel() {
         const rect = button.getBoundingClientRect();
         const head = document.getElementById('site-header');
@@ -215,23 +216,44 @@
         const preferAbove = above >= panel.offsetHeight || above > below;
         panel.style.maxHeight = Math.max(80, preferAbove ? above : below) + 'px';
         const height = panel.offsetHeight;
+        panel.style.setProperty('--g-share-offset', preferAbove ? '8px' : '-8px');
         panel.style.top = (preferAbove ? rect.top - height : rect.bottom) + 'px';
         panel.style.left = Math.max(12, Math.min(rect.right - panel.offsetWidth, window.innerWidth - panel.offsetWidth - 12)) + 'px';
       }
       function setOpen(open) {
-        menuOpen = open; panel.hidden = !open; button.setAttribute('aria-expanded', String(open));
+        clearTimeout(openTimer);
+        clearTimeout(hideTimer);
+        menuOpen = open;
+        button.setAttribute('aria-expanded', String(open));
+        panel.inert = !open;
+        if (open) panel.hidden = false;
         if (open && !prepared) { prepared = true; content(panel); }
-        if (open) placePanel();
+        if (open) {
+          // Measuring the visible panel establishes its initial style before transitioning.
+          placePanel();
+          panel.classList.add('is-open');
+        } else {
+          panel.classList.remove('is-open');
+          const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
+          hideTimer = setTimeout(() => { panel.hidden = true; }, delay);
+        }
       }
       function desktop() { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; }
       let leaveTimer;
       function inside(node) { return !!node && (wrapper.contains(node) || panel.contains(node)); }
       function enter() { clearTimeout(leaveTimer); }
       function leave() {
+        clearTimeout(openTimer);
         clearTimeout(leaveTimer);
-        leaveTimer = setTimeout(() => { if (!inside(document.activeElement)) setOpen(false); }, 140);
+        leaveTimer = setTimeout(() => { if (!inside(document.activeElement)) setOpen(false); }, 220);
       }
-      listen(wrapper, 'pointerenter', event => { enter(); if (event.pointerType === 'mouse' && desktop()) setOpen(true); });
+      listen(wrapper, 'pointerenter', event => {
+        enter();
+        if (event.pointerType === 'mouse' && desktop()) {
+          clearTimeout(openTimer);
+          openTimer = setTimeout(() => setOpen(true), 350);
+        }
+      });
       listen(panel, 'pointerenter', enter);
       listen(wrapper, 'pointerleave', leave);
       listen(panel, 'pointerleave', leave);
@@ -265,6 +287,8 @@
       return function () {
         disposed = true; abort.abort();
         clearTimeout(leaveTimer);
+        clearTimeout(openTimer);
+        clearTimeout(hideTimer);
         panel.remove();
         if (modal) modal.close();
         if (imageModal) imageModal.close();
