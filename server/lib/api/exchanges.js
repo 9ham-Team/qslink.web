@@ -14,6 +14,32 @@ function findExchange(ctx) {
   return exchange;
 }
 
+function mailAfterCommit(ctx, recipient, notification, path) {
+  if (!ctx.config.publicOrigin || !ctx.config.sendExchangeMail || !recipient ||
+      !recipient.email || recipient.status === 'banned') return undefined;
+  const email = recipient.email;
+  const payload = { ...notification, url: ctx.config.publicOrigin + path };
+  return async () => {
+    try { await ctx.config.sendExchangeMail(email, payload); }
+    catch {
+      // Never undo committed changes or log recipient data / SDK errors.
+      console.warn('[mail] 换卡申请提醒发送失败');
+    }
+  };
+}
+
+function decisionMail(ctx, exchange, owner) {
+  const applicant = serialize.findUser(ctx.db, exchange.fromUserId);
+  const card = ctx.db.find('cards', item => item.id === exchange.cardId);
+  return mailAfterCommit(ctx, applicant, {
+    exchangeId: exchange.id,
+    status: exchange.status,
+    ownerName: owner.displayName || owner.username,
+    callSign: owner.callSign || '',
+    cardTitle: card && card.title || '未命名卡片',
+  }, '/dashboard/exchanges?box=outgoing&status=' + exchange.status);
+}
+
 /** POST /api/cards/:cardId/exchanges：发起换卡申请 */
 async function create(ctx) {
   const user = auth.requireUser(ctx);
@@ -60,9 +86,17 @@ async function create(ctx) {
   };
   ctx.db.insert('exchanges', exchange);
   await ctx.db.save();
+  // Snapshot only public identity/card fields. Addresses and the private message stay in QSLink.
+  // Use the configured origin rather than an untrusted Host header in outbound mail.
   return {
     status: 201,
     body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) },
+    afterCommit: mailAfterCommit(ctx, owner, {
+      exchangeId: exchange.id,
+      applicantName: user.displayName || user.username,
+      callSign: user.callSign || '',
+      cardTitle: card.title || '未命名卡片',
+    }, '/dashboard/exchanges?box=incoming&status=pending'),
   };
 }
 
@@ -89,7 +123,7 @@ async function approve(ctx) {
   exchange.decidedAt = now;
   exchange.updatedAt = now;
   await ctx.db.save();
-  return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) } };
+  return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) }, afterCommit: decisionMail(ctx, exchange, user) };
 }
 
 /** POST /api/exchanges/:id/reject：仅卡片主人，可附拒绝原因 */
@@ -106,7 +140,7 @@ async function reject(ctx) {
   exchange.decidedAt = now;
   exchange.updatedAt = now;
   await ctx.db.save();
-  return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) } };
+  return { body: { exchange: serialize.exchangeItem(ctx.db, exchange, user) }, afterCommit: decisionMail(ctx, exchange, user) };
 }
 
 /** POST /api/exchanges/:id/cancel：仅申请人，仅 pending */

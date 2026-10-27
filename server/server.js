@@ -292,6 +292,8 @@ async function handleApi(req, res, { db, config, url, host }) {
     },
     { write: !['GET', 'HEAD'].includes(req.method) },
   );
+  // External side effects must run only after COMMIT and after releasing the DB connection.
+  if (typeof result.afterCommit === 'function') await result.afterCommit();
   const status = result.status || 200;
   sendJson(res, status, result.body === undefined ? {} : result.body);
 }
@@ -517,9 +519,10 @@ function printBanner({ config, seeded }) {
   console.log(lines.join('\n'));
 }
 
-async function start({ mailTransport } = {}) {
+async function start({ mailTransport, exchangeMailTransport } = {}) {
   const config = readConfig();
   config.sendMail = mailTransport || require('./lib/mail').createMailTransport(config.mail);
+  config.sendExchangeMail = exchangeMailTransport || require('./lib/mail').createExchangeMailTransport(config.mail);
   const { port, host, dataDir, uploadsDir } = config;
   config.limitAuth = createAuthLimiter({ trustProxy: config.trustProxy });
 

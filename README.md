@@ -76,6 +76,12 @@ npm run demo
 | `QSL_PUBLIC_ORIGIN` | 空 | 生产必填 HTTPS 地址，用于分享链接和来源校验 |
 | `QSL_TRUST_PROXY` | `false` | 仅可信、隔离的代理环境可启用，详见部署指南 |
 
+收到新换卡申请时，系统会向卡片主人的注册邮箱发送提醒，包含卡片标题、申请人昵称/呼号和“收到的申请”入口。复用注册验证码的阿里云 Direct Mail 配置：`QSL_MAIL_FROM`、`ALIBABA_CLOUD_ACCESS_KEY_ID`、`ALIBABA_CLOUD_ACCESS_KEY_SECRET`；可选 `QSL_MAIL_FROM_NAME`（默认 QSLink）、`QSL_MAIL_REGION`（默认 cn-hangzhou），并需配置 `QSL_PUBLIC_ORIGIN` 作为邮件中的站点入口。上述值必须注入实际应用进程 / 容器，仅放在 Compose 的 `.env` 中不会自动进入容器。不要提交真实凭据。
+
+卡片主人同意或拒绝后，也会向申请人的注册邮箱发送相应处理结果、卡片标题、卡片主人昵称/呼号和“我发出的申请”入口。拒绝原因在站内查看，不放入邮件；重复处理不会重复发送，已禁用账号不接收提醒。
+
+未配置邮件或公开站点地址时仍正常创建/处理申请但不发提醒；投递失败不撤销申请或处理结果。邮件不含地址或申请私信，发送不占用数据库写事务；当前为尽力发送一次，没有持久化重试队列。
+
 ## 🧪 测试
 
 ```bash

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import './profile-address.mjs';
+import './poster-palette.mjs';
 import { testShortTokens } from './short-tokens.mjs';
 import { testAnnouncements } from './announcements.mjs';
 test('short tokens: collision, concurrent allocation, migration and legacy protection', testShortTokens);
@@ -225,7 +226,11 @@ async function start(t, dir, overrides = {}) {
   const port = await freePort();
   const proc = processFor('tests/helpers/mail-server.cjs', env(dir, { QSL_PORT: String(port), ...overrides }));
   const codes = new Map();
-  proc.child.on('message', ({ email, code }) => codes.set(email, code));
+  const exchangeMails = [];
+  proc.child.on('message', message => {
+    if (message.kind === 'exchangeMail') exchangeMails.push(message);
+    else codes.set(message.email, message.code);
+  });
   const base = `http://127.0.0.1:${port}`;
   let stopped = false;
   const stop = async () => {
@@ -239,7 +244,7 @@ async function start(t, dir, overrides = {}) {
     if (proc.child.exitCode !== null) throw new Error(proc.logs());
     try {
       const res = await fetch(base + '/api/health');
-      if (res.ok) return { ...proc, base, stop, codes };
+      if (res.ok) return { ...proc, base, stop, codes, exchangeMails };
     } catch { /* starting */ }
     await new Promise(resolve => setTimeout(resolve, 40));
   }
@@ -300,6 +305,188 @@ test('email codes persist attempts, expire, consume once, throttle across proces
   await assert.rejects(sendCode({ ...context, body: { email: 'quota@example.test' }, config: { sendMail: async () => assert.fail('must not send') } }), err => err.status === 429);
   for (const settings of [{ QSL_MAIL_ENDPOINT: 'attacker.test' }, { QSL_MAIL_REGION: 'invalid' }])
     assert.throws(() => readConfig({ DATABASE_URL: 'postgresql://localhost/test', ...settings }));
+});
+
+test('exchange mail uses escaped templates and the existing bounded Direct Mail transport', async () => {
+  const DM = require('@alicloud/dm20151123');
+  const { createMailTransport, createExchangeMailTransport, readMailConfig } = require('../server/lib/mail');
+  assert.equal(createExchangeMailTransport(readMailConfig({})), null);
+  const original = DM.default.prototype.singleSendMailWithOptions;
+  const sent = [];
+  DM.default.prototype.singleSendMailWithOptions = async (message, options) => sent.push({ message, options });
+  try {
+    const config = readMailConfig({ QSL_MAIL_FROM: 'sender@example.test', ALIBABA_CLOUD_ACCESS_KEY_ID: 'test-only', ALIBABA_CLOUD_ACCESS_KEY_SECRET: 'test-only' });
+    await createMailTransport(config)('new@example.test', '001234');
+    await createExchangeMailTransport(config)('owner@example.test', {
+      applicantName: '<img src=x onerror=alert(1)>', callSign: 'A&B', cardTitle: '<script>card</script>',
+      url: 'https://qsl.example.test/dashboard/exchanges?box=incoming&status=pending',
+    });
+    assert.match(sent[0].message.htmlBody, /001234/);
+    assert.match(sent[0].message.subject, /注册邮箱验证码/);
+    const { message, options } = sent[1];
+    assert.equal(message.toAddress, 'owner@example.test');
+    assert.equal(message.subject, 'QSLink 收到新的换卡申请');
+    assert.match(message.htmlBody, /&lt;img/);
+    assert.match(message.htmlBody, /&lt;script&gt;card/);
+    assert.match(message.htmlBody, /A&amp;B/);
+    assert.match(message.htmlBody, /box=incoming&amp;status=pending/);
+    assert.ok(!message.htmlBody.includes('<script>') && !message.htmlBody.includes('<img '));
+    assert.match(message.textBody, /<script>card<\/script>/);
+    assert.equal(options.autoretry, false);
+    assert.equal(options.connectTimeout, 5000);
+    assert.equal(options.readTimeout, 10000);
+    for (const status of ['approved', 'rejected']) {
+      await createExchangeMailTransport(config)('applicant@example.test', {
+        status, ownerName: '<script>owner</script>', callSign: 'A&B', cardTitle: '<b>card</b>',
+        url: 'https://qsl.example.test/dashboard/exchanges?box=outgoing&status=' + status,
+      });
+      const decision = sent.at(-1).message;
+      assert.equal(decision.toAddress, 'applicant@example.test');
+      assert.equal(decision.subject, status === 'approved' ? 'QSLink 换卡申请已被同意' : 'QSLink 换卡申请已被拒绝');
+      assert.match(decision.htmlBody, /&lt;script&gt;owner/);
+      assert.match(decision.htmlBody, /&lt;b&gt;card/);
+      assert.match(decision.htmlBody, /box=outgoing&amp;status=/);
+      assert.ok(!decision.htmlBody.includes('<script>'));
+      assert.match(decision.textBody, /我发出的申请/);
+    }
+  } finally { DM.default.prototype.singleSendMailWithOptions = original; }
+});
+
+test('new exchange mails only the owner after commit; rejection, duplicates and mail failures preserve semantics', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const app = await start(t, dir);
+  const db = databases.get(dir).db;
+  const owner = await (await request(app.base, '/api/auth/login', { method: 'POST', body: { identifier: credentials.username, password: credentials.password } })).json();
+  const applicant = await (await request(app.base, '/api/auth/register', { method: 'POST', body: await withCode(app, {
+    username: 'mailapplicant', email: 'applicant@example.test', displayName: '申请人', callSign: 'QA0TEST', password: 'Applicant-Password-42!',
+  }) })).json();
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64');
+  const card = (await (await request(app.base, '/api/cards', { token: owner.token, method: 'POST', body: { title: '<b>Mail card</b>', ratio: { w: 3, h: 2 }, frontImage: svg } })).json()).card;
+  const route = `/api/cards/${card.id}/exchanges`;
+  const body = { contactName: 'Private contact', address: { name: 'Private recipient', line1: 'Private road', city: 'Private city', country: 'Test' }, message: 'Private message' };
+  const apply = (target = app, token = applicant.token) => request(target.base, route, { token, method: 'POST', body });
+  assert.equal((await apply(app, '')).status, 401);
+  assert.equal((await apply(app, owner.token)).status, 400);
+  assert.equal((await apply()).status, 400, 'unapproved cards cannot trigger mail');
+  assert.equal(app.exchangeMails.length, 0);
+  await request(app.base, `/api/admin/cards/${card.id}`, { token: owner.token, method: 'PUT', body: { status: 'approved' } });
+  await db.transaction(unit => { unit.find('users', row => row.id === owner.user.id).status = 'banned'; }, { write: true });
+  assert.equal((await apply()).status, 400);
+  await db.transaction(unit => { unit.find('users', row => row.id === owner.user.id).status = 'active'; }, { write: true });
+  const createExchange = require('../server/lib/api/exchanges').routes.find(route => route.pattern === '/api/cards/:cardId/exchanges').handler;
+  await assert.rejects(db.transaction(async unit => {
+    await createExchange({ db: unit, user: unit.find('users', row => row.id === applicant.user.id), params: { cardId: card.id }, body,
+      config: { publicOrigin: 'https://qsl.example.test', sendExchangeMail: () => assert.fail('rolled-back requests must not send mail') } });
+    throw new Error('simulate rollback');
+  }, { write: true }), /simulate rollback/);
+  assert.equal(await db.transaction(unit => unit.data.exchanges.length), 0);
+  const results = await Promise.all([apply(), apply()]);
+  assert.deepEqual(results.map(result => result.status).sort(), [201, 409]);
+  const exchange = (await results.find(result => result.status === 201).json()).exchange;
+  for (let i = 0; i < 100 && !app.exchangeMails.length; i++) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(app.exchangeMails.length, 1);
+  const mail = app.exchangeMails[0];
+  assert.equal(mail.email, credentials.email);
+  assert.equal(mail.committed, true);
+  assert.deepEqual(mail.notification, { exchangeId: exchange.id, applicantName: '申请人', callSign: 'QA0TEST', cardTitle: '<b>Mail card</b>', url: 'https://qsl.example.test/dashboard/exchanges?box=incoming&status=pending' });
+  assert.ok(!JSON.stringify(mail).includes('Private'), 'addresses, contact names and private messages never enter mail');
+  assert.ok(!JSON.stringify(exchange).includes(credentials.email), 'owner email is not added to the public response');
+  assert.equal((await request(app.base, `/api/exchanges/${exchange.id}/cancel`, { token: applicant.token, method: 'POST', body: {} })).status, 200);
+  const failing = await start(t, dir, { QSL_TEST_FAIL_EXCHANGE_MAIL: 'true' });
+  const retry = await apply(failing);
+  assert.equal(retry.status, 201, 'provider failure does not undo the committed request');
+  assert.ok(!(await retry.text()).includes('provider-secret'));
+  assert.equal(failing.exchangeMails.length, 1);
+  assert.ok(!failing.logs().includes('provider-secret') && !failing.logs().includes(credentials.email));
+  const saved = await db.transaction(unit => unit.data.exchanges.find(row => row.status === 'pending'));
+  assert.ok(saved);
+  assert.equal((await apply(failing)).status, 409, 'retry after a mail failure does not send a second notification');
+  assert.equal(failing.exchangeMails.length, 1);
+  await request(app.base, `/api/exchanges/${saved.id}/cancel`, { token: applicant.token, method: 'POST', body: {} });
+  const unconfigured = await start(t, dir, { NODE_ENV: 'development', QSL_PUBLIC_ORIGIN: '' });
+  assert.equal((await apply(unconfigured)).status, 201, 'missing public origin does not break exchanges or trust Host');
+  assert.equal(unconfigured.exchangeMails.length, 0);
+  await db.transaction(async unit => {
+    unit.data.exchanges.filter(row => row.status === 'pending').forEach(row => { row.status = 'cancelled'; });
+    const created = await createExchange({ db: unit, user: unit.find('users', row => row.id === applicant.user.id), params: { cardId: card.id }, body, config: { publicOrigin: 'https://qsl.example.test' } });
+    assert.equal(created.status, 201);
+    assert.equal(created.afterCommit, undefined, 'missing mail transport does not break application creation');
+  }, { write: true });
+});
+
+test('approve/reject notify only the applicant after commit; repeated decisions and mail failures stay safe', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const app = await start(t, dir);
+  const db = databases.get(dir).db;
+  const owner = await (await request(app.base, '/api/auth/login', { method: 'POST', body: { identifier: credentials.username, password: credentials.password } })).json();
+  const applicant = await (await request(app.base, '/api/auth/register', { method: 'POST', body: await withCode(app, {
+    username: 'decisionapplicant', email: 'decision@example.test', password: 'Applicant-Password-42!',
+  }) })).json();
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64');
+  const card = (await (await request(app.base, '/api/cards', { token: owner.token, method: 'POST', body: { title: 'Decision card', ratio: { w: 3, h: 2 }, frontImage: svg } })).json()).card;
+  await request(app.base, `/api/admin/cards/${card.id}`, { token: owner.token, method: 'PUT', body: { status: 'approved' } });
+  async function apply() {
+    const response = await request(app.base, `/api/cards/${card.id}/exchanges`, { token: applicant.token, method: 'POST', body: {
+      contactName: 'Private contact', address: { name: 'Private recipient', line1: 'Private road', city: 'Private city', country: 'Test' }, message: 'Private message',
+    } });
+    assert.equal(response.status, 201);
+    return (await response.json()).exchange;
+  }
+  const decide = (id, status, target = app, token = owner.token, body = {}) => request(target.base,
+    `/api/exchanges/${id}/${status === 'approved' ? 'approve' : 'reject'}`, { token, method: 'POST', body });
+  const complete = id => request(app.base, `/api/exchanges/${id}/complete`, { token: owner.token, method: 'POST', body: {} });
+  async function waitMails(target, count) {
+    for (let i = 0; i < 100 && target.exchangeMails.length < count; i++) await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(target.exchangeMails.length, count);
+  }
+  for (const status of ['approved', 'rejected']) {
+    const exchange = await apply();
+    const before = app.exchangeMails.length;
+    assert.equal((await decide(exchange.id, status, app, '')).status, 401);
+    assert.equal((await decide(exchange.id, status, app, applicant.token)).status, 403);
+    if (status === 'rejected') assert.equal((await decide(exchange.id, status, app, owner.token, { reason: 'x'.repeat(10000) })).status, 400);
+    const handler = require('../server/lib/api/exchanges').routes.find(route => route.pattern.endsWith(status === 'approved' ? '/approve' : '/reject')).handler;
+    await assert.rejects(db.transaction(async unit => {
+      await handler({ db: unit, user: unit.find('users', row => row.id === owner.user.id), params: { id: exchange.id }, body: {},
+        config: { publicOrigin: 'https://qsl.example.test', sendExchangeMail: () => assert.fail('rollback must not mail') } });
+      throw new Error('decision rollback');
+    }, { write: true }), /decision rollback/);
+    assert.equal(await db.transaction(unit => unit.find('exchanges', row => row.id === exchange.id).status), 'pending');
+    assert.equal(app.exchangeMails.length, before);
+    const responses = await Promise.all([decide(exchange.id, status), decide(exchange.id, status)]);
+    assert.deepEqual(responses.map(response => response.status).sort(), [200, 400]);
+    await waitMails(app, before + 1);
+    const mail = app.exchangeMails.at(-1);
+    assert.equal(mail.email, applicant.user.email);
+    assert.equal(mail.committed, true);
+    assert.equal(mail.notification.status, status);
+    assert.equal(mail.notification.exchangeId, exchange.id);
+    assert.equal(mail.notification.ownerName, owner.user.displayName);
+    assert.equal(mail.notification.url, 'https://qsl.example.test/dashboard/exchanges?box=outgoing&status=' + status);
+    assert.ok(!JSON.stringify(mail).includes('Private'));
+    if (status === 'approved') assert.equal((await complete(exchange.id)).status, 200);
+  }
+  const failing = await start(t, dir, { QSL_TEST_FAIL_EXCHANGE_MAIL: 'true' });
+  for (const [i, status] of ['approved', 'rejected'].entries()) {
+    const exchange = await apply();
+    const response = await decide(exchange.id, status, failing, owner.token, status === 'rejected' ? { reason: 'Private reason' } : {});
+    assert.equal(response.status, 200);
+    assert.ok(!(await response.text()).includes('provider-secret'));
+    assert.equal(await db.transaction(unit => unit.find('exchanges', row => row.id === exchange.id).status), status);
+    await waitMails(failing, i + 1);
+    assert.ok(!JSON.stringify(failing.exchangeMails.at(-1)).includes('Private reason'));
+    assert.equal((await decide(exchange.id, status, failing)).status, 400);
+    assert.equal(failing.exchangeMails.length, i + 1);
+    if (status === 'approved') await complete(exchange.id);
+  }
+  const exchange = await apply();
+  const before = app.exchangeMails.length;
+  await db.transaction(unit => { unit.find('users', row => row.id === applicant.user.id).status = 'banned'; }, { write: true });
+  assert.equal((await decide(exchange.id, 'approved')).status, 200);
+  assert.equal(app.exchangeMails.length, before, 'banned recipients are not emailed');
+  assert.ok(!failing.logs().includes('provider-secret') && !failing.logs().includes(applicant.user.email));
 });
 
 test('production config fails closed for missing paths/origin/demo flag and insecure origins', () => {

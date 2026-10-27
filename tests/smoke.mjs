@@ -338,7 +338,7 @@ async function startServer() {
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       windowsHide: true,
     });
-    child.on('message', ({ email, code }) => mailCodes.set(email, code));
+    child.on('message', ({ email, code, kind }) => { if (kind !== 'exchangeMail') mailCodes.set(email, code); });
     let exitInfo = null;
     child.once('exit', (code, signal) => {
       exitInfo = { code, signal };

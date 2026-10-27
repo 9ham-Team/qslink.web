@@ -30,16 +30,29 @@
     const canvas = document.createElement('canvas');
     canvas.width = 1080; canvas.height = 1320;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#edf7f5'; ctx.fillRect(0, 0, 1080, 1320);
-    ctx.fillStyle = '#0a816e'; ctx.font = 'bold 32px sans-serif'; ctx.fillText('QSLink / QSL 卡片交换', 64, 86);
-    ctx.fillStyle = '#fff'; ctx.fillRect(48, 124, 984, 700);
-    if (card.frontImage) {
-      const img = await image(card.frontImage, signal);
-      const scale = Math.min(920 / img.naturalWidth, 636 / img.naturalHeight);
-      const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
-      ctx.drawImage(img, 80 + (920 - w) / 2, 156 + (636 - h) / 2, w, h);
-    } else {
-      ctx.fillStyle = '#647b80'; ctx.font = '36px sans-serif'; ctx.fillText('QSL 卡片', 80, 480);
+    const img = card.frontImage ? await image(card.frontImage, signal) : null;
+    const palette = QSL.posterPalette.fromImage(img);
+    const { ink, muted, accent: green } = palette;
+    const sans = '"Microsoft YaHei", "PingFang SC", sans-serif';
+    const serif = 'Georgia, "Songti SC", "SimSun", serif';
+    const mono = 'Consolas, monospace';
+    const owner = card.owner || {};
+    const callSign = card.callSign || owner.callSign || '';
+    const logo = await image('/assets/logo-mark.svg', signal);
+    const background = ctx.createLinearGradient(0, 0, 1080, 1320);
+    background.addColorStop(0, palette.backgroundTop); background.addColorStop(1, palette.backgroundBottom);
+    ctx.fillStyle = background; ctx.fillRect(0, 0, 1080, 1320);
+    function rounded(x, y, w, h, radius, fill, shadow) {
+      ctx.save();
+      if (shadow) { ctx.shadowColor = palette.shadow; ctx.shadowBlur = 26; ctx.shadowOffsetY = 16; }
+      ctx.beginPath(); ctx.roundRect(x, y, w, h, radius); ctx.fillStyle = fill; ctx.fill(); ctx.restore();
+    }
+    function rule(x1, y1, x2, y2) {
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    function small(text, x, y, color, align) {
+      ctx.fillStyle = color || muted; ctx.font = '11px ' + mono;
+      ctx.textAlign = align || 'left'; ctx.fillText(text, x, y); ctx.textAlign = 'left';
     }
     function line(text, x, y, width) {
       let value = Array.from(String(text || '')).slice(0, 160).join('');
@@ -49,16 +62,70 @@
       }
       ctx.fillText(value, x, y);
     }
-    ctx.fillStyle = '#102b32'; ctx.font = 'bold 44px sans-serif';
-    line(card.title || '未命名卡片', 64, 902, 952);
-    const owner = card.owner || {};
-    ctx.fillStyle = '#52716e'; ctx.font = '28px sans-serif';
-    line(card.callSign || owner.callSign || owner.displayName || '来自 QSLink 的 QSL 卡片', 64, 956, 952);
-    ctx.drawImage(QSL.qr.canvas(url, 5), 64, 1000);
-    ctx.fillStyle = '#52716e'; ctx.font = '27px sans-serif'; ctx.fillText('扫码欣赏双面 3D 卡片 · 申请换卡', 344, 1092);
-    line(new URL(url).host, 344, 1152, 540);
-    const logo = await image('/assets/logo-mark.svg', signal);
-    ctx.drawImage(logo, 920, 1160, 96, 96);
+    // Stationery header and postmark stay outside the card image.
+    ctx.drawImage(logo, 88, 36, 36, 36);
+    ctx.fillStyle = green; ctx.font = 'bold 26px ' + sans; ctx.fillText('QSLink', 134, 63);
+    ctx.fillStyle = muted; ctx.font = '24px ' + serif; ctx.fillText('/', 228, 63);
+    ctx.fillStyle = ink; ctx.font = '14px ' + sans; ctx.fillText('QSL 卡片交换', 251, 61);
+    ctx.strokeStyle = palette.line; ctx.lineWidth = 1;
+    rule(88, 132, 992, 132);
+    for (let row = 0; row < 4; row++) {
+      ctx.beginPath();
+      for (let x = 800; x <= 882; x++) {
+        const y = 60 + row * 12 + Math.sin((x - 800) / 6) * 3;
+        if (x === 800) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.save(); ctx.translate(948, 80); ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(0, 0, 44, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillStyle = muted; ctx.font = 'italic 22px ' + serif; ctx.fillText('73', 0, 1);
+    ctx.font = '8px ' + mono; ctx.fillText('QSL CARD EXCHANGE', 0, 17); ctx.restore();
+    // Print corner marks, with no badge or extra subtitle over the card.
+    ctx.strokeStyle = palette.line;
+    [[30, 30, 1, 1], [1050, 30, -1, 1], [30, 1290, 1, -1], [1050, 1290, -1, -1]].forEach(([x, y, dx, dy]) => {
+      rule(x, y, x + dx * 13, y); rule(x, y, x, y + dy * 13);
+    });
+    ctx.save(); ctx.translate(30, 580); ctx.rotate(Math.PI / 2); small('Q S L   C A R D   E X C H A N G E', 0, 0); ctx.restore();
+    ctx.save(); ctx.translate(1045, 610); ctx.rotate(Math.PI / 2); small('P U B L I C   S H A R E  /  7 3', 0, 0); ctx.restore();
+    rounded(88, 160, 904, 616, 24, palette.surface, true);
+    rounded(99, 170, 882, 595, 17, palette.inset);
+    if (img) {
+      const scale = Math.min(858 / img.naturalWidth, 572 / img.naturalHeight);
+      const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+      ctx.save(); ctx.beginPath(); ctx.roundRect(111, 181, 858, 572, 9); ctx.clip();
+      ctx.drawImage(img, 111 + (858 - w) / 2, 181 + (572 - h) / 2, w, h); ctx.restore();
+    } else {
+      ctx.fillStyle = muted; ctx.font = '36px ' + serif; ctx.fillText('QSL 卡片', 135, 490);
+    }
+    ctx.strokeStyle = palette.line; rule(88, 807, 112, 807);
+    small('QSL CARD · FRONT · 正面', 122, 812);
+    small('PUBLIC SHARE · 公开分享', 992, 812, muted, 'right');
+    ctx.fillStyle = ink; ctx.font = 'bold 50px ' + serif;
+    line(card.title || '未命名卡片', 88, 878, 660);
+    ctx.fillStyle = muted; ctx.font = '14px ' + sans; ctx.fillText('双面 3D 卡片', 88, 916);
+    small('CALL SIGN · 呼号', 992, 849, muted, 'right');
+    ctx.textAlign = 'right'; ctx.fillStyle = green; ctx.font = 'bold 22px ' + mono;
+    line(callSign || '—', 992, 878, 200); ctx.textAlign = 'left';
+    // QR modules retain square geometry and a full four-module quiet zone.
+    rounded(88, 946, 904, 296, 24, palette.surface, true);
+    rounded(112, 972, 246, 246, 18, '#ffffff');
+    ctx.drawImage(QSL.qr.canvas(url, 5), 112, 972);
+    small('S C A N  T O  V I E W', 384, 1044, green);
+    ctx.fillStyle = ink; ctx.font = '28px ' + serif; ctx.fillText('扫码欣赏双面 3D 卡片', 384, 1085);
+    ctx.fillStyle = muted; ctx.font = '14px ' + sans; ctx.fillText('申请换卡 · 地址仅在双方同意后可见', 384, 1118);
+    ctx.fillStyle = green; ctx.font = '14px ' + mono; line(new URL(url).host, 384, 1152, 470);
+    ctx.strokeStyle = palette.line; ctx.setLineDash([2, 4]); rule(886, 976, 886, 1213); ctx.setLineDash([]);
+    small('O P E N', 940, 1066, muted, 'center');
+    ctx.save(); ctx.shadowColor = palette.shadow; ctx.shadowBlur = 16; ctx.shadowOffsetY = 8;
+    ctx.beginPath(); ctx.arc(940, 1105, 26, 0, Math.PI * 2); ctx.fillStyle = green; ctx.fill(); ctx.restore();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+    rule(933, 1105, 947, 1105); rule(942, 1100, 947, 1105); rule(942, 1110, 947, 1105);
+    ctx.strokeStyle = palette.line; ctx.lineWidth = 1; rule(88, 1275, 992, 1275);
+    ctx.fillStyle = muted; ctx.font = '10px ' + mono;
+    line('73 DE ' + (callSign || 'QSLink') + ' · QSL CARD EXCHANGE', 88, 1297, 700);
+    small('QSLink', 948, 1297, muted, 'right'); ctx.drawImage(logo, 964, 1283, 28, 28);
     return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('图片生成失败')), 'image/png'));
   }
 
