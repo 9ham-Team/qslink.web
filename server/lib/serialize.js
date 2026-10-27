@@ -45,6 +45,7 @@ function publicUser(db, user) {
   const stats = userStats(db, user);
   return {
     id: user.id,
+    uid: user.uid,
     username: user.username,
     displayName: user.displayName,
     callSign: user.callSign || '',
@@ -103,6 +104,7 @@ function cardOwner(db, card) {
   }
   return {
     id: owner.id,
+    uid: owner.uid,
     username: owner.username,
     displayName: owner.displayName,
     callSign: owner.callSign || '',
@@ -159,7 +161,7 @@ function cardPublic(db, card, viewer, options = {}) {
     createdAt: card.createdAt,
     owner,
   };
-  if (options.shareToken) result.shareToken = card.shareToken;
+  if (options.shareToken) result.shareToken = card.shortToken;
   if (options.rejectReason) result.rejectReason = card.rejectReason || null;
   return result;
 }
@@ -189,7 +191,7 @@ function cardDetail(db, card, viewer) {
     ...base,
     canApply,
     isOwner,
-    shareToken: card.shareToken,
+    shareToken: card.shortToken,
     myExchange: myExchangeRecord ? { id: myExchangeRecord.id, status: myExchangeRecord.status } : null,
   };
 }
@@ -205,7 +207,7 @@ function exchangeCardBrief(db, card) {
     ratio: card.ratio,
     frontImage: card.frontImage,
     backImage: card.backImage || '',
-    shareToken: card.shareToken,
+    shareToken: card.shortToken,
   };
 }
 

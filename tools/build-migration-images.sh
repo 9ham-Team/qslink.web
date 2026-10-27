@@ -19,11 +19,18 @@ for image in node:24-alpine postgres:17-alpine caddy:2-alpine; do
   if [ "$skip_pull" = false ]; then docker pull --platform linux/amd64 "$image"; fi
   qsl_amd64_image "$image"
 done
+build_revision=''
+build_created=''
+if [ -z "$(qsl_git status --porcelain)" ]; then
+  build_revision=$(qsl_git rev-parse HEAD)
+  build_created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+fi
 docker build --platform linux/amd64 --pull=false \
   --network "${QSL_BUILD_NETWORK:-default}" \
   --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY \
   --build-arg http_proxy --build-arg https_proxy --build-arg no_proxy \
-  --label "org.opencontainers.image.revision=$(qsl_git rev-parse HEAD)" \
+  --build-arg "QSL_BUILD_REVISION=$build_revision" \
+  --build-arg "QSL_BUILD_CREATED=$build_created" \
   --label "org.opencontainers.image.version=$QSL_BUNDLE_REVISION" \
   -t "qslink/app:$QSL_BUNDLE_REVISION" "$qsl_root"
 docker tag postgres:17-alpine qslink/postgres:17-alpine

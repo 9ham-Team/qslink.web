@@ -11,6 +11,11 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
+import './profile-address.mjs';
+import { testShortTokens } from './short-tokens.mjs';
+import { testAnnouncements } from './announcements.mjs';
+test('short tokens: collision, concurrent allocation, migration and legacy protection', testShortTokens);
+test('announcements: permissions, validation, publishing, pagination and persistence', testAnnouncements);
 
 const require = createRequire(import.meta.url);
 const sharp = require('sharp');
@@ -64,6 +69,75 @@ const { Database } = require('../server/lib/db');
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const credentials = { username: 'operator', email: 'operator@example.test', password: 'Unique-Production-42!' };
 const databases = new Map();
+
+test('public spaces preserve nine-digit UIDs, paginate approved cards and protect private data', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const app = await start(t, dir);
+  const db = databases.get(dir).db;
+  const body = await withCode(app, { username: 'spaceuser', email: 'space@example.test', password: 'Space-Password-42!' });
+  const registration = await request(app.base, '/api/auth/register', { method: 'POST', body: { ...body, uid: '000000000' } });
+  assert.equal(registration.status, 201);
+  const { user, token } = await registration.json();
+  assert.match(user.uid, /^[0-9]{9}$/);
+  assert.notEqual(user.uid, '000000000');
+  const uid = user.uid;
+  const admin = await db.transaction(unit => unit.data.users.find(u => u.role === 'admin'));
+  assert.match(admin.uid, /^[0-9]{9}$/);
+  assert.notEqual(uid, admin.uid);
+  await request(app.base, '/api/me/profile', { token, method: 'PUT', body: { bio: 'Hello <script>world</script>', uid: '999999999' } });
+  assert.equal((await (await request(app.base, '/api/auth/me', { token })).json()).user.uid, uid);
+  const cardBody = { title: 'Space card', ratio: { w: 3, h: 2 }, frontImage: 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64') };
+  const created = await request(app.base, '/api/cards', { token, method: 'POST', body: cardBody });
+  assert.equal(created.status, 201);
+  const { card } = await created.json();
+  const path = '/api/public/spaces/' + uid;
+  const pending = await (await request(app.base, path, { token })).json();
+  assert.equal(pending.cards.total, 0, 'owner also sees only approved cards');
+  await db.transaction(unit => {
+    const saved = unit.find('cards', c => c.id === card.id);
+    saved.status = 'approved';
+    for (let i = 0; i < 13; i++) unit.insert('cards', { ...saved, id: 'space_' + i, shareToken: 'space_token_' + i, shortToken: undefined });
+  }, { write: true });
+  const guest = await (await request(app.base, path + '?limit=12')).json();
+  const own = await (await request(app.base, path + '?limit=12', { token })).json();
+  assert.deepEqual(guest.user, own.user);
+  assert.equal(guest.user.uid, uid);
+  assert.equal(guest.user.stats.cards, 14);
+  assert.equal(guest.cards.items.length, 12);
+  assert.equal(guest.cards.pages, 2);
+  assert.equal(guest.url, 'https://qsl.example.test/space/' + uid);
+  for (const field of ['email', 'address', 'passwordHash', 'legalConsent', 'status']) assert.equal(guest.user[field], undefined);
+  assert.equal(guest.cards.items[0].owner.uid, uid);
+  const second = await (await request(app.base, path + '?page=2&limit=12')).json();
+  assert.equal(second.cards.items.length, 2);
+  assert.ok(second.cards.items.every(c => !guest.cards.items.some(first => first.id === c.id)));
+  assert.equal((await fetch(app.base + '/space/' + uid)).status, 200);
+  for (const bad of ['000000000', '1', '1234567890', 'abcdefghi']) assert.equal((await request(app.base, '/api/public/spaces/' + bad)).status, 404);
+  await app.stop();
+  const restarted = await start(t, dir);
+  assert.equal((await (await request(restarted.base, path)).json()).user.uid, uid);
+  await db.transaction(unit => { unit.find('users', u => u.id === user.id).status = 'banned'; }, { write: true });
+  assert.equal((await request(restarted.base, path)).status, 404);
+});
+
+test('UID migration backfills existing users and enforces uniqueness and format', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const { db, databaseSchema } = databases.get(dir);
+  // Recreate the pre-005 column layout in this isolated fixture only.
+  await db.pool.query(`ALTER TABLE "${databaseSchema}".users DROP COLUMN uid`);
+  await db.pool.query(`DELETE FROM "${databaseSchema}".schema_migrations WHERE version=5`);
+  await db.migrate();
+  const before = await db.transaction(unit => unit.data.users);
+  assert.ok(before.every(user => /^[0-9]{9}$/.test(user.uid) && user.uid !== '000000000'));
+  await db.migrate();
+  assert.deepEqual(await db.transaction(unit => unit.data.users), before);
+  for (const uid of ['000000000', '123', '1234567890', 'abcdefghi']) {
+    await assert.rejects(db.transaction(unit => { unit.data.users[0].uid = uid; }, { write: true }), err => err.status === 400);
+  }
+  await assert.rejects(db.transaction(unit => { unit.insert('users', { ...unit.data.users[0], id: 'duplicate_uid', username: 'different', email: 'different@example.test' }); }, { write: true }), err => err.status === 409);
+});
 
 test('legal acceptance: explicit version, persistence, content authorization and public pages', async (t) => {
   const dir = await temp(t);
@@ -244,7 +318,7 @@ test('production config fails closed for missing paths/origin/demo flag and inse
 test('default development startup has no implicit demo accounts', async t => {
   const dir = await temp(t);
   const app = await start(t, dir, { NODE_ENV: 'development', QSL_PUBLIC_ORIGIN: '' });
-  assert.deepEqual(await (await fetch(app.base + '/api/config')).json(), { demo: false, demoAccounts: [] });
+  assert.deepEqual(await (await fetch(app.base + '/api/config')).json(), { demo: false, demoAccounts: [], build: null });
   const db = await databases.get(dir).db.transaction(unit => unit.data);
   assert.equal(db.users.length, 0);
   assert.equal(db.cards.length, 0);
@@ -277,7 +351,7 @@ test('offline initialization is idempotent, never stores plaintext, and producti
   assert.equal(JSON.stringify(await databases.get(dir).db.transaction(unit => unit.data)), original);
 
   const app = await start(t, dir);
-  assert.deepEqual(await (await fetch(app.base + '/api/config')).json(), { demo: false, demoAccounts: [] });
+  assert.deepEqual(await (await fetch(app.base + '/api/config')).json(), { demo: false, demoAccounts: [], build: null });
   assert.equal((await (await fetch(app.base + '/api/cards')).json()).total, 0);
   for (const identifier of ['admin', 'bg7mom']) {
     assert.equal((await request(app.base, '/api/auth/login', { method: 'POST', body: { identifier, password: 'Admin@123456' } })).status, 401);
@@ -300,7 +374,8 @@ test('offline initialization is idempotent, never stores plaintext, and producti
   const upload = await fetch(app.base + card.frontImage);
   assert.match(upload.headers.get('content-security-policy'), /sandbox/);
   const shared = await (await request(app.base, `/api/cards/${card.id}/share`, { token, headers: { 'X-Forwarded-Proto': 'http' } })).json();
-  assert.ok(shared.url.startsWith('https://qsl.example.test/share/'));
+  assert.match(shared.shareToken, /^[A-Za-z]{6}$/);
+  assert.equal(shared.url, 'https://qsl.example.test/s/' + shared.shareToken);
   assert.notEqual((await init(dir)).code, 0, 'existing administrator is never overwritten');
   const second = await start(t, dir);
   assert.equal((await request(second.base, '/api/auth/me', { token })).status, 200, 'separate processes read the same committed state');
@@ -323,6 +398,29 @@ test('production throttles repeated login attempts, including spoofed forwarding
   assert.equal(res.status, 429);
   assert.ok(Number(res.headers.get('retry-after')) > 0);
   assert.equal((await fetch(app.base + '/api/health')).status, 200);
+});
+
+test('build metadata is validated from the fixed build file and footer uses HKT', async () => {
+  const serverSource = await fs.readFile(path.join(ROOT, 'server/server.js'), 'utf8');
+  const buildSource = serverSource.slice(serverSource.indexOf('const publicBuild ='), serverSource.indexOf('\nfunction publicConfig'));
+  const revision = '8c3f2c1'.padEnd(40, '0');
+  const created = '2026-10-27T18:35:00Z';
+  function readBuild(value) {
+    const context = { __dirname: path.join(ROOT, 'server'), path, process: { env: { QSL_BUILD_REVISION: revision, QSL_BUILD_CREATED: created } },
+      fs: { readFileSync(file) { assert.equal(file, path.join(ROOT, 'build-info.json')); if (value === undefined) throw new Error('missing'); return value; } } };
+    return vm.runInNewContext(buildSource + '\nJSON.stringify(publicBuild)', context);
+  }
+  assert.equal(readBuild(JSON.stringify({ revision, created, private: 'not public' })), JSON.stringify({ revision, created }));
+  for (const value of [undefined, 'broken', 'null', '{}', JSON.stringify({ revision: revision.slice(0, 7), created }),
+    JSON.stringify({ revision, created: '2026-02-30T00:00:00Z' }), JSON.stringify({ revision, created: '2026-10-27T18:35:00+00:00' })]) {
+    assert.equal(readBuild(value), 'null');
+  }
+  const source = await fs.readFile(path.join(ROOT, 'public/js/core.js'), 'utf8');
+  const context = { window: {}, document: {}, console, URLSearchParams, Intl, Map, Set };
+  vm.runInNewContext(source, context);
+  const format = context.window.QSL.footerBuildText;
+  assert.equal(format({ revision, created }), '版本 ' + revision.slice(0, 7) + ' · 镜像构建于 2026-10-28 02:35 HKT');
+  for (const build of [null, {}, { revision, created: '2026-02-30T00:00:00Z' }]) assert.match(format(build), /^开发版/);
 });
 
 test('production frontend ignores devToken and does not render demo login UI', async () => {
@@ -367,7 +465,7 @@ test('PostgreSQL transactions roll back exceptions and enforce unique users acro
   assert.equal(await db.transaction(unit => unit.data.users[0].bio), '8', 'no lost updates across connections');
 });
 
-test('concurrent registration and exchange approval remain atomic across app processes', async t => {
+test('concurrent registration and independent exchange approvals remain atomic across app processes', async t => {
   const dir = await temp(t);
   assert.equal((await init(dir)).code, 0);
   const a = await start(t, dir), b = await start(t, dir);
@@ -379,6 +477,7 @@ test('concurrent registration and exchange approval remain atomic across app pro
   const card = (await (await request(a.base, '/api/cards', { token, method: 'POST', body: { title: 'Concurrent', ratio: { w: 3, h: 2 }, frontImage: svg } })).json()).card;
   await request(a.base, `/api/admin/cards/${card.id}`, { token, method: 'PUT', body: { status: 'approved' } });
   const address = { name: 'Test', line1: 'Test road', city: 'Test', country: 'Test' };
+  assert.equal((await request(a.base, '/api/me/profile', { token, method: 'PUT', body: { address } })).status, 200);
   const ids = [];
   for (let i = 0; i < 2; i++) {
     const user = await (await request(a.base, '/api/auth/register', { method: 'POST', body: await withCode(a, { username: 'applicant' + i, email: `applicant${i}@example.test`, password: 'Applicant-Password-42!' }) })).json();
@@ -386,15 +485,36 @@ test('concurrent registration and exchange approval remain atomic across app pro
     assert.equal(response.status, 201);
     ids.push((await response.json()).exchange.id);
   }
+  const { db, databaseSchema } = databases.get(dir);
+  // Exercise an upgrade of an existing database with the old index and pending rows.
+  await db.pool.query(`CREATE UNIQUE INDEX exchanges_approved_unique ON "${databaseSchema}".exchanges("cardId") WHERE status='approved'`);
+  await db.pool.query(`DELETE FROM "${databaseSchema}".schema_migrations WHERE version=6`);
+  const beforeMigration = await db.transaction(unit => unit.data.exchanges);
+  await db.migrate();
+  assert.deepEqual(await db.transaction(unit => unit.data.exchanges), beforeMigration, 'migration preserves existing applications');
   const approvals = await Promise.all(ids.map((id, i) => request((i ? a : b).base, `/api/exchanges/${id}/approve`, { token, method: 'POST', body: {} })));
-  assert.equal(approvals.filter(res => res.status === 200).length, 1);
-  const exchanges = await databases.get(dir).db.transaction(unit => unit.data.exchanges);
-  assert.equal(exchanges.filter(row => row.status === 'approved').length, 1);
-  assert.equal(exchanges.filter(row => row.status === 'rejected').length, 1);
-  const db = databases.get(dir).db;
+  assert.deepEqual(approvals.map(res => res.status), [200, 200]);
+  const exchanges = await db.transaction(unit => unit.data.exchanges);
+  assert.equal(exchanges.filter(row => row.status === 'approved').length, 2);
+  assert.equal(exchanges.filter(row => row.status === 'rejected').length, 0);
   await assert.rejects(db.transaction(unit => {
-    unit.data.exchanges.find(row => row.status === 'rejected').status = 'approved';
-  }, { write: true }), err => err.status === 409, 'database independently enforces one approval per card');
+    unit.insert('exchanges', { ...unit.data.exchanges[0], id: 'duplicate_application', status: 'pending' });
+  }, { write: true }), err => err.status === 409, 'database still rejects duplicate active applications for the same applicant');
+
+  const later = await (await request(a.base, '/api/auth/register', { method: 'POST', body: await withCode(a, {
+    username: 'laterapplicant', email: 'later@example.test', password: 'Later-Applicant-42!',
+  }) })).json();
+  const lateResponse = await request(a.base, `/api/cards/${card.id}/exchanges`, { token: later.token, method: 'POST', body: { contactName: 'Later', address } });
+  assert.equal(lateResponse.status, 201, 'new applicants may apply after earlier approvals');
+  const lateExchange = (await lateResponse.json()).exchange;
+  const repeated = await Promise.all([a, b].map(app => request(app.base, `/api/exchanges/${lateExchange.id}/approve`, { token, method: 'POST', body: {} })));
+  assert.deepEqual(repeated.map(res => res.status).sort(), [200, 400], 'same application can only be approved once');
+  const ownExchange = await request(a.base, `/api/exchanges/${lateExchange.id}`, { token: later.token });
+  assert.equal(ownExchange.status, 200);
+  assert.ok((await ownExchange.json()).exchange.toAddress);
+  assert.equal((await request(a.base, `/api/exchanges/${ids[0]}`, { token: later.token })).status, 403, 'another applicant cannot access a different exchange');
+  assert.equal((await request(a.base, `/api/exchanges/${lateExchange.id}/complete`, { token: later.token, method: 'POST', body: {} })).status, 200);
+  assert.equal(await db.transaction(unit => unit.data.exchanges.filter(row => row.status === 'approved').length), 2, 'completion leaves other approvals active');
   await assert.rejects(db.transaction(unit => {
     unit.data.likes.push({ id: 'l_bad', cardId: card.id, userId: 'nonexistent', createdAt: new Date().toISOString() });
   }, { write: true }), err => err.status === 400, 'foreign keys reject orphan likes');
@@ -411,6 +531,8 @@ test('JSON import supports dry-run, preserves source, refuses overwrite, and rol
   const sourceDir = await temp(t), targetDir = await temp(t), invalidDir = await temp(t);
   assert.equal((await init(sourceDir)).code, 0);
   const source = await databases.get(sourceDir).db.transaction(unit => unit.data);
+  const now = new Date().toISOString();
+  source.cards.push({ id: 'legacy_card', ownerId: source.users[0].id, title: 'Legacy', callSign: '', band: '', mode: '', notes: '', ratio: { w: 3, h: 2 }, frontImage: '', backImage: '', shareToken: 'AbCdEf', status: 'approved', rejectReason: null, contentConsent: null, createdAt: now, updatedAt: now });
   const file = path.join(sourceDir, 'legacy.json');
   await fs.writeFile(file, JSON.stringify(source));
   const runImport = async (dir, flags = []) => {
@@ -424,7 +546,11 @@ test('JSON import supports dry-run, preserves source, refuses overwrite, and rol
   assert.equal((await runImport(targetDir, ['--dry-run'])).code, 0);
   assert.equal(await databases.get(targetDir).db.transaction(unit => unit.data.users.length), 0);
   assert.equal((await runImport(targetDir)).code, 0);
-  assert.deepEqual(await databases.get(targetDir).db.transaction(unit => unit.data), source);
+  const imported = await databases.get(targetDir).db.transaction(unit => unit.data);
+  assert.match(imported.cards[0].shortToken, /^[A-Za-z]{6}$/);
+  assert.notEqual(imported.cards[0].shortToken, source.cards[0].shareToken);
+  delete imported.cards[0].shortToken;
+  assert.deepEqual(imported, source);
   assert.notEqual((await runImport(targetDir)).code, 0);
   assert.deepEqual(JSON.parse(await fs.readFile(file, 'utf8')), source);
   source.likes.push({ id: 'l_orphan', userId: 'missing', cardId: 'missing', createdAt: new Date().toISOString() });

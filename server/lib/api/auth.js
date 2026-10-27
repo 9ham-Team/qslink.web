@@ -28,6 +28,7 @@ async function register(ctx) {
   const now = new Date().toISOString();
   const user = {
     id: createId('u'),
+    uid: require('../uid').createUid(users),
     username: payload.username,
     email: payload.email,
     displayName: payload.displayName,

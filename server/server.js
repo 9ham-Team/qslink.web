@@ -42,8 +42,10 @@ const ROUTES = [
   ...authApi.routes,
   ...meApi.routes,
   ...cardsApi.routes,
+  ...require('./lib/api/spaces').routes,
   ...exchangesApi.routes,
   ...adminApi.routes,
+  ...require('./lib/api/announcements').routes,
 ];
 
 /* =========================================================================
@@ -63,6 +65,19 @@ function health() {
   };
 }
 
+const publicBuild = (() => {
+  try {
+    const build = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'build-info.json'), 'utf8'));
+    if (!build || typeof build.revision !== 'string' || typeof build.created !== 'string' ||
+        !/^[a-f0-9]{40}$/.test(build.revision) ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(build.created) ||
+        new Date(build.created).toISOString() !== build.created.replace('Z', '.000Z')) return null;
+    return { revision: build.revision, created: build.created };
+  } catch (err) {
+    return null;
+  }
+})();
+
 function publicConfig(ctx) {
   const accounts = ctx.config.demo
     ? require('./seed').DEMO_ACCOUNTS.map((account) => ({
@@ -73,7 +88,7 @@ function publicConfig(ctx) {
         role: account.role === 'admin' ? '管理员' : '普通用户',
       }))
     : [];
-  return { body: { demo: ctx.config.demo, demoAccounts: accounts } };
+  return { body: { demo: ctx.config.demo, demoAccounts: accounts, build: publicBuild } };
 }
 
 /** 用 :param 模式匹配路径，返回参数对象；不匹配返回 null */

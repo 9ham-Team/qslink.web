@@ -41,8 +41,10 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 |---|---|---|
 | `/` | `home` | 公开 |
 | `/explore` | `explore` | 公开 |
+| `/space/:uid` | `space` | 公开，九位 UID |
 | `/card/:id` | `card-detail` | 公开（申请按钮需登录） |
-| `/share/:token` | `share` | 公开（卡片须通过审核） |
+| `/share/:token` | `share` | 历史兼容，公开（卡片须通过审核且持有者未封禁） |
+| `/s/:token` | `share` | 新分享入口，六位大小写敏感字母，公开规则同上 |
 | `/login` | `login` | 游客页（已登录访问会跳回首页/next） |
 | `/register` | `register` | 游客页 |
 | `/dashboard` | `dashboard` | 登录 |
@@ -56,9 +58,23 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 
 路由传参：`render(container, ctx)`，`ctx = { path, params: {id?, token?}, query: URLSearchParams }`。
 `render` 可返回 cleanup 函数（如 3D 动画销毁）。导航后容器自动清空。
+
+个人资料的寄送地址支持本地解析粘贴文本（姓名、手机号、省市区、街道和邮编），支持常见分隔符及“地址 / 所在地区 / 详细地址”标签。解析只补充空字段，保留已有内容，用户核对后手动保存；保存城市时避免重复追加已有区县。解析使用规则识别，特殊地址仍需手动核对。
+
+公开主页模块 `pages/space.js` 在 `explore.js` 后显式加载，顶部以紧凑名片展示名字、呼号和简介，长简介可展开；下方紧接已审核卡片和分页，图片完整显示。分享按钮、UID 和加入时间位于卡片列表下方。个人中心 `/dashboard` 增加自己的公开主页入口；卡片详情上传者头像及姓名可进入 `/space/:uid`。主页离开时忽略未完成请求并关闭分享弹窗。提供“紧凑 / 大图”切换，`localStorage.qsl_space_view` 仅记忆 `grid` / `large`，存储不可用时仍可切换。紧凑模式桌面三列、≤900px 两列（手机保持两列），大图模式桌面两列、≤620px 一列。两种模式图片均 `object-fit: contain` 完整显示，文字紧凑，样式限定 `.g-space` 子模块。最新/最热排序发送服务端 `sort=latest/popular`，切换时保留旧列表并给网格标记 `aria-busy`（半透明、禁用交互与排序框），成功后从第一页整体替换；递增请求序号使过期响应不覆盖新排序，失败保留旧列表，点击“加载更多”重试会以新排序整体替换而非追加。返回主页重新使用最新排序，显示模式沿用本地偏好。
+
+公共页脚口号下由 `QSL.footerBuildText(config.build)` 显示版本：有效元数据为“版本 ”+前七位 SHA 加 `Asia/Hong_Kong` 的 `yyyy-MM-dd HH:mm HKT`；缺少、格式或日期无效显示“开发版 · 镜像构建时间未知”。不使用浏览器当地时区或访问时间假冒构建时间。配置来源、完整 40 位 SHA、UTC 秒精度构建时间及与 OCI 标签一致的要求见 API 的公开构建信息契约。
 `/legal/terms.html`、`/legal/privacy.html` 为独立静态法律页面，不由 SPA 页面模块渲染。
 
 `/dashboard/cards?status=pending` 可直接进入“我的卡片”的“审核中”筛选；`status` 也支持 `approved`、`rejected`，无效或缺省时显示全部。切换筛选会同步更新查询参数。
+
+### 公告展示与管理
+
+首页 `home.js` 使用 `QSL.api.get('/api/announcements?page=1&limit=1')` 请求最新已发布公告，展示可关闭的公告浮层（桌面位于导航栏下方 16px 右侧，≤620px 改为贴底卡片，最高 40svh；toast 出现时暂时隐藏）。浮层以 `aria-labelledby` 关联标题，可按 Esc 关闭（存在其他弹窗时不响应），关闭时若焦点在浮层内则移回公告入口。关闭仅影响本次页面实例，不写入持久化已读状态。Hero 下方始终保留“公告板 · 查看全部”入口，打开弹窗按每页 8 条加载；有加载、空状态和失败提示，可关闭后重试；翻页时保留当前列表并标记 `aria-busy`、禁用分页按钮，成功后回到弹窗顶部，失败保留当前页并恢复按钮。标题、正文及时间均转义，正文以纯文本保留换行，不解释 HTML / Markdown。显示的是服务端 `publishedAt`，不以更新时间冒充发布时间。
+
+管理员 `/admin` 的“公告管理”页签通过通用 `QSL.api.get/post/put` 调用 `/api/admin/announcements` 及 `/:id`，不新增专用 API 包装。每页 8 条，支持新建、编辑、发布及撤下；撤下前需确认，从未发布的公告发布时间显示“未发布”，标题/正文按服务端规则（去除首尾空白后的字符数）实时显示 `n / 120`、`n / 10000`，超限标红但仍由服务端校验。保存按钮和状态切换按钮在请求中禁用，表单错误显示在弹窗及对应字段旁。草稿与撤下共用 `draft`，公开接口仅显示 `published`；编辑已发布公告保留发布时间，撤下保留历史发布时间，再发布由服务端重设。权限必须由服务端验证，前端守卫不是权限边界。
+
+首页离开时设置取消标志、中止公告事件监听、关闭弹窗并移除浮层和入口；关闭弹窗或分页时递增请求序号，忽略过期响应，不要求中止已发出的网络请求。管理页利用页面实例、页签、请求序号及 DOM 存活检查防止过期响应覆盖；切换页签或离开页面关闭公告编辑弹窗，关闭后未完成保存的响应不得更新旧 UI。弹窗关闭时清理键盘监听。公告样式分别限定在 `.g-announcement-*` 和 `.a-announcement-*`，移动端仍须可阅读及操作。
 
 ## 4. 全局命名空间 `window.QSL`
 
@@ -129,7 +145,7 @@ QSL.bandTone(band) / QSL.modeTone(mode)       // 历史兼容辅助方法，不�
 QSL.ownerLine(user) -> HTML
 QSL.cardThumb(card, {height}) -> HTML
 ```
-分享规则：已有 `shareToken` 时直接复制当前 `location.origin + '/share/' + token`；无 token、有卡片 id 且 `canShare !== false` 时尝试 `GET /api/cards/:id/share`（仅 owner/admin），优先复制响应的完整 URL；失败后回退当前站点的 `/share/<token>` 或 `/card/<id>`。服务端分享 URL 优先使用 `QSL_PUBLIC_ORIGIN`（生产必需 HTTPS），仅非生产未配置时从请求协议与 Host 拼接。分享 token 存在不代表已经审核通过。
+分享规则：API 输出的 `shareToken` 为新六位短 token，已有 `shareToken` 时直接复制当前 `location.origin + '/s/' + token`；无 token、有卡片 id 且 `canShare !== false` 时尝试 `GET /api/cards/:id/share`（仅 owner/admin），优先复制响应的完整 URL；失败后回退当前站点的 `/s/<token>` 或 `/card/<id>`。服务端分享 URL 优先使用 `QSL_PUBLIC_ORIGIN`（生产必需 HTTPS），仅非生产未配置时从请求协议与 Host 拼接。分享 token 存在不代表已经审核通过。
 
 图标清单（`QSL.icon` 支持）：`heart, share, cards, upload, camera, check, x, close, plus, edit, trash, arrow-right, arrow-left, chevron-down, search, filter, sort, user, users, shield, clock, map-pin, mail, lock, eye, logout, menu, sparkles, flame, globe, radio, antenna, wave, copy, external, refresh, image, info, alert, star, settings, inbox, send, sun, moon, layout, list, grid, download, 3d, flip`（不存在的 name 返回空字符串，不抛错）。
 

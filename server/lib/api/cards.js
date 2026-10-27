@@ -15,6 +15,7 @@ const { saveImage } = require('../uploads');
 const { createId, randomString, paginate, cascadeDeleteCard } = require('../db');
 const auth = require('../auth');
 const serialize = require('../serialize');
+const { createShortToken } = require('../short-token');
 
 function byCreatedDesc(a, b) {
   return (b.createdAt || '').localeCompare(a.createdAt || '');
@@ -79,6 +80,7 @@ async function detail(ctx) {
   if (card.status !== 'approved' && !isOwner && !isAdmin) throw notFound('卡片不存在');
 
   const owner = serialize.findUser(ctx.db, card.ownerId);
+  if ((!owner || owner.status === 'banned') && !isOwner && !isAdmin) throw notFound('卡片不存在');
   return {
     body: {
       card: serialize.cardDetail(ctx.db, card, viewer),
@@ -89,9 +91,10 @@ async function detail(ctx) {
 
 /** GET /api/public/cards/:shareToken：分享页（无需登录，卡片必须 approved） */
 async function publicByShareToken(ctx) {
-  const card = ctx.db.find('cards', (item) => item.shareToken === ctx.params.shareToken);
+  const card = ctx.db.find('cards', (item) => item.shortToken === ctx.params.shareToken || item.shareToken === ctx.params.shareToken);
   if (!card || card.status !== 'approved') throw notFound('卡片不存在或未通过审核');
   const owner = serialize.findUser(ctx.db, card.ownerId);
+  if (!owner || owner.status === 'banned') throw notFound('卡片不存在或未通过审核');
   return {
     body: {
       card: serialize.cardDetail(ctx.db, card, ctx.user),
@@ -126,7 +129,8 @@ async function create(ctx) {
     backImage,
     status: 'pending',
     rejectReason: null,
-    shareToken: randomString(10),
+    shareToken: randomString(24),
+    shortToken: createShortToken(ctx.db.data.cards),
     createdAt: now,
     updatedAt: now,
   };
@@ -238,8 +242,8 @@ async function share(ctx) {
   }
   return {
     body: {
-      shareToken: card.shareToken,
-      url: `${ctx.config.publicOrigin || requestProtocol(ctx) + '://' + ctx.host}/share/${card.shareToken}`,
+      shareToken: card.shortToken,
+      url: `${ctx.config.publicOrigin || requestProtocol(ctx) + '://' + ctx.host}/s/${card.shortToken}`,
     },
   };
 }

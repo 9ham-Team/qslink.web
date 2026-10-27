@@ -123,6 +123,10 @@
       updatePassword: (payload) => request('PUT', '/api/me/password', payload)
     },
 
+    spaces: {
+      get: (uid, params) => request('GET', '/api/public/spaces/' + encodeURIComponent(uid) + buildQuery(params))
+    },
+
     cards: {
       list: (params) => request('GET', '/api/cards' + buildQuery(params)),
       get: (id) => request('GET', '/api/cards/' + encodeURIComponent(id)),

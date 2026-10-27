@@ -27,6 +27,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
+import { testShortTokens } from './short-tokens.mjs';
+import { testAnnouncements } from './announcements.mjs';
 
 // ---------------------------------------------------------------------------
 // Configuration / globals
@@ -1265,11 +1267,11 @@ async function phaseLikes() {
 }
 
 // ---------------------------------------------------------------------------
-// Phase: exchanges — first card (approve + auto-reject other pending)
+// Phase: exchanges — first card (independent approvals for different applicants)
 // ---------------------------------------------------------------------------
 
 async function phaseExchangesApprove() {
-  phase('Exchanges: create / duplicate / approve / auto-reject');
+  phase('Exchanges: create / duplicate / independent approvals');
 
   await test('exchanges: applying to own card is rejected (400 or 403)', async () => {
     const owner = needUser('owner');
@@ -1359,18 +1361,16 @@ async function phaseExchangesApprove() {
     exchanges.e2 = exchange;
   });
 
-  await test('exchanges: approving one application auto-rejects other pending ones', async () => {
+  await test('exchanges: approving one application leaves other pending ones unchanged', async () => {
     const u3 = needUser('u3');
     const e3 = needExchange('e3');
     const res = await api('GET', `/api/exchanges/${e3.id}`, { token: u3.token });
-    expectStatus(res, 200, 'GET auto-rejected exchange');
-    expectEqual(res.json.exchange.status, 'rejected', 'auto-rejected exchange status', res);
-    expectTruthy(res.json.exchange.rejectReason, 'auto-rejected exchange rejectReason', res);
-    if (!/其它申请者|其他申请者|达成交换/.test(String(res.json.exchange.rejectReason))) {
-      softNote(`自动拒绝 rejectReason 文案不符契约: ${snip(res.json.exchange.rejectReason)}`);
-    }
-    expectEqual(res.json.exchange.fromAddress, null, 'auto-rejected fromAddress', res);
-    expectEqual(res.json.exchange.toAddress, null, 'auto-rejected toAddress', res);
+    expectStatus(res, 200, 'GET other pending exchange');
+    expectEqual(res.json.exchange.status, 'pending', 'other application stays pending', res);
+    expectEqual(res.json.exchange.rejectReason, null, 'pending rejectReason', res);
+    expectEqual(res.json.exchange.decidedAt, null, 'pending decidedAt', res);
+    expectEqual(res.json.exchange.fromAddress, null, 'pending fromAddress', res);
+    expectEqual(res.json.exchange.toAddress, null, 'pending toAddress', res);
   });
 
   await test('exchanges: applicant sees both addresses after approval', async () => {
@@ -1416,16 +1416,40 @@ async function phaseExchangesApprove() {
     expectEqual(res.json.card.isOwner, false, 'isOwner for applicant', res);
   });
 
-  await test('cards: detail exposes rejected myExchange for auto-rejected applicant', async () => {
+  await test('cards: detail exposes pending myExchange for another applicant', async () => {
     const u3 = needUser('u3');
     const card1 = needCard('card1');
     const res = await api('GET', `/api/cards/${card1.id}`, { token: u3.token });
-    expectStatus(res, 200, 'GET card1 detail as rejected applicant');
+    expectStatus(res, 200, 'GET card1 detail as pending applicant');
     const mine = res.json.card.myExchange;
-    if (mine === null) {
-      softNote('被自动拒绝的申请者在卡片详情中 myExchange 为 null（契约允许 {id,status} 形式，前端可接受）');
-    } else {
-      expectEqual(mine.status, 'rejected', 'myExchange.status (rejected)', res);
+    expectObject(mine, 'pending applicant myExchange', res);
+    expectEqual(mine.status, 'pending', 'myExchange.status (pending)', res);
+    expectEqual(res.json.card.canApply, false, 'pending applicant cannot duplicate application', res);
+  });
+
+  await test('exchanges: a second applicant can also be approved for the same card', async () => {
+    const res = await api('POST', `/api/exchanges/${needExchange('e3').id}/approve`, { token: needUser('owner').token });
+    expectStatus(res, 200, 'approve another applicant');
+    expectEqual(res.json.exchange.status, 'approved', 'second approval status', res);
+    expectObject(res.json.exchange.fromAddress, 'second approved fromAddress', res);
+    expectObject(res.json.exchange.toAddress, 'second approved toAddress', res);
+    const first = await api('GET', `/api/exchanges/${needExchange('e2').id}`, { token: needUser('owner').token });
+    expectEqual(first.json.exchange.status, 'approved', 'first approval remains approved', first);
+    const other = await api('GET', `/api/exchanges/${needExchange('e2').id}`, { token: needUser('u3').token });
+    expectStatusSoftCode(other, 403, 'FORBIDDEN', 'another applicant cannot view first exchange addresses');
+  });
+
+  await test('exchanges: a later application can be approved while earlier exchanges remain active', async () => {
+    const created = await applyExchange('u4', 'card1', 'eLate');
+    expectStatus(created, 201, 'create later application');
+    const id = needExchange('eLate').id;
+    const approved = await api('POST', `/api/exchanges/${id}/approve`, { token: needUser('owner').token });
+    expectStatus(approved, 200, 'approve later application');
+    const completed = await api('POST', `/api/exchanges/${id}/complete`, { token: needUser('u4').token });
+    expectStatus(completed, 200, 'complete later exchange independently');
+    for (const key of ['e2', 'e3']) {
+      const res = await api('GET', `/api/exchanges/${needExchange(key).id}`, { token: needUser('owner').token });
+      expectEqual(res.json.exchange.status, 'approved', 'other exchange remains active', res);
     }
   });
 }
@@ -1599,7 +1623,8 @@ async function phaseShare() {
     expectString(res.json.shareToken, 'share.shareToken', res);
     expectEqual(res.json.shareToken, card1.shareToken, 'share token matches card shareToken', res);
     expectString(res.json.url, 'share.url', res);
-    assert(res.json.url.includes(`/share/${res.json.shareToken}`), `share.url 应包含 /share/<token>，实际 ${res.json.url}`, res);
+    assert(/^[A-Za-z]{6}$/.test(res.json.shareToken), 'shareToken 应为六位大小写字母', res);
+    assert(res.json.url.includes(`/s/${res.json.shareToken}`), `share.url 应包含 /s/<token>，实际 ${res.json.url}`, res);
     if (!/^https?:\/\//.test(res.json.url)) softNote(`share.url 不是绝对 URL: ${res.json.url}`);
   });
 
@@ -1643,6 +1668,9 @@ async function phaseShare() {
 
   await test('share: GET /share/:token route falls back to index.html', async () => {
     const card1 = needCard('card1');
+    const short = await api('GET', `/s/${card1.shareToken}`, { redirect: 'manual' });
+    expectStatus(short, 200, 'GET /s/<real token>');
+    assert(/id=["']app["']/.test(short.text), '/s/:token 应回退到 index.html', short);
     const res = await api('GET', `/share/${card1.shareToken}`, { redirect: 'manual' });
     expectStatus(res, 200, 'GET /share/<real token>');
     assert(/id=["']app["']/.test(res.text), '分享页路由未回退到 index.html', res);
@@ -2084,6 +2112,8 @@ async function main() {
   console.log(`  data:    ${KEEP_DATA ? `${dataDir} (kept)` : dataDir}`);
 
   try {
+    await test('short tokens: collision, concurrency, migration and legacy protection', testShortTokens);
+    await test('announcements: permissions, validation, publishing, pagination and persistence', testAnnouncements);
     await runPhases();
   } finally {
     await stopServer();

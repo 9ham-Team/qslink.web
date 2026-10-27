@@ -23,6 +23,7 @@
 ```json
 {
   "id": "u_xxx",
+  "uid": "012345678",
   "username": "bg7mom",
   "displayName": "小刻",
   "callSign": "BG7MOM",
@@ -35,6 +36,32 @@
 ```
 `UserSelf` 额外包含：`email`、`status`、`address`、`createdAt`、`updatedAt`、`stats.pendingExchanges`（待处理收到的申请数）。
 `AvatarColor` 为 `#RRGGBB`，前端用于生成渐变头像。
+
+`uid` 是注册时服务端随机分配且不可通过资料编辑修改的唯一九位字符串，范围 `000000001`–`999999999`，保留前导零。已有用户、离线初始化的管理员和导入用户也会分配 UID。卡片 `owner` 摘要同时包含 `uid`。
+
+### 公开构建信息
+
+`GET /api/config` 无需登录，返回 `{ demo, demoAccounts, build }`。`build` 为 `null` 或 `{ "revision": "完整40位小写十六进制SHA", "created": "2026-10-27T18:35:00Z" }`。时间必须是有效 UTC 秒精度 ISO 时间。服务端启动时只读取源码根目录（镜像中 `/app`）的 `build-info.json`，只公开上述两个字段；文件缺失、格式或日期无效均返回 `null`。不从请求、运行时环境变量、启动时间或文件 mtime 推断版本。本地源码运行默认 `build: null`。
+
+Dockerfile 使用构建参数 `QSL_BUILD_REVISION` / `QSL_BUILD_CREATED` 同时写入该文件及 OCI `org.opencontainers.image.revision` / `org.opencontainers.image.created`，两者必须一致；未传参数的镜像为开发版。页脚显示前七位 SHA 与香港时间，完整 SHA 保留在 API 中。
+
+### 公开个人主页
+
+`GET /api/public/spaces/:uid?sort=latest&page=1&limit=12` 无需登录。`sort` 支持 `latest`（默认，最新）及 `popular`（最热）；无效值回退 `latest`。UID 格式错误、用户不存在或被禁用返回 `404 NOT_FOUND`。返回：
+
+```json
+{
+  "user": {
+    "uid": "012345678", "displayName": "小刻", "callSign": "BG7MOM",
+    "bio": "在电波中相遇", "avatarColor": "#0eaf8f", "joinedAt": "2026-10-01T12:00:00.000Z",
+    "stats": { "cards": 2, "likesReceived": 34 }
+  },
+  "cards": { "items": [], "total": 2, "page": 1, "limit": 12, "pages": 1 },
+  "url": "https://qsl.9ham.net/space/012345678"
+}
+```
+
+`cards.items` 为 `CardPublic[]`。`latest` 按发布时间倒序，`popular` 按点赞数倒序；同赞数按发布时间倒序，同时间再按卡片 ID 倒序稳定分页。仅包含审核通过的卡片；本人和管理员访问也遵守此筛选。公开统计只计算这些卡片及其点赞。主页资料不含邮箱、地址、认证或审核数据；`liked` 随访问者登录状态变化。分页沿用公共接口约定。`url` 使用 `QSL_PUBLIC_ORIGIN`，未配置时为 `null`，前端使用当前 origin 构建链接。分享无需创建 token 或更改可见性，任何人都能直接访问 `/space/:uid`。
 
 地址对象 `Address`：
 ```json
@@ -214,7 +241,7 @@ owner 或 admin。级联删除其点赞与换卡申请。→ `{ ok: true }`
 ### POST /api/cards/:id/like  🔒
 切换点赞。→ `{ liked: true, likeCount: 19 }`
 ### GET /api/cards/:id/share  🔒 (owner/admin)
-→ `{ shareToken, url: "https://qsl.example.com/share/aBcD1234" }`。
+→ `{ shareToken, url: "https://qsl.example.com/s/AbCdEf" }`。`shareToken` 为六位大小写敏感的英文字母，由密码学安全、无偏随机数生成并碰撞重试。所有新响应中的 `shareToken` 使用新短 token；数据库原 `cards.shareToken` 保留历史映射，新增 `shortToken`，历史 `/share/:token` 和公开数据接口仍解析原卡。两类 token 不允许跨卡冲突。公开分享数据仅对审核通过且持有者未封禁的卡片开放，删除后返回 404。
 优先以 `QSL_PUBLIC_ORIGIN` 为 URL 的站点地址；生产必须配置该值且使用 HTTPS。不配置时（仅非生产）以请求协议与 Host 拼接：协议优先取 `X-Forwarded-Proto` 的首项，否则根据连接是否加密选择 https/http。取得分享链接不代表卡片已公开；未通过审核时分享页数据接口仍返回 404。
 
 ## 5. 换卡申请
@@ -226,7 +253,8 @@ body: `{ message?, contactName, address: Address }`
 ### GET /api/exchanges/:id  🔒
 参与者或 admin → `{ exchange: ExchangeItem }`（地址可见性同上）
 ### POST /api/exchanges/:id/approve  🔒 (仅卡片 owner)
-- 仅 pending 可操作；批准同时把该卡片其它 pending 申请自动置为 `rejected`（rejectReason: "该卡片已与其它申请者达成交换"）。
+- 仅 pending 可操作；每笔申请独立审批，同意后不改变同一卡片的其他申请。同一卡片可同时与多个不同用户处于 `approved` 状态，也允许其他用户继续提交申请。
+- 同一用户对同一卡片仍只能有一笔 `pending`/`approved` 活动申请；各笔交换独立完成，地址仅对该笔交换的双方及管理员可见。
 - → `{ exchange: ExchangeItem }`（包含双方地址）
 ### POST /api/exchanges/:id/reject  🔒 (仅卡片 owner)
 body: `{ reason? }` → `{ exchange }`
@@ -266,6 +294,26 @@ body 可选：`{ title, callSign, band, mode, notes, ratio, frontImage, backImag
 ### DELETE /api/admin/cards/:id → `{ ok: true }`
 ### GET /api/admin/exchanges
 query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双方地址与卡片、用户信息，`direction` 固定为 `admin`）
+
+## 公告
+
+公告对象 `Announcement` 包含 `id`、`title`、`body`、`status`、`publishedAt`、`createdAt`、`updatedAt`。标题和正文均为纯文本；去除首尾空白后分别为 1–120 和 1–10000 个 Unicode 字符，不允许 NUL。状态仅为 `draft`（草稿 / 已撤下）或 `published`（已发布）。时间由服务端生成，为 UTC ISO 字符串，未发布过的草稿 `publishedAt: null`。客户端提交的 ID、时间及其它未知字段不参与写入。
+
+### GET /api/announcements
+
+无需登录，仅返回 `published` 公告；即使提供 `status=all/draft` 也不能读取草稿。支持通用 `page` / `limit` 分页，返回 `{ items: Announcement[], total, page, limit, pages }`，按 `publishedAt` 倒序、同时间按 ID 倒序。
+
+### GET /api/admin/announcements
+
+仅管理员；未登录为 `401 UNAUTHORIZED`，普通用户为 `403 FORBIDDEN`（以下写接口相同）。支持通用分页及 `status=all|draft|published`，默认及无效值回退 `all`。返回同上，按 `updatedAt` 倒序、同时间按 ID 倒序。
+
+### POST /api/admin/announcements
+
+仅管理员。body：`{ title, body, status? }`，状态缺省为 `draft`；直接创建 `published` 时设置发布时间。成功 `201 → { announcement: Announcement }`。非法请求体、空白 / 超长文本或非法状态返回 `400 VALIDATION`，字段错误包含 `fields`。
+
+### PUT /api/admin/announcements/:id
+
+仅管理员。body：`{ title?, body?, status? }`，未提交的字段保持原值，成功 `200 → { announcement: Announcement }`；不存在为 `404 NOT_FOUND`，校验错误同创建接口。每次更新刷新 `updatedAt`，`createdAt` 不变。从 `draft` 切换为 `published` 时设置新的 `publishedAt`；编辑已发布内容或再次提交 `published` 不改变发布时间。撤下即设为 `draft`，立即从公共列表排除但保留历史发布时间；再次发布重设发布时间并按新时间排序。不提供删除、定时发布或独立的公告详情端点。
 
 ## 7. 静态资源
 - `/uploads/*`：上传的卡片图片，长缓存头。

@@ -206,7 +206,8 @@
       '</div>' +
       '<div class="footer-bottom">' +
       '<span>© 2026 QSLink · 9ham.net · 联系我们：<a href="mailto:services@9ham.net">services@9ham.net</a></span>' +
-      '<span>让每一张 QSL 卡片，都抵达对的人 <span class="seventy-three">73!</span></span>' +
+      '<div class="footer-signoff"><span>让每一张 QSL 卡片，都抵达对的人 <span class="seventy-three">73!</span></span>' +
+      '<small class="footer-build">' + QSL.escapeHtml(QSL.footerBuildText(QSL.state.config && QSL.state.config.build)) + '</small></div>' +
       '</div></div>';
   }
 

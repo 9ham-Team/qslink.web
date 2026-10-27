@@ -63,14 +63,22 @@ jobs:
           sh -n deploy/backup.sh
 
       - name: Build production image
-        run: docker compose -p qslink-ci build app
+        env:
+          QSL_BUILD_REVISION: ${{ github.sha }}
+        run: |
+          QSL_BUILD_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "QSL_BUILD_CREATED=$QSL_BUILD_CREATED" >> "$GITHUB_ENV"
+          docker compose -p qslink-ci build --build-arg "QSL_BUILD_REVISION=$QSL_BUILD_REVISION" --build-arg "QSL_BUILD_CREATED=$QSL_BUILD_CREATED" app
 
       - name: Verify container startup and production defaults
         run: |
           docker compose -p qslink-ci up -d --wait db
           printf '%s' '{"username":"ci_operator","email":"ci@example.test","password":"CI-Only-Admin-42!"}' | docker compose -p qslink-ci run --rm -T --no-deps app node server/init-admin.js
           docker compose -p qslink-ci up -d --wait app
-          docker compose -p qslink-ci exec -T app node -e "fetch('http://127.0.0.1:8787/api/config').then(async r=>{const c=await r.json();if(!r.ok||c.demo||c.demoAccounts.length)process.exit(1)})"
+          docker compose -p qslink-ci exec -T -e EXPECTED_REVISION="${{ github.sha }}" -e EXPECTED_CREATED="$QSL_BUILD_CREATED" -e QSL_BUILD_REVISION=spoofed -e QSL_BUILD_CREATED=spoofed app node -e "fetch('http://127.0.0.1:8787/api/config').then(async r=>{const c=await r.json();if(!r.ok||c.demo||c.demoAccounts.length||c.build?.revision!==process.env.EXPECTED_REVISION||c.build?.created!==process.env.EXPECTED_CREATED)process.exit(1)})"
+          image_id=$(docker compose -p qslink-ci images -q app)
+          test "$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "${{ github.sha }}"
+          test "$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.created"}}')" = "$QSL_BUILD_CREATED"
           docker run --rm -e QSL_DOMAIN -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
           docker run --rm -e QSL_DOMAIN=203.0.113.1 -v "$PWD/deploy/Caddyfile.ip:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
 
@@ -126,6 +134,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Record image build time
+        id: build-time
+        run: echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push tested production image
         id: build
         uses: docker/build-push-action@v6
@@ -135,7 +147,13 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
+          build-args: |
+            QSL_BUILD_REVISION=${{ github.sha }}
+            QSL_BUILD_CREATED=${{ steps.build-time.outputs.created }}
+          labels: |
+            ${{ steps.metadata.outputs.labels }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.build-time.outputs.created }}
           cache-from: type=gha,scope=qslink-linux-amd64
           cache-to: type=gha,mode=max,scope=qslink-linux-amd64
           provenance: mode=min

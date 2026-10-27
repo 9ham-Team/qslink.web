@@ -10,6 +10,99 @@
   const ico = (name, size) => (typeof QSL.icon === 'function' ? QSL.icon(name, size || 18) : '');
   const AVATAR_COLORS = QSL.AVATAR_COLORS || ['#0eaf8f', '#38bdf8', '#8b5cf6', '#fb7185', '#f59e0b'];
 
+  function parseShippingAddress(source) {
+    const original = String(source || '').replace(/\r\n?/g, '\n').replace(/[\t\u3000]+/g, ' ').trim();
+    if (!original) return null;
+    let rest = original.replace(/[\t ]+/g, ' ');
+    const result = {};
+    const clean = value => String(value || '').replace(/^[\s,，;；|]+|[\s,，;；|]+$/g, '').replace(/\s+/g, ' ');
+    function takeLabel(key, labels) {
+      const valuePattern = key === 'line1' ? '([^\\n,，;；|]+)' : '([^\\s\\n,，;；|]+)';
+      const re = new RegExp('(^|[\\s,，;；|])(?:' + labels.join('|') + ')\\s*[:：]\\s*' + valuePattern, 'i');
+      const match = rest.match(re);
+      if (!match) return;
+      // A full address must still pass through province/city/district parsing.
+      if (key === 'line1') rest = rest.replace(match[0], ' ' + match[2] + ' ');
+      else {
+        result[key] = clean(match[2]);
+        rest = rest.replace(match[0], ' ');
+      }
+    }
+    takeLabel('name', ['收件人(?:姓名)?', '收货人(?:姓名)?', '联系人(?:姓名)?', '姓名', 'recipient', 'receiver', 'name']);
+    takeLabel('phone', ['联系电话', '手机号码?', '手机号', '手机', '电话号码', '电话', 'mobile', 'phone', 'tel']);
+    takeLabel('country', ['国家(?:地区)?', 'country']);
+    takeLabel('province', ['省(?:份)?', '自治区', 'province']);
+    takeLabel('city', ['城市', '市', 'city']);
+    takeLabel('district', ['区县', '区/县', 'district', 'county']);
+    takeLabel('postalCode', ['邮政编码', '邮编', 'postal\\s*code', 'zip']);
+    takeLabel('line1', ['详细地址', '街道地址', '地址', 'address']);
+    rest = rest.replace(/(^|[\s,，;；|])(?:所在地区|所属地区|所在区域|地区)\s*[:：]\s*/g, ' ');
+
+    const phoneMatch = rest.match(/(?<!\d)(?:\+?86[-\s]?)?1[3-9]\d{9}(?!\d)/);
+    if (!result.phone && phoneMatch) result.phone = phoneMatch[0].replace(/\D/g, '').replace(/^86(?=1\d{10}$)/, '');
+    let implicitName = '';
+    if (!result.name && phoneMatch) {
+      const prefix = clean(rest.slice(0, phoneMatch.index)).replace(/^(?:收件人|收货人|联系人|姓名)\s*[:：]?\s*/, '');
+      if (prefix && prefix.length <= 30 && !/(省|自治区|自治州|地区|市|盟|区|县|路|街|道|号)/.test(prefix)) {
+        result.name = prefix;
+        implicitName = prefix;
+      }
+    }
+    if (phoneMatch) rest = rest.replace(phoneMatch[0], ' ');
+    if (implicitName) rest = rest.replace(implicitName, ' ');
+    const zipMatch = rest.match(/(?<!\d)\d{6}(?!\d)/);
+    if (!result.postalCode && zipMatch) result.postalCode = zipMatch[0];
+    if (zipMatch) rest = rest.replace(zipMatch[0], ' ');
+
+    if (!result.name) {
+      const candidate = original.split(/\n/).map(clean).find(line => line && !/1[3-9]\d{9}/.test(line) && !/(省|自治区|自治州|地区|市|盟|区|县|路|街|道|号|邮编|地址)/.test(line));
+      if (candidate && candidate.length <= 30) {
+        result.name = candidate.replace(/^(?:收件人|收货人|姓名)\s*[:：]?\s*/, '').trim();
+        if (result.name) rest = rest.replace(result.name, ' ');
+      }
+    }
+
+    const provinces = ['内蒙古自治区', '黑龙江省', '新疆维吾尔自治区', '广西壮族自治区', '宁夏回族自治区', '西藏自治区', '香港特别行政区', '澳门特别行政区', '北京市', '天津市', '上海市', '重庆市', '河北省', '山西省', '辽宁省', '吉林省', '江苏省', '浙江省', '安徽省', '福建省', '江西省', '山东省', '河南省', '湖北省', '湖南省', '广东省', '海南省', '四川省', '贵州省', '云南省', '陕西省', '甘肃省', '青海省', '台湾省'];
+    let region = clean(rest);
+    if (!result.province) {
+      const province = provinces.find(item => region.includes(item));
+      if (province) { result.province = province; region = clean(region.replace(province, ' ')); }
+    }
+    if (!result.city && ['北京市', '天津市', '上海市', '重庆市'].includes(result.province)) result.city = result.province;
+    if (!result.country && /(香港特别行政区|澳门特别行政区|台湾省)/.test(original)) result.country = '中国';
+
+    const cityMatch = !result.city && region.match(/^([^\s,，;；|]{1,20}?(?:自治州|地区|市|盟))/);
+    if (cityMatch) result.city = cityMatch[1];
+    if (result.city && region.startsWith(result.city)) region = clean(region.slice(result.city.length));
+    const districtMatch = !result.district && region.match(/^([^\s,，;；|]{1,20}?(?:新区|区|县|旗))/);
+    if (districtMatch) result.district = districtMatch[1];
+    if (result.district && region.startsWith(result.district)) region = clean(region.slice(result.district.length));
+
+    const hasStreetMarker = /(路|街|道|号|栋|幢|楼|室|弄|巷|村|镇|乡|组|单元|大厦|园区)/.test(region);
+    if (!result.line1 && region && (hasStreetMarker || result.name || result.phone || result.province || result.city || result.district || result.postalCode)) result.line1 = region;
+    if (!result.country && Object.keys(result).some(key => key !== 'country')) result.country = '中国';
+    Object.keys(result).forEach(key => { result[key] = clean(result[key]); if (!result[key]) delete result[key]; });
+    return Object.keys(result).length ? result : null;
+  }
+
+  function addressCity(city, district) {
+    const normalize = value => String(value || '').replace(/\s+/g, '');
+    if (!district || normalize(city).endsWith(normalize(district))) return city;
+    return [city, district].filter(Boolean).join(' ');
+  }
+
+  function fillParsedAddress(form, parsed) {
+    let filled = 0;
+    const city = form.querySelector('[name="city"]').value.trim();
+    Object.keys(parsed).forEach(key => {
+      const input = form.querySelector('[name="' + key + '"]');
+      // Saved city values may already include the district from an earlier visit.
+      if (key === 'district' && addressCity(city, parsed.district) === city) return;
+      if (input && parsed[key] && !input.value.trim()) { input.value = parsed[key]; filled++; }
+    });
+    return filled;
+  }
+
   function fieldHtml(opts) {
     const o = opts || {};
     return (
@@ -173,6 +266,13 @@
       '<span class="f-form-step">02</span></header>' +
       '<form id="fAddressForm" novalidate>' +
       '<div class="f-form-error" data-form-error hidden></div>' +
+      '<div class="f-address-parser">' +
+      '<label class="label" for="fAddressPaste">粘贴完整地址，自动拆分字段</label>' +
+      '<textarea id="fAddressPaste" class="textarea" rows="3" maxlength="1000" autocomplete="off" placeholder="例如：张三 13800138000 广东省深圳市南山区科技南十二路18号"></textarea>' +
+      '<div class="f-address-parser__foot"><span>在本机解析，不会单独上传；确认后再保存。</span>' +
+      '<button class="btn btn-soft" type="button" data-parse-address>解析并填入</button></div>' +
+      '<p class="f-address-parser__result" data-parse-result role="status" aria-live="polite"></p>' +
+      '</div>' +
       '<div class="f-form-grid">' +
       fieldHtml({ id: 'fAddrName', name: 'name', label: '收件人姓名', value: init.addrName, placeholder: '真实姓名', required: true, maxlength: 30 }) +
       fieldHtml({ id: 'fAddrPhone', name: 'phone', label: '联系电话', value: init.addrPhone, placeholder: '方便快递联系', optional: true, maxlength: 30, inputmode: 'tel' }) +
@@ -246,6 +346,8 @@
     const summaryName = container.querySelector('[data-summary-name]');
     const summaryCall = container.querySelector('[data-summary-call]');
     const addressState = container.querySelector('[data-address-state]');
+    const addressPaste = container.querySelector('#fAddressPaste');
+    const parseResult = container.querySelector('[data-parse-result]');
     const swatches = container.querySelector('[data-swatches]');
     const bioInput = profileForm.querySelector('[name="bio"]');
     let alive = true;
@@ -383,6 +485,23 @@
       input.addEventListener('input', () => { touched = true; });
     });
 
+    addressForm.querySelector('[data-parse-address]').addEventListener('click', () => {
+      const parsed = parseShippingAddress(addressPaste.value);
+      if (!parsed) {
+        parseResult.textContent = '没有识别到地址信息。可以分行粘贴姓名、手机号和完整地址，或直接填写下方字段。';
+        parseResult.classList.add('is-error');
+        return;
+      }
+      const filled = fillParsedAddress(addressForm, parsed);
+      touched = true;
+      parseResult.classList.remove('is-error');
+      parseResult.textContent = filled
+        ? '已识别 ' + filled + ' 项并填入空字段。请检查后保存。'
+        : '已识别地址，但现有字段均已填写；为避免覆盖，未修改内容。';
+      addressPaste.value = '';
+    });
+    addressPaste.addEventListener('input', () => { touched = true; });
+
     addressForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       clearErrors(addressForm);
@@ -394,7 +513,7 @@
         name: get('name'),
         phone: get('phone'),
         province: get('province'),
-        city: [get('city'), get('district')].filter(Boolean).join(' '),
+        city: addressCity(get('city'), get('district')),
         line1: get('line1'),
         postalCode: get('postalCode'),
         country: get('country') || '中国'

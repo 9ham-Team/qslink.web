@@ -14,12 +14,13 @@
   const escAttr = (v) => (typeof QSL.escapeAttr === 'function' ? QSL.escapeAttr(v) : esc(v));
   const ico = (name, size) => (typeof QSL.icon === 'function' ? QSL.icon(name, size || 18) : '');
 
-  const TABS = ['overview', 'users', 'cards', 'exchanges'];
+  const TABS = ['overview', 'users', 'cards', 'exchanges', 'announcements'];
   const TAB_META = {
     overview: { label: '概览', icon: 'layout' },
     users: { label: '用户管理', icon: 'users' },
     cards: { label: '卡片审核', icon: 'cards' },
-    exchanges: { label: '换卡记录', icon: 'send' }
+    exchanges: { label: '换卡记录', icon: 'send' },
+    announcements: { label: '公告管理', icon: 'info' }
   };
   const LIMITS = { users: 10, cards: 8, exchanges: 12 };
   const CARD_STATUS_TABS = [
@@ -212,7 +213,9 @@
       pageEl: null,
       disposed: false,
       stats: null,
-      jobs: { overview: 0, users: 0, cards: 0, exchanges: 0, stats: 0 },
+      announcementPage: 1,
+      announcementModal: null,
+      jobs: { overview: 0, users: 0, cards: 0, exchanges: 0, announcements: 0, stats: 0 },
       users: { q: '', status: '', role: '', page: 1, data: null, map: Object.create(null) },
       cards: { status: 'all', q: '', page: 1, data: null, map: Object.create(null) },
       exchanges: { status: '', page: 1, data: null, map: Object.create(null) }
@@ -362,11 +365,123 @@
   }
 
   function drawTab(tab, panel) {
+    closeAnnouncementModal();
     S.root = null;
     if (tab === 'overview') drawOverview(panel);
     else if (tab === 'users') drawUsers(panel);
     else if (tab === 'cards') drawCards(panel);
+    else if (tab === 'announcements') drawAnnouncements(panel);
     else drawExchanges(panel);
+  }
+
+  function closeAnnouncementModal() {
+    if (!S || !S.announcementModal) return;
+    const modal = S.announcementModal;
+    const overlay = modal.el.closest('.modal-overlay');
+    modal.close();
+    if (overlay) overlay.remove();
+    S.announcementModal = null;
+  }
+
+  function editAnnouncement(root, item) {
+    closeAnnouncementModal();
+    const owner = S;
+    let closed = false;
+    let busy = false;
+    const modal = QSL.modal({
+      title: item ? '编辑公告' : '新建公告',
+      size: 'lg',
+      content: '<form class="a-announcement-form"><div class="a-announcement-field"><label>标题<input class="input" name="title" required aria-describedby="a-ann-count-title" value="' + escAttr(item ? item.title : '') + '"></label><small class="muted a-announcement-count" id="a-ann-count-title" data-count-for="title" data-max="120"></small></div><div class="a-announcement-field"><label>正文（纯文本）<textarea class="textarea" name="body" required aria-describedby="a-ann-count-body">' + esc(item ? item.body : '') + '</textarea></label><small class="muted a-announcement-count" id="a-ann-count-body" data-count-for="body" data-max="10000"></small></div><label>状态<select class="select" name="status"><option value="draft">草稿 / 已撤下</option><option value="published"' + (item && item.status === 'published' ? ' selected' : '') + '>已发布</option></select></label><p class="a-hint-error" data-error role="alert"></p><button class="btn btn-primary" type="submit">保存公告</button></form>',
+      onClose: function () {
+        closed = true;
+        const overlay = modal.el.closest('.modal-overlay');
+        if (overlay) document.removeEventListener('keydown', overlay._onKey);
+        if (owner.announcementModal === modal) owner.announcementModal = null;
+      }
+    });
+    owner.announcementModal = modal;
+    const form = modal.body.querySelector('form');
+    form.querySelectorAll('[data-count-for]').forEach(function (counter) {
+      const field = form.elements[counter.dataset.countFor];
+      const max = Number(counter.dataset.max);
+      const update = function () {
+        const length = Array.from(field.value.trim()).length;
+        counter.textContent = length + ' / ' + max;
+        counter.classList.toggle('is-over', length > max);
+      };
+      field.addEventListener('input', update);
+      update();
+    });
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      if (busy || closed || S !== owner || !isLive(root, 'announcements')) return;
+      busy = true;
+      const btn = form.querySelector('[type="submit"]');
+      animateBusy(btn, true);
+      form.querySelector('[data-error]').textContent = '';
+      const values = Object.fromEntries(new FormData(form));
+      try {
+        if (item) await QSL.api.put('/api/admin/announcements/' + encodeURIComponent(item.id), values);
+        else await QSL.api.post('/api/admin/announcements', values);
+        if (closed || S !== owner || !isLive(root, 'announcements')) return;
+        modal.close();
+        toast('公告已保存');
+        redrawTab();
+      } catch (err) {
+        if (!closed && S === owner && isLive(root, 'announcements')) {
+          form.querySelector('[data-error]').textContent = err.message || '保存失败';
+          if (err.fields) QSL.showFieldErrors(form, err.fields);
+        }
+      } finally {
+        busy = false;
+        if (!closed) animateBusy(btn, false);
+      }
+    });
+  }
+
+  function drawAnnouncements(panel) {
+    const owner = S;
+    const root = tabRoot(panel, '<div class="toolbar a-toolbar"><h2>公告管理</h2><span class="a-toolbar-spacer"></span><button class="btn btn-primary btn-sm" data-ann-new type="button">新建公告</button></div><div data-ann-list>正在加载公告…</div><div class="pagination a-pager" data-ann-pager></div>');
+    const job = ++S.jobs.announcements;
+    const page = S.announcementPage;
+    root.querySelector('[data-ann-new]').addEventListener('click', function () { editAnnouncement(root); });
+    QSL.api.get('/api/admin/announcements?page=' + page + '&limit=8').then(function (res) {
+      if (S !== owner || !aliveRoot(root, 'announcements', job)) return;
+      const list = root.querySelector('[data-ann-list]');
+      list.innerHTML = res.items.length ? res.items.map(function (item) {
+        return '<article class="a-announcement-row"><h3>' + esc(item.title) + '</h3>' + badge(item.status === 'published' ? '已发布' : '草稿 / 已撤下', item.status === 'published' ? 'mint' : 'slate') + '<p class="a-announcement-body">' + esc(item.body) + '</p><small class="muted">更新：' + esc(fmtDateTime(item.updatedAt)) + ' · 发布时间：' + esc(item.publishedAt ? fmtDateTime(item.publishedAt) : '未发布') + '</small><div class="a-announcement-actions"><button class="btn btn-ghost btn-sm" type="button" data-ann-edit="' + escAttr(item.id) + '">编辑</button><button class="btn btn-soft btn-sm" type="button" data-ann-toggle="' + escAttr(item.id) + '">' + (item.status === 'published' ? '撤下' : '发布') + '</button></div></article>';
+      }).join('') : '<p class="muted">暂无公告，点击「新建公告」开始。</p>';
+      list.onclick = async function (event) {
+        const btn = event.target.closest('[data-ann-edit], [data-ann-toggle]');
+        if (!btn || btn.disabled) return;
+        const item = res.items.find(function (row) { return row.id === (btn.dataset.annEdit || btn.dataset.annToggle); });
+        if (!item) return;
+        if (btn.dataset.annEdit) { editAnnouncement(root, item); return; }
+        if (item.status === 'published') {
+          const ok = await QSL.confirm({
+            title: '撤下公告',
+            message: '确定撤下公告「' + item.title + '」吗？撤下后首页不再显示，可稍后重新发布。',
+            confirmText: '撤下',
+            cancelText: '取消',
+            danger: true
+          });
+          if (!ok || S !== owner || !isLive(root, 'announcements')) return;
+        }
+        animateBusy(btn, true);
+        try {
+          await QSL.api.put('/api/admin/announcements/' + encodeURIComponent(item.id), { status: item.status === 'published' ? 'draft' : 'published' });
+          if (S === owner && isLive(root, 'announcements')) { toast('公告状态已更新'); redrawTab(); }
+        } catch (err) {
+          if (S === owner && isLive(root, 'announcements')) { toastError(err); animateBusy(btn, false); }
+        }
+      };
+      renderPager(root.querySelector('[data-ann-pager]'), res, function (next) {
+        owner.announcementPage = next;
+        redrawTab();
+      });
+    }).catch(function (err) {
+      if (S === owner && aliveRoot(root, 'announcements', job)) renderLoadError(root.querySelector('[data-ann-list]'), err, redrawTab);
+    });
   }
 
   function updateTabBadges() {
@@ -1801,6 +1916,7 @@
     return function cleanup() {
       cancelled = true;
       if (S) {
+        closeAnnouncementModal();
         S.disposed = true;
         S = null;
       }
