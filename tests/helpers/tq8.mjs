@@ -37,12 +37,12 @@ export function tq8Fixture({ callSign='B1AAA', expired=false }={}) {
   const intermediate=cert(intermediateKey,intermediateName,rootName,rootKey.privateKey,true);
   const leaf=cert(leafKey,dn('QSLink TEST Callsign',callSign),intermediateName,intermediateKey.privateKey,false,expired);
   const station={REC_TYPE:'tSTATION',STATION_UID:'1',CERT_UID:'1',CALL:callSign,GRIDSQUARE:'PM00AA',CQZ:'24',ITUZ:'44'};
-  function text(raws,version='2.0') {
+  function text(raws,version='2.0',{utcSuffix=false}={}) {
     let result=field('TQSL_IDENT','QSLink synthetic TQSL test Lib: V2.8 Config: V11.34 AllowDupes: false')+block({REC_TYPE:'tCERT',CERT_UID:'1',CERTIFICATE:leaf.raw.toString('base64')})+block(station);
     for(const raw of raws){
       const date=raw.QSO_DATE || '', time=(raw.TIME_ON || '').padEnd(6,'0');
       const contact={REC_TYPE:'tCONTACT',STATION_UID:'1',CALL:raw.CALL,BAND:raw.BAND,MODE:raw.MODE,
-        QSO_DATE:date.slice(0,4)+'-'+date.slice(4,6)+'-'+date.slice(6,8),QSO_TIME:time.slice(0,2)+':'+time.slice(2,4)+':'+time.slice(4,6)};
+        QSO_DATE:date.slice(0,4)+'-'+date.slice(4,6)+'-'+date.slice(6,8),QSO_TIME:time.slice(0,2)+':'+time.slice(2,4)+':'+time.slice(4,6)+(utcSuffix?'Z':'')};
       for(const k of ['BAND_RX','FREQ','FREQ_RX','PROP_MODE','SAT_NAME'])if(raw[k])contact[k]=raw[k];
       const signed=('24PM00AA44'+(contact.BAND || '')+(contact.BAND_RX || '')+(contact.CALL || '')+(contact.FREQ || '')+(contact.FREQ_RX || '')+(contact.MODE || '')+(contact.PROP_MODE || '')+contact.QSO_DATE+contact.QSO_TIME+(contact.SAT_NAME || '')).toUpperCase();
       contact['SIGN_LOTW_V'+version]=sign('sha1',Buffer.from(signed),leafKey.privateKey).toString('base64');
@@ -54,5 +54,5 @@ export function tq8Fixture({ callSign='B1AAA', expired=false }={}) {
     return result;
   }
   const encode = text => gzipSync(Buffer.from(text)).toString('base64');
-  return { trust:{roots:[root],intermediates:[intermediate]}, leaf, text, encode, make:(raws,version)=>encode(text(raws,version)) };
+  return { trust:{roots:[root],intermediates:[intermediate]}, leaf, text, encode, make:(raws,version,options)=>encode(text(raws,version,options)) };
 }

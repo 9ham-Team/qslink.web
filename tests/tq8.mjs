@@ -7,19 +7,25 @@ export function testTq8() {
   const f=tq8Fixture();
   const qso={CALL:'JA1ABC',BAND:'20m',MODE:'FT8',QSO_DATE:'20261028',TIME_ON:'1234',FREQ:'14.074',NAME:'<img onerror=alert(1)>'};
   for(const version of ['1.0','2.0']){
-    const parsed=parseTq8(f.make([qso],version),' b1aaa ',f.trust);
-    assert.equal(parsed.records[0].STATION_CALLSIGN,'B1AAA');
-    assert.equal(parsed.records[0].QSO_DATE,'20261028');
-    assert.equal(parsed.records[0].TIME_ON,'123400');
-    assert.equal(parsed.records[0].FREQ,'14.074');
-    assert.equal(parsed.records[0].NAME,undefined);
-    assert.equal(parsed.records[0].LOTW_QSL_RCVD,undefined,'unsigned confirmation flag is ignored');
+    for(const utcSuffix of [false,true]){
+      const parsed=parseTq8(f.make([qso],version,{utcSuffix}),' b1aaa ',f.trust);
+      assert.equal(parsed.records[0].STATION_CALLSIGN,'B1AAA');
+      assert.equal(parsed.records[0].QSO_DATE,'20261028');
+      assert.equal(parsed.records[0].TIME_ON,'123400');
+      assert.equal(parsed.records[0].FREQ,'14.074');
+      assert.equal(parsed.records[0].NAME,undefined);
+      assert.equal(parsed.records[0].LOTW_QSL_RCVD,undefined,'unsigned confirmation flag is ignored');
+    }
   }
   const text=f.text([qso]);
   const wrappedCertificate=f.leaf.raw.toString('base64').match(/.{1,64}/g).join('\n')+'\n';
   const typed=text.replace(/<CERTIFICATE:\d+>[^\n]+\n/,`<CERTIFICATE:${Buffer.byteLength(wrappedCertificate)}>${wrappedCertificate}\n`).replace(/(<SIGN_LOTW_V2\.0:\d+)>/,'$1:6>');
   assert.equal(parseTq8(f.encode(typed),'B1AAA',f.trust).records.length,1,'TQSL multiline DER base64 and type-6 signature fields');
   const rejects = (encoded,call='B1AAA',trust=f.trust) => assert.throws(()=>parseTq8(encoded,call,trust),err=>err.status===400 && !!err.fields.tq8);
+  const utcText=f.text([qso],'2.0',{utcSuffix:true});
+  assert.throws(()=>parseTq8(f.encode(utcText.replace('<QSO_TIME:9>12:34:00Z','<QSO_TIME:8>12:34:00')),'B1AAA',f.trust),err=>err.fields?.tq8.includes('签名校验失败'),'UTC suffix remains part of the signed content');
+  rejects(f.encode(utcText.replace('<QSO_TIME:9>12:34:00Z','<QSO_TIME:9>25:34:00Z')));
+  rejects(f.make([{...qso,TIME_ON:'253400'}],'2.0',{utcSuffix:true}));
   rejects(f.make([qso]),'B2BBB');
   assert.throws(()=>parseTq8(f.make([qso]),'B1AAA'),err=>err.status===400,'test certificates must not be trusted by the production route');
   rejects(Buffer.from('<CALL:6>JA1ABC<EOR>').toString('base64'));

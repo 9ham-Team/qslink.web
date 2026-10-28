@@ -20,6 +20,8 @@ import './qr.mjs';
 import { testShortTokens } from './short-tokens.mjs';
 import { testAnnouncements } from './announcements.mjs';
 import { testLogbook } from './logbook.mjs';
+import { testCardLogbook } from './card-logbook.mjs';
+test('card logbook: exact callsign, private pagination and reminder day', testCardLogbook);
 test('logbook: TQ8 signatures, private persistence, LoTW transport and deduplication', testLogbook);
 test('short tokens: collision, concurrent allocation, migration and legacy protection', testShortTokens);
 test('announcements: permissions, validation, publishing, pagination and persistence', testAnnouncements);

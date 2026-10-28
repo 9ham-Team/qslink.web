@@ -56,9 +56,11 @@ function importRecords(db, user, parsed, source) {
 function list(ctx) {
   const user = auth.requireUser(ctx);
   const q = (ctx.query.get('q') || '').trim().toUpperCase().slice(0, 32);
+  const exactCallSign = ctx.query.has('callSign') ? ctx.query.get('callSign').trim().toUpperCase() : null;
   const page = Math.max(1, Math.min(100000, Number.parseInt(ctx.query.get('page'), 10) || 1));
   const all = ctx.db.data.contactLogs.filter(row => row.userId === user.id);
-  const rows = all.filter(row => !q || row.callSign.includes(q)).sort((a, b) => b.qsoAt.localeCompare(a.qsoAt) || b.id.localeCompare(a.id));
+  const rows = all.filter(row => exactCallSign === null || (exactCallSign && row.callSign.trim().toUpperCase() === exactCallSign))
+    .filter(row => !q || row.callSign.toUpperCase().includes(q)).sort((a, b) => b.qsoAt.localeCompare(a.qsoAt) || b.id.localeCompare(a.id));
   const data = paginate(rows.map(row => ({ id: row.id, ...row.details })), page, 25);
   return { body: { ...data, stats: { total: all.length, confirmed: all.filter(row => row.details.lotwConfirmed).length } } };
 }

@@ -131,11 +131,13 @@ function parseTq8(encoded, expectedCallSign, authorities = trust) {
         if (!version) throw fail('缺少签名或签名版本不受支持，请用当前 TQSL 重新签名');
         const signed = (canonical(station, stationFields[version[1]]) + canonical(record, contactFields)).toUpperCase();
         if (signed !== record.SIGNDATA || !verify('sha1', Buffer.from(signed, 'utf8'), entry.cert.publicKey, base64(record[keys[0]], 1024))) throw fail(`第 ${contacts.length + 1} 条通联签名校验失败，文件可能已被修改，整批未导入`);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(record.QSO_DATE || '') || !/^\d{2}:\d{2}:\d{2}$/.test(record.QSO_TIME || '')) throw fail('TQ8 通联日期或时间格式无效');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(record.QSO_DATE || '') || !/^\d{2}:\d{2}:\d{2}Z?$/.test(record.QSO_TIME || '')) throw fail('TQ8 通联日期或时间格式无效');
         // Only import signature-covered fields. A TQ8 submission is not a LoTW confirmation.
         const normalized = {
           CALL: record.CALL, STATION_CALLSIGN: entry.callSign, BAND: record.BAND, MODE: record.MODE,
-          QSO_DATE: (record.QSO_DATE || '').replace(/-/g, ''), TIME_ON: (record.QSO_TIME || '').replace(/:/g, ''),
+          // TQSL may append UTC 'Z'. Keep it in the verified signature text above,
+          // and remove it only when adapting the verified value to ADIF TIME_ON.
+          QSO_DATE: (record.QSO_DATE || '').replace(/-/g, ''), TIME_ON: (record.QSO_TIME || '').replace(/Z$/, '').replace(/:/g, ''),
           FREQ: record.FREQ, PROP_MODE: record.PROP_MODE, SAT_NAME: record.SAT_NAME,
         };
         normalizeRecord(normalized, 'tq8'); // Reject malformed QSOs before any database writes.

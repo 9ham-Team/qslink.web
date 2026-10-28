@@ -354,3 +354,7 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 导入限制：账号必须在个人资料设置非空呼号。ADI / ADIF 每条记录的本站呼号一律由服务端设置为当前登录账号的资料呼号（去除首尾空白并大写），无须文件包含 STATION_CALLSIGN，文件中的该字段及 OPERATOR、请求体中的呼号均不会覆盖账号设置；对方 CALL 保持原语义，不改为本站呼号。TQ8 按 CERT_UID / STATION_UID 关联证书、台站和通联，从证书主题的 ARRL AROcallsign OID（1.3.6.1.4.1.12348.1.1）读取本站呼号，忽略大小写及首尾空白后必须与账号完全一致，不去除 /P 等后缀。文件不需要另外包含 STATION_CALLSIGN；不能通过 CALL、OPERATOR、请求体参数或台站文本冒充证书呼号。缺少账号呼号时 fields.callSign 提示先设置，其它 TQ8 校验错误使用 fields.tq8。LoTW 下载继续要求每条记录 STATION_CALLSIGN 与保存时账号最新呼号一致。
 
 TQ8 签名：支持 LOTW V1.0 / V2.0。按官方配置及 TrustedQSL 生成顺序重建台站和通联的规范化签名文本，必须同时匹配 SIGNDATA 并通过 RSA / SHA-1 签名验证；仅验证 SIGNDATA 本身而不核对记录内容是不足的。证书必须为 RSA 非 CA 呼号证书，当前处于有效期内，并链接到应用内固定的 ARRL Production CA / Root CA。公共 CA 来源、指纹与更新说明见 [server/certs/README.md](../server/certs/README.md)；不接受上传者提供的信任根。过期证书、未知或过期 CA 会拒绝导入，应使用有效证书重新签名或更新经核实的 CA。校验不联网查询证书吊销状态，不认证签名实际发生时间或核对证书自定义 QSO 授权日期范围；持有 TQ8 文件也不等于持有签名私钥，不能将导入当作实时身份认证。
+
+TQ8 日期时间兼容：QSO_DATE 为 YYYY-MM-DD，QSO_TIME 接受 HH:MM:SS 及带 UTC 标记的 HH:MM:SSZ。按文件原文重建并验证签名，不在校验前删除 Z；验签通过后才去除冒号和末尾 Z，转为内部 UTC 时间。真实日期及时间范围仍由通联校验检查。
+
+卡片详情匹配日志：`GET /api/me/logbook?callSign=JA1ABC&page=1` 使用当前账号私有日志，callSign 参数按去首尾空白、忽略大小写精确匹配对方呼号，不匹配前缀、包含关系或省略 /P 后缀；传空 callSign 返回空集。可与原 q 包含筛选同时使用，分页仍为 25 条，按 UTC 通联时间及 ID 倒序。接口不依据请求体或查询参数切换账号，不向公共卡片接口添加日志字段。
