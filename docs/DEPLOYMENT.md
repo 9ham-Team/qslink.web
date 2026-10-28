@@ -46,7 +46,15 @@ QSLink 仅推送审核文本消息，@ 人员及企业微信地址由中转项�
 
 卡片待审核提醒使用可选的 `QSL_REVIEW_WEBHOOK_URL`。将接收项目的唯一 URL 写入服务器私有 `.env`，例如 `QSL_REVIEW_WEBHOOK_URL=https://relay.example.com/hooks/qslink/随机令牌`；也可使用企业微信机器人 URL。Compose 已将该值传入 app，重建应用容器后生效。直接运行 Node 时需注入进程环境并重启。支持 HTTP(S)，公网建议 HTTPS，不允许 URL 用户名、密码、片段或重定向；配置无效时启动失败且不输出原始 URL；留空关闭提醒。接收端须在 5 秒内返回 HTTP 2xx 和 JSON `{"errcode":0}`，建议可靠入队后确认，转发异步处理。
 
-该 URL 含机器人密钥，应与密码一样保管，不提交代码或输出到日志。配置 `QSL_PUBLIC_ORIGIN` 可在消息中提供管理员审核入口，点击后仍需管理员登录。当前仅支持一个机器人实例；新卡提交、用户编辑重新送审及管理员将卡片转回待审核触发一次尽力通知，失败不影响卡片写入，无自动重试。测试服 `QSL_MAIL_ENV_FILE` 仅允许邮件配置，不能用它加载 Webhook；测试容器需由运维显式注入此变量，后续标准部署会继承已有容器环境。本功能不自动修改任何运行环境。
+该 URL 含机器人密钥，应与密码一样保管，不提交代码或输出到日志。配置 `QSL_PUBLIC_ORIGIN` 可在消息中提供管理员审核入口，点击后仍需管理员登录。当前仅支持一个机器人实例；新卡提交、用户编辑重新送审及管理员将卡片转回待审核触发一次尽力通知，失败不影响卡片写入，无自动重试。测试服 `QSL_MAIL_ENV_FILE` 仅允许邮件配置，不能用它加载 Webhook。
+
+测试服的 Webhook 地址可填写到服务器私有文件 `/root/qslink-test/review-webhook.env`，内容仅一行 `QSL_REVIEW_WEBHOOK_URL=实际接收地址`。文件须属于 root，权限为 600 或 400，不允许符号链接。上传最新 `deployment/deploy-dev.sh` 后执行：
+
+```sh
+QSL_WEBHOOK_ENV_FILE=/root/qslink-test/review-webhook.env bash /root/deploy-dev.sh
+```
+
+此模式不拉取新镜像，固定测试应用当前镜像；先在无网络、无数据挂载的临时容器中验证合并配置，再通过标准锁、容器备份和失败恢复流程重建应用。仅允许覆盖 `QSL_REVIEW_WEBHOOK_URL`，不发送测试消息；后续标准部署继承新容器环境。文件编辑后需再次执行上述命令才生效，留空 URL 可关闭推送。不能同时设置邮件与 Webhook 配置重载文件，请分两次执行；配置重载不提交或部署本地尚未发布的业务代码。
 
 测试服加载邮件配置时，可将仅包含 `QSL_MAIL_FROM`、`QSL_MAIL_FROM_NAME`、`QSL_MAIL_REGION`、`QSL_MAIL_ENDPOINT`、`ALIBABA_CLOUD_ACCESS_KEY_ID`、`ALIBABA_CLOUD_ACCESS_KEY_SECRET` 和可选 `QSL_PUBLIC_ORIGIN` 的 Docker env 文件放在服务器私有目录，归 root 所有、权限 400 或 600。例如：
 
