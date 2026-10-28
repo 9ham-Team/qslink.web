@@ -412,6 +412,10 @@
   overflow-wrap: anywhere;
 }
 .g-announcement-label { display: flex; align-items: center; gap: 10px; }
+.g-announcement-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.g-announcement-countdown { margin-top: 14px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.g-announcement-progress { height: 4px; margin-top: 6px; overflow: hidden; border-radius: 4px; background: var(--line); }
+.g-announcement-progress > span { display: block; height: 100%; background: currentColor; transform-origin: left; }
 .g-announcement-head, .g-announcement-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .g-announcement-notice h2 { font-size: 18px; margin: 8px 0; }
 .g-announcement-notice time, .g-announcement-list time { font-size: 12px; }

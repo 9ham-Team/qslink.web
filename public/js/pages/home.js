@@ -536,6 +536,7 @@
     root.querySelector('.g-hero').after(entry);
     let notice = null;
     let noticeFrame = 0, noticeTimer = 0, noticeClosing = false;
+    let countdownTimer = 0;
     let modal = null;
     let modalJob = 0;
     let modalClosed = false;
@@ -607,16 +608,42 @@
       loadPage(1);
     }
     entry.querySelector('button').addEventListener('click', openAll, { signal: eventController.signal });
-    QSL.api.get('/api/announcements?page=1&limit=1').then(function (res) {
+    QSL.api.get('/api/announcements?page=1&limit=1&reminder=1').then(function (res) {
       if (state.cancelled || !res.items.length) return;
       const item = res.items[0];
       notice = document.createElement('aside');
       notice.className = 'g-announcement-notice qsl-notification toast-info';
       notice.setAttribute('aria-labelledby', 'home-announcement-title');
       notice.innerHTML = '<div class="g-announcement-head"><span class="g-announcement-label"><span class="toast-icon">' + ic('info', 18) + '</span>最新公告</span><button class="toast-close" type="button" data-ann-close aria-label="关闭公告">' + ic('close', 14) + '</button></div><h2 id="home-announcement-title">' + esc(item.title) + '</h2><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p><button type="button" class="btn btn-soft btn-sm" data-ann-all>查看全部公告</button>';
+      const allButton = notice.querySelector('[data-ann-all]');
+      const actions = document.createElement('div');
+      actions.className = 'g-announcement-actions';
+      allButton.replaceWith(actions);
+      actions.appendChild(allButton);
+      actions.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-ghost btn-sm" data-ann-dismiss>' + (QSL.state.user ? '不再提醒' : '登录后不再提醒') + '</button>');
+      notice.insertAdjacentHTML('beforeend', '<div class="g-announcement-countdown"><span data-ann-seconds></span><div class="g-announcement-progress" role="progressbar" aria-label="公告剩余停留时间" aria-valuemin="0"><span></span></div></div>');
+      const duration = (Number.isInteger(item.displaySeconds) && item.displaySeconds >= 1 && item.displaySeconds <= 3600 ? item.displaySeconds : 30) * 1000;
+      let remaining = duration, lastTick = performance.now(), saving = false;
+      const progress = notice.querySelector('.g-announcement-progress');
+      const bar = progress.firstElementChild;
+      const secondsLabel = notice.querySelector('[data-ann-seconds]');
+      progress.setAttribute('aria-valuemax', duration / 1000);
+      document.addEventListener('visibilitychange', function () { lastTick = performance.now(); }, { signal: eventController.signal });
+      function updateCountdown() {
+        const now = performance.now();
+        const paused = document.hidden || notice.classList.contains('is-paused') || notice.matches(':hover') || notice.contains(document.activeElement) || saving;
+        if (!paused) remaining = Math.max(0, remaining - (now - lastTick));
+        lastTick = now;
+        const seconds = Math.ceil(remaining / 1000);
+        secondsLabel.textContent = seconds + ' 秒后关闭' + (paused ? ' · 已暂停' : '');
+        progress.setAttribute('aria-valuenow', seconds);
+        bar.style.transform = 'scaleX(' + (remaining / duration) + ')';
+        if (!remaining) dismissNotice();
+      }
       function dismissNotice() {
         if (!notice || noticeClosing) return;
         noticeClosing = true;
+        clearInterval(countdownTimer);
         cancelAnimationFrame(noticeFrame);
         const hadFocus = notice.contains(document.activeElement);
         notice.classList.remove('is-show');
@@ -626,6 +653,25 @@
         noticeTimer = setTimeout(function () { notice.remove(); notice = null; }, delay);
         if (hadFocus) entry.querySelector('button').focus({ preventScroll: true });
       }
+      notice.querySelector('[data-ann-dismiss]').addEventListener('click', async function (event) {
+        if (!QSL.state.user) {
+          QSL.navigate('/login?next=' + encodeURIComponent('/'));
+          return;
+        }
+        if (saving) return;
+        saving = true;
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+          await QSL.api.post('/api/announcements/' + encodeURIComponent(item.id) + '/dismiss', {});
+          if (!state.cancelled) dismissNotice();
+        } catch (err) {
+          if (!state.cancelled) QSL.toast(err.message || '保存失败，请重试', 'error');
+        } finally {
+          saving = false;
+          button.disabled = false;
+        }
+      }, { signal: eventController.signal });
       notice.querySelector('[data-ann-close]').addEventListener('click', dismissNotice, { signal: eventController.signal });
       notice.querySelector('[data-ann-all]').addEventListener('click', function () { dismissNotice(); openAll(); }, { signal: eventController.signal });
       document.addEventListener('keydown', function (event) {
@@ -634,6 +680,8 @@
       }, { signal: eventController.signal });
       document.body.appendChild(notice);
       syncNoticePause();
+      updateCountdown();
+      countdownTimer = setInterval(updateCountdown, 100);
       // Commit the initial offscreen style before adding the same show state as toast.
       notice.getBoundingClientRect();
       noticeFrame = requestAnimationFrame(function () {
@@ -647,6 +695,7 @@
       if (toastObserver) toastObserver.disconnect();
       cancelAnimationFrame(noticeFrame);
       clearTimeout(noticeTimer);
+      clearInterval(countdownTimer);
       closeModal();
       if (notice) notice.remove();
       entry.remove();

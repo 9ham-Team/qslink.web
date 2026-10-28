@@ -316,11 +316,11 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ## 公告
 
-公告对象 `Announcement` 包含 `id`、`title`、`body`、`status`、`publishedAt`、`createdAt`、`updatedAt`。标题和正文均为纯文本；去除首尾空白后分别为 1–120 和 1–10000 个 Unicode 字符，不允许 NUL。状态仅为 `draft`（草稿 / 已撤下）或 `published`（已发布）。时间由服务端生成，为 UTC ISO 字符串，未发布过的草稿 `publishedAt: null`。客户端提交的 ID、时间及其它未知字段不参与写入。
+公告对象 `Announcement` 包含 `id`、`title`、`body`、`status`、`displaySeconds`、`publishedAt`、`createdAt`、`updatedAt`。`displaySeconds` 为浮层停留秒数，整数 1–3600，默认 30。标题和正文均为纯文本；去除首尾空白后分别为 1–120 和 1–10000 个 Unicode 字符，不允许 NUL。状态仅为 `draft`（草稿 / 已撤下）或 `published`（已发布）。时间由服务端生成，为 UTC ISO 字符串，未发布过的草稿 `publishedAt: null`。客户端提交的 ID、时间及其它未知字段不参与写入。
 
 ### GET /api/announcements
 
-无需登录，仅返回 `published` 公告；即使提供 `status=all/draft` 也不能读取草稿。支持通用 `page` / `limit` 分页，返回 `{ items: Announcement[], total, page, limit, pages }`，按 `publishedAt` 倒序、同时间按 ID 倒序。
+无需登录，仅返回 `published` 公告；即使提供 `status=all/draft` 也不能读取草稿。支持通用 `page` / `limit` 分页，返回 `{ items: Announcement[], total, page, limit, pages }`，按 `publishedAt` 倒序、同时间按 ID 倒序。`reminder=1` 时，仅对当前登录用户过滤已选择“不再提醒”的公告，再分页；游客仍返回全部已发布公告。普通列表不受该偏好影响。
 
 ### GET /api/admin/announcements
 
@@ -328,11 +328,15 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ### POST /api/admin/announcements
 
-仅管理员。body：`{ title, body, status? }`，状态缺省为 `draft`；直接创建 `published` 时设置发布时间。成功 `201 → { announcement: Announcement }`。非法请求体、空白 / 超长文本或非法状态返回 `400 VALIDATION`，字段错误包含 `fields`。
+仅管理员。body：`{ title, body, status?, displaySeconds? }`，状态缺省为 `draft`；直接创建 `published` 时设置发布时间。成功 `201 → { announcement: Announcement }`。非法请求体、空白 / 超长文本或非法状态返回 `400 VALIDATION`，字段错误包含 `fields`。
 
 ### PUT /api/admin/announcements/:id
 
-仅管理员。body：`{ title?, body?, status? }`，未提交的字段保持原值，成功 `200 → { announcement: Announcement }`；不存在为 `404 NOT_FOUND`，校验错误同创建接口。每次更新刷新 `updatedAt`，`createdAt` 不变。从 `draft` 切换为 `published` 时设置新的 `publishedAt`；编辑已发布内容或再次提交 `published` 不改变发布时间。撤下即设为 `draft`，立即从公共列表排除但保留历史发布时间；再次发布重设发布时间并按新时间排序。不提供删除、定时发布或独立的公告详情端点。
+仅管理员。body：`{ title?, body?, status?, displaySeconds? }`，未提交的字段保持原值，成功 `200 → { announcement: Announcement }`；不存在为 `404 NOT_FOUND`，校验错误同创建接口。每次更新刷新 `updatedAt`，`createdAt` 不变。从 `draft` 切换为 `published` 时设置新的 `publishedAt`；编辑已发布内容或再次提交 `published` 不改变发布时间。撤下即设为 `draft`，立即从公共列表排除但保留历史发布时间；再次发布重设发布时间并按新时间排序。不提供删除、定时发布或独立的公告详情端点。
+
+### POST /api/announcements/:id/dismiss
+
+需要登录。以服务端当前用户身份保存此公告的“不再提醒”偏好；无需请求体，忽略客户端传入的用户 ID。成功 `200 → { dismissed: true }`，重复提交幂等；游客 `401`，禁用用户 `403`，不存在或未发布公告 `404`。偏好保存在数据库，跨设备、重新登录以及此公告编辑 / 撤下再发布后仍生效；新建公告使用新 ID，独立提醒。不会从公告板隐藏公告，也不返回其他用户的偏好。
 
 ## 7. 静态资源
 - `/uploads/*`：上传的卡片图片，长缓存头。

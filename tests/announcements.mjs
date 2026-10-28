@@ -7,7 +7,7 @@ import announcements from '../server/lib/api/announcements.js';
 export async function testAnnouncements() {
   const database = await fixture();
   const admin = { role: 'admin' };
-  const member = { role: 'user' };
+  const member = { id: 'u_reminder_member', role: 'user' };
   async function call(method, pattern, { user = admin, body, query = '', id } = {}) {
     const route = announcements.routes.find((item) => item.method === method && item.pattern === pattern);
     return database.db.transaction((db) => route.handler({ db, user, body, query: new URLSearchParams(query), params: { id } }), { write: method !== 'GET' });
@@ -17,6 +17,11 @@ export async function testAnnouncements() {
   const updatePath = adminPath + '/:id';
   const rejects = (promise, status) => assert.rejects(promise, (err) => err.status === status);
   try {
+    await database.db.transaction(async (db) => {
+      const now = new Date().toISOString();
+      db.insert('users', { ...member, username: 'reminder_member', email: 'reminder@example.invalid', displayName: '测试用户', callSign: '', bio: '', avatarColor: '#0eaf8f', status: 'active', address: null, passwordHash: 'test-only', createdAt: now, updatedAt: now });
+      await db.save();
+    }, { write: true });
     for (const [method, pattern] of [['GET', adminPath], ['POST', adminPath], ['PUT', updatePath]]) {
       await rejects(call(method, pattern, { user: null }), 401);
       await rejects(call(method, pattern, { user: member }), 403);
@@ -28,6 +33,17 @@ export async function testAnnouncements() {
     const created = await call('POST', adminPath, { body: { title: ' 草稿 ', body: '<script>alert(1)</script>\n纯文本', id: 'forged', createdAt: '2000-01-01', publishedAt: '2000-01-01' } });
     assert.equal(created.status, 201);
     const draft = created.body.announcement;
+    assert.equal(draft.displaySeconds, 30);
+    for (const displaySeconds of [null, '30', 0, -1, 3601, 1.5]) {
+      await rejects(call('PUT', updatePath, { id: draft.id, body: { displaySeconds } }), 400);
+    }
+    for (const displaySeconds of [1, 3600, 45]) {
+      assert.equal((await call('PUT', updatePath, { id: draft.id, body: { displaySeconds } })).body.announcement.displaySeconds, displaySeconds);
+    }
+    const dismissPath = publicPath + '/:id/dismiss';
+    await rejects(call('POST', dismissPath, { id: draft.id, user: null }), 401);
+    await rejects(call('POST', dismissPath, { id: draft.id, user: member }), 404);
+    await rejects(call('POST', dismissPath, { id: 'missing', user: member }), 404);
     assert.equal(draft.title, '草稿');
     assert.equal(draft.status, 'draft');
     assert.equal(draft.publishedAt, null);
@@ -56,8 +72,23 @@ export async function testAnnouncements() {
     assert.equal((await call('GET', publicPath, { query: 'limit=1&page=2' })).body.items[0].id, draft.id);
     assert.equal((await call('GET', adminPath, { query: 'status=published' })).body.total, 2);
     assert.equal((await call('GET', adminPath, { query: 'status=invalid' })).body.total, 2);
+    for (let i = 0; i < 2; i++) {
+      assert.equal((await call('POST', dismissPath, { id: newest.id, user: member, body: { userId: 'forged' } })).body.dismissed, true);
+    }
+    const reminders = (await call('GET', publicPath, { user: member, query: 'reminder=1&limit=1' })).body;
+    assert.equal(reminders.total, 1);
+    assert.equal(reminders.items[0].id, draft.id);
+    assert.equal((await call('GET', publicPath, { user: member })).body.total, 2);
+    assert.equal((await call('GET', publicPath, { user: null, query: 'reminder=1' })).body.total, 2);
+    assert.equal((await call('GET', publicPath, { user: admin, query: 'reminder=1' })).body.total, 2);
+    await call('PUT', updatePath, { id: newest.id, body: { status: 'draft' } });
+    await call('PUT', updatePath, { id: newest.id, body: { status: 'published', title: '重新发布' } });
+    assert.equal((await call('GET', publicPath, { user: member, query: 'reminder=1' })).body.total, 1);
     await database.db.transaction((db) => {
       assert.equal(db.find('announcements', (item) => item.id === draft.id).title, '已编辑');
+      assert.equal(db.find('announcements', (item) => item.id === draft.id).displaySeconds, 45);
+      assert.equal(db.data.announcementDismissals.length, 1);
+      assert.equal(db.data.announcementDismissals[0].userId, member.id);
     });
     console.log('[announcements] 公告路由、权限、校验、发布撤下、分页与数据库持久化通过');
   } finally {
