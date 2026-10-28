@@ -18,11 +18,15 @@ async function main() {
     await fs.readFile(path.resolve(args[fileAt + 1]), 'utf8'),
   );
   if (data.announcements === undefined) data.announcements = [];
+  if (data.announcementDismissals === undefined) data.announcementDismissals = [];
   if (
     data.version !== 1 ||
     COLLECTIONS.some((name) => !Array.isArray(data[name]))
   )
     throw new Error('只支持完整的 version=1 JSON 数据库');
+  for (const item of data.announcements) {
+    if (item && item.displaySeconds === undefined) item.displaySeconds = 30;
+  }
   for (const name of COLLECTIONS) {
     const key = name === 'sessions' ? 'token' : 'id';
     const seen = new Set();

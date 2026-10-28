@@ -391,7 +391,7 @@
     const modal = QSL.modal({
       title: item ? '编辑公告' : '新建公告',
       size: 'lg',
-      content: '<form class="a-announcement-form"><div class="a-announcement-field"><label>标题<input class="input" name="title" required aria-describedby="a-ann-count-title" value="' + escAttr(item ? item.title : '') + '"></label><small class="muted a-announcement-count" id="a-ann-count-title" data-count-for="title" data-max="120"></small></div><div class="a-announcement-field"><label>正文（纯文本）<textarea class="textarea" name="body" required aria-describedby="a-ann-count-body">' + esc(item ? item.body : '') + '</textarea></label><small class="muted a-announcement-count" id="a-ann-count-body" data-count-for="body" data-max="10000"></small></div><label>状态<select class="select" name="status"><option value="draft">草稿 / 已撤下</option><option value="published"' + (item && item.status === 'published' ? ' selected' : '') + '>已发布</option></select></label><p class="a-hint-error" data-error role="alert"></p><button class="btn btn-primary" type="submit">保存公告</button></form>',
+      content: '<form class="a-announcement-form"><div class="a-announcement-field"><label>标题<input class="input" name="title" required aria-describedby="a-ann-count-title" value="' + escAttr(item ? item.title : '') + '"></label><small class="muted a-announcement-count" id="a-ann-count-title" data-count-for="title" data-max="120"></small></div><div class="a-announcement-field"><label>正文（纯文本）<textarea class="textarea" name="body" required aria-describedby="a-ann-count-body">' + esc(item ? item.body : '') + '</textarea></label><small class="muted a-announcement-count" id="a-ann-count-body" data-count-for="body" data-max="10000"></small></div><label>弹窗停留时长（秒）<input class="input" type="number" name="displaySeconds" min="1" max="3600" step="1" required value="' + escAttr(item ? item.displaySeconds : 30) + '"></label><small class="muted">默认 30 秒，可设置 1–3600 秒；读条结束后自动关闭。</small><label>状态<select class="select" name="status"><option value="draft">草稿 / 已撤下</option><option value="published"' + (item && item.status === 'published' ? ' selected' : '') + '>已发布</option></select></label><p class="a-hint-error" data-error role="alert"></p><button class="btn btn-primary" type="submit">保存公告</button></form>',
       onClose: function () {
         closed = true;
         const overlay = modal.el.closest('.modal-overlay');
@@ -420,6 +420,7 @@
       animateBusy(btn, true);
       form.querySelector('[data-error]').textContent = '';
       const values = Object.fromEntries(new FormData(form));
+      values.displaySeconds = Number(values.displaySeconds);
       try {
         if (item) await QSL.api.put('/api/admin/announcements/' + encodeURIComponent(item.id), values);
         else await QSL.api.post('/api/admin/announcements', values);
@@ -449,7 +450,7 @@
       if (S !== owner || !aliveRoot(root, 'announcements', job)) return;
       const list = root.querySelector('[data-ann-list]');
       list.innerHTML = res.items.length ? res.items.map(function (item) {
-        return '<article class="a-announcement-row"><h3>' + esc(item.title) + '</h3>' + badge(item.status === 'published' ? '已发布' : '草稿 / 已撤下', item.status === 'published' ? 'mint' : 'slate') + '<p class="a-announcement-body">' + esc(item.body) + '</p><small class="muted">更新：' + esc(fmtDateTime(item.updatedAt)) + ' · 发布时间：' + esc(item.publishedAt ? fmtDateTime(item.publishedAt) : '未发布') + '</small><div class="a-announcement-actions"><button class="btn btn-ghost btn-sm" type="button" data-ann-edit="' + escAttr(item.id) + '">编辑</button><button class="btn btn-soft btn-sm" type="button" data-ann-toggle="' + escAttr(item.id) + '">' + (item.status === 'published' ? '撤下' : '发布') + '</button></div></article>';
+        return '<article class="a-announcement-row"><h3>' + esc(item.title) + '</h3>' + badge(item.status === 'published' ? '已发布' : '草稿 / 已撤下', item.status === 'published' ? 'mint' : 'slate') + '<p class="a-announcement-body">' + esc(item.body) + '</p><small class="muted">更新：' + esc(fmtDateTime(item.updatedAt)) + ' · 停留：' + esc(item.displaySeconds) + ' 秒 · 发布时间：' + esc(item.publishedAt ? fmtDateTime(item.publishedAt) : '未发布') + '</small><div class="a-announcement-actions"><button class="btn btn-ghost btn-sm" type="button" data-ann-edit="' + escAttr(item.id) + '">编辑</button><button class="btn btn-soft btn-sm" type="button" data-ann-toggle="' + escAttr(item.id) + '">' + (item.status === 'published' ? '撤下' : '发布') + '</button></div></article>';
       }).join('') : '<p class="muted">暂无公告，点击「新建公告」开始。</p>';
       list.onclick = async function (event) {
         const btn = event.target.closest('[data-ann-edit], [data-ann-toggle]');

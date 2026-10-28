@@ -4,11 +4,12 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
-const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql'];
 const SCHEMA_VERSION = MIGRATIONS.length;
-const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements'];
+const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals'];
 const FIELDS = {
-  announcements: ['id', 'title', 'body', 'status', 'publishedAt', 'createdAt', 'updatedAt'],
+  announcements: ['id', 'title', 'body', 'status', 'displaySeconds', 'publishedAt', 'createdAt', 'updatedAt'],
+  announcementDismissals: ['id', 'userId', 'announcementId', 'createdAt'],
   emailVerifications: ['id', 'nonce', 'codeHash', 'attempts', 'status', 'sentAt', 'expiresAt'],
   mailQuotas: ['id', 'count', 'windowAt'],
   users: [

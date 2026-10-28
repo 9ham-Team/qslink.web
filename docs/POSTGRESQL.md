@@ -78,3 +78,7 @@ npm run db:import-json -- --file /backup/db.json
 ### 009：换卡偏好
 
 `009_exchange_card_preference.sql` 为 exchanges 增加可空的 `preferredCardId`（外键，删除卡片时 SET NULL）和 `preferredCardTitle`（标题快照）。旧记录两字段为 null，表示无偏好；新版本启动自动迁移到 schema 9。旧版本会拒绝较新的 schema，不能仅恢复旧镜像完成回滚。迁移不修改现有申请状态和地址。
+
+### 010：公告提醒偏好与停留时长
+
+`010_announcement_reminders.sql` 为公告增加非空整数 `displaySeconds`（1–3600，已有公告补为 30），新建 `announcementDismissals` 表，按用户和公告唯一保存“不再提醒”，外键随用户或公告删除级联清理。旧 JSON 导入补齐空偏好集合和默认 30 秒。启动自动升级至 schema 10，不改变原有公告发布状态或内容。旧程序会拒绝 schema 10，回滚需停写、备份当前数据并恢复迁移前数据库及对应程序；只换旧镜像不能撤销迁移，恢复旧备份会丢失其后的写入。

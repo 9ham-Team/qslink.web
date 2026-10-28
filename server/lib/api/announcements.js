@@ -9,6 +9,11 @@ function validate(body, partial = false) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw badRequest(null, '请提交公告内容');
   const patch = {};
   const fields = {};
+  if (!partial || Object.prototype.hasOwnProperty.call(body, 'displaySeconds')) {
+    const seconds = body.displaySeconds === undefined && !partial ? 30 : body.displaySeconds;
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > 3600) fields.displaySeconds = '请输入 1–3600 秒的整数';
+    patch.displaySeconds = seconds;
+  }
   for (const [key, max] of [['title', 120], ['body', 10000]]) {
     if (partial && !Object.prototype.hasOwnProperty.call(body, key)) continue;
     const value = typeof body[key] === 'string' ? body[key].trim() : '';
@@ -27,7 +32,9 @@ function list(ctx, admin = false) {
   if (admin) auth.requireAdmin(ctx);
   const { page, limit } = parsePagination(ctx.query);
   const status = admin ? parseEnum(ctx.query, 'status', ['all', 'draft', 'published'], 'all') : 'published';
-  const items = ctx.db.data.announcements.filter((item) => status === 'all' || item.status === status);
+  const dismissed = new Set(!admin && ctx.query.get('reminder') === '1' && ctx.user
+    ? ctx.db.data.announcementDismissals.filter((item) => item.userId === ctx.user.id).map((item) => item.announcementId) : []);
+  const items = ctx.db.data.announcements.filter((item) => (status === 'all' || item.status === status) && !dismissed.has(item.id));
   items.sort((a, b) => (admin ? b.updatedAt.localeCompare(a.updatedAt) : b.publishedAt.localeCompare(a.publishedAt)) || b.id.localeCompare(a.id));
   return { body: paginate(items, page, limit) };
 }
@@ -56,9 +63,23 @@ async function update(ctx) {
   return { body: { announcement } };
 }
 
+async function dismiss(ctx) {
+  const user = auth.requireUser(ctx);
+  const announcement = ctx.db.find('announcements', (item) => item.id === ctx.params.id && item.status === 'published');
+  if (!announcement) throw notFound('公告不存在');
+  if (!ctx.db.find('announcementDismissals', (item) => item.userId === user.id && item.announcementId === announcement.id)) {
+    ctx.db.insert('announcementDismissals', {
+      id: createId('ad'), userId: user.id, announcementId: announcement.id, createdAt: new Date().toISOString(),
+    });
+    await ctx.db.save();
+  }
+  return { body: { dismissed: true } };
+}
+
 module.exports = {
   routes: [
     { method: 'GET', pattern: '/api/announcements', handler: (ctx) => list(ctx) },
+    { method: 'POST', pattern: '/api/announcements/:id/dismiss', handler: dismiss },
     { method: 'GET', pattern: '/api/admin/announcements', handler: (ctx) => list(ctx, true) },
     { method: 'POST', pattern: '/api/admin/announcements', handler: create },
     { method: 'PUT', pattern: '/api/admin/announcements/:id', handler: update },
