@@ -2332,6 +2332,12 @@
 .f-logbook-panel .hint { margin: 12px 0; }
 .f-logbook-panel .f-logbook-error { display: block; color: var(--danger); }
 .f-logbook-panel .f-logbook-error:empty { display: none; }
+.f-logbook-import-action { display: flex; align-items: center; gap: 12px; }
+.f-logbook-callsign-hint { margin-bottom: 18px; }
+.f-logbook-callsign-hint a { color: var(--brand-deep); text-decoration: underline; text-underline-offset: 3px; }
+.f-logbook-import-action.is-locked .btn { position: relative; filter: grayscale(.85) brightness(.82); opacity: .65; cursor: not-allowed; }
+.f-logbook-import-action.is-locked .btn::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: rgba(30, 41, 59, .12); pointer-events: none; }
+.f-logbook-import-lock { display: inline-flex; color: var(--muted); }
 .f-logbook-result { margin-bottom: 24px; overflow-wrap: anywhere; }
 .f-logbook-pages { margin-top: 20px; }
 .f-logbook .table { white-space: nowrap; }

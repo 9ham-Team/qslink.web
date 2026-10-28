@@ -2117,7 +2117,7 @@ async function main() {
     await test('short tokens: collision, concurrency, migration and legacy protection', testShortTokens);
     await test('exchange card choice: permissions, selection and confirmation', testExchangeCardChoice);
     await test('announcements: permissions, validation, publishing, pagination and persistence', testAnnouncements);
-    await test('logbook: ADIF parsing, LoTW download, privacy, deduplication and persistence', testLogbook);
+    await test('logbook: TQ8 signatures, LoTW download, privacy, deduplication and persistence', testLogbook);
     await runPhases();
   } finally {
     await stopServer();

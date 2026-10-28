@@ -18,17 +18,8 @@
   const headerEl = document.getElementById('site-header');
   const footerEl = document.getElementById('site-footer');
 
-  function logbookLocked(user) {
-    return !user || !user.callSign || !user.callSign.trim();
-  }
-  function logbookAttrs(user) {
-    return logbookLocked(user) ? ' data-logbook-locked aria-disabled="true" title="请先设置呼号才能上传"' : '';
-  }
-  function logbookLabel(user) {
-    return '通联日志' + (logbookLocked(user) ? ' <span aria-hidden="true">🔒</span>' : '');
-  }
-  function logbookMenuLink(user, size) {
-    return '<a href="/dashboard/logbook" data-link' + logbookAttrs(user) + '>' + QSL.icon('list', size) + logbookLabel(user) + '</a>';
+  function logbookMenuLink(size) {
+    return '<a href="/dashboard/logbook" data-link>' + QSL.icon('list', size) + '通联日志</a>';
   }
 
   function navLinks(user) {
@@ -43,8 +34,8 @@
       .map(function (link) {
         const active = path === link.match || (link.match === '/explore' && path.startsWith('/explore'));
         return (
-          '<a href="' + link.href + '" data-link' + (link.href === '/dashboard/logbook' ? logbookAttrs(user) : '') + ' class="' + (active ? 'is-active' : '') + '">' +
-          QSL.icon(link.icon, 17) + '<span>' + (link.href === '/dashboard/logbook' ? logbookLabel(user) : link.label) + '</span></a>'
+          '<a href="' + link.href + '" data-link class="' + (active ? 'is-active' : '') + '">' +
+          QSL.icon(link.icon, 17) + '<span>' + link.label + '</span></a>'
         );
       })
       .join('');
@@ -79,7 +70,7 @@
         '<a href="/dashboard" data-link>' + QSL.icon('layout', 17) + '个人中心</a>' +
         '<a href="/dashboard/cards" data-link>' + QSL.icon('cards', 17) + '我的卡片</a>' +
         '<a href="/dashboard/exchanges" data-link>' + QSL.icon('send', 17) + '换卡申请' + pendingBadge(user) + '</a>' +
-        logbookMenuLink(user, 17) +
+        logbookMenuLink(17) +
         '<a href="/dashboard/profile" data-link>' + QSL.icon('user', 17) + '个人资料</a>' +
         (isAdmin ? '<div class="menu-sep"></div><a class="menu-admin" href="/admin" data-link>' + QSL.icon('shield', 17) + '管理后台</a>' : '') +
         '<div class="menu-sep"></div>' +
@@ -97,7 +88,7 @@
         ? '<a href="/dashboard" data-link>' + QSL.icon('layout', 18) + '个人中心</a>' +
           '<a href="/dashboard/cards" data-link>' + QSL.icon('cards', 18) + '我的卡片</a>' +
           '<a href="/dashboard/exchanges" data-link>' + QSL.icon('send', 18) + '换卡申请' + pendingBadge(user) + '</a>' +
-          logbookMenuLink(user, 18) +
+          logbookMenuLink(18) +
           '<a href="/dashboard/profile" data-link>' + QSL.icon('user', 18) + '个人资料</a>' +
           (isAdmin ? '<a href="/admin" data-link>' + QSL.icon('shield', 18) + '管理后台</a>' : '') +
           '<button type="button" class="btn btn-ghost btn-block" data-logout>' + QSL.icon('logout', 18) + '退出登录</button>'
@@ -174,13 +165,6 @@
       if (btn) btn.setAttribute('aria-expanded', 'false');
     }
   }
-
-  document.addEventListener('click', function (e) {
-    if (!e.target.closest('[data-logbook-locked]')) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    QSL.toast('请先在个人资料中设置呼号，才能上传通联日志', 'info');
-  }, true);
 
   document.addEventListener('click', function (e) {
     const userEl = document.getElementById('nav-user');

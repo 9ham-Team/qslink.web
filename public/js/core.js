@@ -232,12 +232,6 @@
       QSL.navigate('/login?next=' + next, { replace: true });
       return;
     }
-    // A direct logbook URL requires a configured station callsign too.
-    if (route.page === 'logbook' && (!QSL.state.user.callSign || !QSL.state.user.callSign.trim())) {
-      QSL.toast('请先在个人资料中设置呼号，才能上传通联日志', 'info');
-      QSL.navigate('/dashboard/profile', { replace: true });
-      return;
-    }
     // 守卫：游客页，已登录跳走
     if (route.guest && QSL.state.user) {
       const next = safeNext(payload.query.get('next'));

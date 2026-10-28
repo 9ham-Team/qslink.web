@@ -4,6 +4,7 @@ const auth = require('../auth');
 const { createId, paginate } = require('../db');
 const { ApiError, badRequest, payloadTooLarge } = require('../errors');
 const { parseAdif, normalizeRecord } = require('../adif');
+const { parseTq8 } = require('../tq8');
 const { downloadLotw } = require('../lotw');
 
 function requireCallSign(user) {
@@ -37,7 +38,8 @@ function importRecords(db, user, parsed, source) {
     if (old) {
       // Fill missing metadata and promote confirmations, never erase an existing confirmation.
       const merged = { ...old.details };
-      for (const [key, value] of Object.entries(details)) if (value && (key !== 'source' || source === 'lotw')) merged[key] = value;
+      const sourceRank = { adif: 0, tq8: 1, lotw: 2 };
+      for (const [key, value] of Object.entries(details)) if (value && (key !== 'source' || sourceRank[source] > (sourceRank[old.details.source] || 0))) merged[key] = value;
       if (JSON.stringify(merged) !== JSON.stringify(old.details)) {
         old.details = merged; old.updatedAt = now; result.updated++;
       } else result.duplicates++;
@@ -60,12 +62,21 @@ function list(ctx) {
   const data = paginate(rows.map(row => ({ id: row.id, ...row.details })), page, 25);
   return { body: { ...data, stats: { total: all.length, confirmed: all.filter(row => row.details.lotwConfirmed).length } } };
 }
-async function importAdif(ctx) {
-  const user = auth.requireUser(ctx);
-  requireCallSign(user);
-  const result = importRecords(ctx.db, user, parseAdif(ctx.body?.adif), 'adif');
-  await ctx.db.save();
-  return { body: result };
+function createFileImport(parser = parseTq8) {
+  return async function importFile(ctx) {
+    const user = auth.requireUser(ctx);
+    const callSign = requireCallSign(user);
+    const hasAdif = !!ctx.body && Object.hasOwn(ctx.body, 'adif');
+    const hasTq8 = !!ctx.body && Object.hasOwn(ctx.body, 'tq8');
+    if (hasAdif === hasTq8) throw badRequest({ file: '请提交一种日志文件：ADI / ADIF 或 TQ8' });
+    const parsed = hasAdif ? parseAdif(ctx.body.adif) : parser(ctx.body.tq8, callSign);
+    // Plain ADIF belongs to the selected account station; signed TQ8 retains
+    // its certificate-derived station and must still match the profile.
+    if (hasAdif) parsed.records = parsed.records.map(raw => ({ ...raw, STATION_CALLSIGN: callSign }));
+    const result = importRecords(ctx.db, user, parsed, hasAdif ? 'adif' : 'tq8');
+    await ctx.db.save();
+    return { body: result };
+  };
 }
 
 const attempts = new Map();
@@ -95,8 +106,8 @@ async function importLotw(ctx) {
   }, { write: true });
 }
 
-module.exports = { importRecords, routes: [
+module.exports = { importRecords, createFileImport, routes: [
   { method: 'GET', pattern: '/api/me/logbook', handler: list },
-  { method: 'POST', pattern: '/api/me/logbook/import', handler: importAdif },
+  { method: 'POST', pattern: '/api/me/logbook/import', handler: createFileImport() },
   { method: 'POST', pattern: '/api/me/logbook/lotw', handler: importLotw, outsideTransaction: true },
 ] };
