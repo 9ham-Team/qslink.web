@@ -519,10 +519,12 @@ function printBanner({ config, seeded }) {
   console.log(lines.join('\n'));
 }
 
-async function start({ mailTransport, exchangeMailTransport } = {}) {
+async function start({ mailTransport, exchangeMailTransport, cardReviewMailTransport } = {}) {
   const config = readConfig();
   config.sendMail = mailTransport || require('./lib/mail').createMailTransport(config.mail);
   config.sendExchangeMail = exchangeMailTransport || require('./lib/mail').createExchangeMailTransport(config.mail);
+  config.sendCardReviewMail = cardReviewMailTransport || require('./lib/mail').createCardReviewMailTransport(config.mail);
+  config.sendReviewWebhook = require('./lib/review-webhook').createReviewWebhookTransport(config.reviewWebhookUrl);
   const { port, host, dataDir, uploadsDir } = config;
   config.limitAuth = createAuthLimiter({ trustProxy: config.trustProxy });
 

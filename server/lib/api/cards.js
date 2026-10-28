@@ -16,6 +16,8 @@ const { createId, randomString, paginate, cascadeDeleteCard } = require('../db')
 const auth = require('../auth');
 const serialize = require('../serialize');
 const { createShortToken } = require('../short-token');
+const { reviewAfterCommit } = require('../review-webhook');
+const { approvedMailAfterCommit } = require('../card-review-mail');
 
 function byCreatedDesc(a, b) {
   return (b.createdAt || '').localeCompare(a.createdAt || '');
@@ -138,6 +140,7 @@ async function create(ctx) {
   await ctx.db.save();
   return {
     status: 201,
+    afterCommit: reviewAfterCommit(ctx, card, 'created'),
     body: {
       card: serialize.cardPublic(ctx.db, card, user, { shareToken: true, rejectReason: true }),
     },
@@ -169,6 +172,7 @@ async function update(ctx) {
       : '';
   }
 
+  const previousStatus = card.status;
   Object.assign(card, patch);
   if (!isAdmin) {
     // 普通用户修改后重新进入审核队列
@@ -181,6 +185,8 @@ async function update(ctx) {
   await ctx.db.save();
 
   return {
+    afterCommit: approvedMailAfterCommit(ctx, card, previousStatus) ||
+      (!isAdmin || previousStatus !== 'pending' ? reviewAfterCommit(ctx, card, 'resubmitted') : undefined),
     body: {
       card: serialize.cardPublic(ctx.db, card, user, { shareToken: true, rejectReason: true }),
     },

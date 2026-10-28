@@ -95,7 +95,7 @@ table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
   };
 }
 
-function exchangeMessage({ title, summary, instruction, buttonLabel, footer, url }) {
+function notificationMessage({ title, summary, instruction, buttonLabel, footer, url }) {
   const escape = value => String(value || '').replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[char]);
@@ -118,7 +118,7 @@ function exchangeMessage({ title, summary, instruction, buttonLabel, footer, url
 
 function exchangeRequestMessage({ applicantName, callSign, cardTitle, url }) {
   const applicant = applicantName + (callSign ? `（${callSign}）` : '');
-  return exchangeMessage({
+  return notificationMessage({
     title: '收到新的换卡申请',
     summary: `${applicant} 希望与您交换卡片「${cardTitle}」。`,
     instruction: '请登录 QSLink，在“收到的申请”中查看并处理。',
@@ -131,7 +131,7 @@ function exchangeRequestMessage({ applicantName, callSign, cardTitle, url }) {
 function exchangeDecisionMessage({ status, ownerName, callSign, cardTitle, url }) {
   const approved = status === 'approved';
   const owner = ownerName + (callSign ? `（${callSign}）` : '');
-  return exchangeMessage({
+  return notificationMessage({
     title: approved ? '换卡申请已被同意' : '换卡申请已被拒绝',
     summary: `${owner} ${approved ? '同意' : '拒绝'}了您对卡片「${cardTitle}」的换卡申请。`,
     instruction: approved ? '请登录 QSLink，在“我发出的申请”中查看寄送信息并安排换卡。' : '请登录 QSLink，在“我发出的申请”中查看详情及可能的拒绝原因。',
@@ -147,4 +147,20 @@ function createExchangeMailTransport(config) {
     ['approved', 'rejected'].includes(notification.status) ? exchangeDecisionMessage(notification) : exchangeRequestMessage(notification)) : null;
 }
 
-module.exports = { readMailConfig, createMailTransport, createExchangeMailTransport, exchangeRequestMessage, unavailable };
+function cardApprovedMessage({ cardTitle, url }) {
+  return notificationMessage({
+    title: '卡片审核已通过',
+    summary: `您的卡片「${cardTitle}」已通过审核，现已公开展示。`,
+    instruction: '您可以查看卡片、分享给朋友，或等待其他成员发起换卡申请。',
+    buttonLabel: '查看我的卡片',
+    footer: '此邮件仅通知卡片审核结果，不代表已达成换卡。请在 QSLink 站内处理换卡申请。',
+    url,
+  });
+}
+
+function createCardReviewMailTransport(config) {
+  const send = createMessageTransport(config);
+  return send ? (email, notification) => send(email, cardApprovedMessage(notification)) : null;
+}
+
+module.exports = { readMailConfig, createMailTransport, createExchangeMailTransport, createCardReviewMailTransport, cardApprovedMessage, exchangeRequestMessage, unavailable };

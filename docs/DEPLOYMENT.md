@@ -40,6 +40,14 @@ app-data 保存上传文件，postgres-data 保存数据库，caddy-data 保存�
 
 ## 配置与上线验证
 
+卡片审核通过邮件复用注册验证码和换卡通知的阿里云 Direct Mail 配置，以及 `QSL_PUBLIC_ORIGIN`。无需新凭据；审核结果提交后发送到卡片主人注册邮箱，未配置邮件/站点地址或账号禁用时跳过。发送失败不撤销审核，无持久化重试；部署后如需验证真实收件箱，须使用获准的测试卡片及邮箱，不能仅以 API 返回成功认定邮件送达。
+
+QSLink 仅推送审核文本消息，@ 人员及企业微信地址由中转项目配置。原 `QSL_REVIEW_WEBHOOK_AT_LIST` 不再读取，可从 QSLink 环境中移除。
+
+卡片待审核提醒使用可选的 `QSL_REVIEW_WEBHOOK_URL`。将接收项目的唯一 URL 写入服务器私有 `.env`，例如 `QSL_REVIEW_WEBHOOK_URL=https://relay.example.com/hooks/qslink/随机令牌`；也可使用企业微信机器人 URL。Compose 已将该值传入 app，重建应用容器后生效。直接运行 Node 时需注入进程环境并重启。支持 HTTP(S)，公网建议 HTTPS，不允许 URL 用户名、密码、片段或重定向；配置无效时启动失败且不输出原始 URL；留空关闭提醒。接收端须在 5 秒内返回 HTTP 2xx 和 JSON `{"errcode":0}`，建议可靠入队后确认，转发异步处理。
+
+该 URL 含机器人密钥，应与密码一样保管，不提交代码或输出到日志。配置 `QSL_PUBLIC_ORIGIN` 可在消息中提供管理员审核入口，点击后仍需管理员登录。当前仅支持一个机器人实例；新卡提交、用户编辑重新送审及管理员将卡片转回待审核触发一次尽力通知，失败不影响卡片写入，无自动重试。测试服 `QSL_MAIL_ENV_FILE` 仅允许邮件配置，不能用它加载 Webhook；测试容器需由运维显式注入此变量，后续标准部署会继承已有容器环境。本功能不自动修改任何运行环境。
+
 测试服加载邮件配置时，可将仅包含 `QSL_MAIL_FROM`、`QSL_MAIL_FROM_NAME`、`QSL_MAIL_REGION`、`QSL_MAIL_ENDPOINT`、`ALIBABA_CLOUD_ACCESS_KEY_ID`、`ALIBABA_CLOUD_ACCESS_KEY_SECRET` 和可选 `QSL_PUBLIC_ORIGIN` 的 Docker env 文件放在服务器私有目录，归 root 所有、权限 400 或 600。例如：
 
 ```sh

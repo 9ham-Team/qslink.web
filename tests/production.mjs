@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import './profile-address.mjs';
+import './review-webhook.mjs';
 import { testExchangeCardChoice } from './exchange-card-choice.mjs';
 test('exchange card choice: privacy, validation, empty confirmation and persistence', testExchangeCardChoice);
 import './poster-palette.mjs';
@@ -230,8 +231,10 @@ async function start(t, dir, overrides = {}) {
   const proc = processFor('tests/helpers/mail-server.cjs', env(dir, { QSL_PORT: String(port), ...overrides }));
   const codes = new Map();
   const exchangeMails = [];
+  const cardReviewMails = [];
   proc.child.on('message', message => {
     if (message.kind === 'exchangeMail') exchangeMails.push(message);
+    else if (message.kind === 'cardReviewMail') cardReviewMails.push(message);
     else codes.set(message.email, message.code);
   });
   const base = `http://127.0.0.1:${port}`;
@@ -247,7 +250,7 @@ async function start(t, dir, overrides = {}) {
     if (proc.child.exitCode !== null) throw new Error(proc.logs());
     try {
       const res = await fetch(base + '/api/health');
-      if (res.ok) return { ...proc, base, stop, codes, exchangeMails };
+      if (res.ok) return { ...proc, base, stop, codes, exchangeMails, cardReviewMails };
     } catch { /* starting */ }
     await new Promise(resolve => setTimeout(resolve, 40));
   }
@@ -312,8 +315,9 @@ test('email codes persist attempts, expire, consume once, throttle across proces
 
 test('exchange mail uses escaped templates and the existing bounded Direct Mail transport', async () => {
   const DM = require('@alicloud/dm20151123');
-  const { createMailTransport, createExchangeMailTransport, readMailConfig } = require('../server/lib/mail');
+  const { createMailTransport, createExchangeMailTransport, createCardReviewMailTransport, readMailConfig } = require('../server/lib/mail');
   assert.equal(createExchangeMailTransport(readMailConfig({})), null);
+  assert.equal(createCardReviewMailTransport(readMailConfig({})), null);
   const original = DM.default.prototype.singleSendMailWithOptions;
   const sent = [];
   DM.default.prototype.singleSendMailWithOptions = async (message, options) => sent.push({ message, options });
@@ -352,6 +356,19 @@ test('exchange mail uses escaped templates and the existing bounded Direct Mail 
       assert.ok(!decision.htmlBody.includes('<script>'));
       assert.match(decision.textBody, /我发出的申请/);
     }
+    await createCardReviewMailTransport(config)('cardowner@example.test', {
+      cardTitle: '<script>Title</script> & test', url: 'https://qsl.example.test/card/c1',
+    });
+    const cardMail = sent.at(-1);
+    assert.equal(cardMail.message.subject, 'QSLink 卡片审核已通过');
+    assert.equal(cardMail.message.toAddress, 'cardowner@example.test');
+    assert.match(cardMail.message.htmlBody, /&lt;script&gt;Title&lt;\/script&gt; &amp; test/);
+    assert.ok(!cardMail.message.htmlBody.includes('<script>'));
+    assert.match(cardMail.message.textBody, /已通过审核/);
+    assert.match(cardMail.message.textBody, /https:\/\/qsl.example.test\/card\/c1/);
+    assert.equal(cardMail.options.autoretry, false);
+    assert.equal(cardMail.options.connectTimeout, 5000);
+    assert.equal(cardMail.options.readTimeout, 10000);
   } finally { DM.default.prototype.singleSendMailWithOptions = original; }
 });
 
@@ -490,6 +507,83 @@ test('approve/reject notify only the applicant after commit; repeated decisions 
   assert.equal((await decide(exchange.id, 'approved')).status, 200);
   assert.equal(app.exchangeMails.length, before, 'banned recipients are not emailed');
   assert.ok(!failing.logs().includes('provider-secret') && !failing.logs().includes(applicant.user.email));
+});
+
+test('card approval mails the owner after commit through both routes, without duplicates or rollback leaks', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const app = await start(t, dir);
+  const db = databases.get(dir).db;
+  const admin = await (await request(app.base, '/api/auth/login', { method: 'POST', body: { identifier: credentials.username, password: credentials.password } })).json();
+  const owner = await (await request(app.base, '/api/auth/register', { method: 'POST', body: await withCode(app, {
+    username: 'cardmailowner', email: 'cardowner@example.test', password: 'Card-Owner-Password-42!',
+  }) })).json();
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64');
+  const created = await request(app.base, '/api/cards', { token: owner.token, method: 'POST', body: {
+    title: '<b>Approved card</b>', notes: 'Private notes', ratio: { w: 3, h: 2 }, frontImage: svg,
+  } });
+  assert.equal(created.status, 201);
+  const card = (await created.json()).card;
+  assert.equal(app.cardReviewMails.length, 0);
+  const edit = (route, body, target = app, token = admin.token) => request(target.base, route, { method: 'PUT', token, body });
+  async function waitMails(target, count) {
+    for (let i = 0; i < 100 && target.cardReviewMails.length < count; i++) await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(target.cardReviewMails.length, count);
+  }
+  let expected = 0;
+  for (const pattern of ['/api/admin/cards/:id', '/api/cards/:id']) {
+    const route = pattern.replace(':id', card.id);
+    const handler = require(pattern.startsWith('/api/admin') ? '../server/lib/api/admin' : '../server/lib/api/cards').routes.find(r => r.method === 'PUT' && r.pattern === pattern).handler;
+    assert.equal((await edit(route, { status: 'approved' }, app, '')).status, 401);
+    if (pattern.startsWith('/api/admin')) assert.equal((await edit(route, { status: 'approved' }, app, owner.token)).status, 403);
+    else {
+      assert.equal((await edit(route, { status: 'approved' }, app, owner.token)).status, 200);
+      assert.equal(await db.transaction(unit => unit.find('cards', row => row.id === card.id).status), 'pending', 'owners cannot approve their own cards');
+    }
+    assert.equal((await edit(route, { status: 'invalid' })).status, 400);
+    await assert.rejects(db.transaction(async unit => {
+      await handler({ db: unit, user: unit.find('users', u => u.id === admin.user.id), params: { id: card.id }, body: { status: 'approved' }, config: {
+        publicOrigin: 'https://qsl.example.test', sendCardReviewMail: () => assert.fail('rollback must not mail'),
+      } });
+      throw new Error('approval rollback');
+    }, { write: true }), /approval rollback/);
+    assert.equal(await db.transaction(unit => unit.find('cards', row => row.id === card.id).status), 'pending');
+    assert.equal(app.cardReviewMails.length, expected);
+    const responses = await Promise.all([edit(route, { status: 'approved' }), edit(route, { status: 'approved' })]);
+    assert.ok(responses.every(response => response.status === 200));
+    await waitMails(app, ++expected);
+    assert.deepEqual(app.cardReviewMails.at(-1), { kind: 'cardReviewMail', email: owner.user.email, committed: true,
+      notification: { cardId: card.id, cardTitle: '<b>Approved card</b>', url: 'https://qsl.example.test/card/' + card.id } });
+    assert.equal((await edit(route, { title: '<b>Approved card</b>' })).status, 200);
+    assert.equal(app.cardReviewMails.length, expected);
+    assert.equal((await edit(route, { status: 'rejected', rejectReason: 'Private reason' })).status, 200);
+    assert.equal(app.cardReviewMails.length, expected);
+    assert.equal((await edit(route, { status: 'approved' })).status, 200);
+    await waitMails(app, ++expected);
+    // A fresh owner edit resubmits the card and permits a later approval reminder.
+    assert.equal((await edit('/api/cards/' + card.id, {}, app, owner.token)).status, 200);
+  }
+  const failing = await start(t, dir, { QSL_TEST_FAIL_CARD_REVIEW_MAIL: 'true' });
+  const route = '/api/admin/cards/' + card.id;
+  const approved = await edit(route, { status: 'approved' }, failing);
+  assert.equal(approved.status, 200);
+  assert.ok(!(await approved.text()).includes(owner.user.email));
+  await waitMails(failing, 1);
+  assert.equal(await db.transaction(unit => unit.find('cards', row => row.id === card.id).status), 'approved');
+  assert.equal((await edit(route, { status: 'approved' }, failing)).status, 200);
+  assert.equal(failing.cardReviewMails.length, 1);
+  assert.ok(!failing.logs().includes('provider-secret') && !failing.logs().includes(owner.user.email));
+  await edit(route, { status: 'pending' });
+  await db.transaction(unit => { unit.find('users', u => u.id === owner.user.id).status = 'banned'; }, { write: true });
+  assert.equal((await edit(route, { status: 'approved' })).status, 200);
+  assert.equal(app.cardReviewMails.length, expected);
+  const { approvedMailAfterCommit } = require('../server/lib/card-review-mail');
+  const context = { db: { find: () => ({ email: 'owner@example.test', status: 'active' }) }, config: {} };
+  assert.equal(approvedMailAfterCommit(context, { ...card, status: 'approved' }, 'pending'), undefined);
+  context.config = { sendCardReviewMail: () => assert.fail('missing public origin must skip mail') };
+  assert.equal(approvedMailAfterCommit(context, { ...card, status: 'approved' }, 'pending'), undefined);
+  context.config = { publicOrigin: 'https://qsl.example.test' };
+  assert.equal(approvedMailAfterCommit(context, { ...card, status: 'approved' }, 'pending'), undefined);
 });
 
 test('production config fails closed for missing paths/origin/demo flag and insecure origins', () => {

@@ -230,11 +230,17 @@ body: `{ title, callSign?, band?, mode?, notes?, ratio: {w,h}, frontImage, backI
 - `band` / `mode` 为兼容字段，v3 起可省略或传空字符串；仍接受、保存并返回 ≤20 个字符的值，但前端不再填写或展示为筛选项。
 - 正面图片必需；背面可省略或为空，返回空字符串，由前端显示占位背面。
 - 创建后 `status: "pending"`（等待人工审核），同时生成 `shareToken`。
+- 若配置 `QSL_REVIEW_WEBHOOK_URL`，事务提交后向指定 HTTP(S) 接收项目发送一次待审核文本提醒，兼容企业微信 Webhook；包含标题、呼号、提交者昵称和卡片 ID，以及基于 `QSL_PUBLIC_ORIGIN` 的管理员审核入口（配置站点地址时）。不含邮箱、地址、图片、备注或分享 token；发送不占用数据库写事务，最多等待 5 秒，失败不撤销提交，当前无持久化重试。未配置时不发送；URL 和密钥不通过 API 返回。
 - 201 → `{ card: CardPublic }`（含 status= pending、shareToken）
+- 发送 JSON `{"msgtype":"text","text":{"content":"审核消息"}}`，无 @ 列表；接收项目管理 @ 人员并负责转发。接收成功必须在 5 秒内返回 HTTP 2xx 和 JSON `{"errcode":0}`。QSLink 不再读取 `QSL_REVIEW_WEBHOOK_AT_LIST`，用户输入中的 `<@userid>` 不作为 @ 语法发送。
 ### PUT /api/cards/:id  🔒
 
 所有者编辑时须再次提交上述三个确认字段，服务器更新该卡片的授权记录。管理员编辑他人的卡片不替代所有者授权，不修改已有确认记录。旧账号和卡片无确认记录时保持 NULL，不推定已经授权；授权记录不包含在公开 API 响应中。
 owner 或 admin。body 同上（字段可选）。普通 owner 修改后 `status` 重置为 `pending`（admin 修改不重置，除非显式传 status）。
+
+普通用户每次成功编辑后重新发送待审核提醒（即使原状态已是 pending）；管理员仅在非 pending → pending 时发送。与创建卡片使用同一 Webhook 配置及失败语义；审核通过、拒绝、删除、请求失败或事务回滚不发送待审核提醒。`PUT /api/admin/cards/:id` 同样遵守管理员触发规则。
+
+管理员将非 approved 卡片更新为 approved 时，事务提交后向卡片主人注册邮箱发送“卡片审核已通过”邮件；`PUT /api/admin/cards/:id` 同样适用。邮件含标题和 `${QSL_PUBLIC_ORIGIN}/card/:id`，不含备注、地址或拒绝原因。复用现有 Direct Mail 配置，未配置邮件/站点地址、主人缺少邮箱或被禁用时跳过；发送不占用写事务，失败不影响审核结果，当前无持久化重试。重复设置 approved、编辑已 approved 卡片、拒绝、未授权请求及事务回滚不发送；重新送审后再次通过可以再次发送。
 → `{ card: CardPublic }`
 ### DELETE /api/cards/:id  🔒
 owner 或 admin。级联删除其点赞与换卡申请。→ `{ ok: true }`
@@ -302,6 +308,7 @@ query：`status`（all/pending/approved/rejected）、`q`、`page`、`limit`。�
 ### PUT /api/admin/cards/:id
 body 可选：`{ title, callSign, band, mode, notes, ratio, frontImage, backImage, status, rejectReason }`（band/mode 兼容字段，可省略）
 - `status` 可为 approved/rejected/pending；设为 approved 时清空 rejectReason。
+- 非 approved → approved 时提交后向卡片主人发送通过邮件，触发及失败语义同 `PUT /api/cards/:id`。
 → `{ card }`
 ### DELETE /api/admin/cards/:id → `{ ok: true }`
 ### GET /api/admin/exchanges

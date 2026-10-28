@@ -71,6 +71,7 @@ function readConfig(env = process.env) {
     databaseUrl: env.DATABASE_URL,
     databaseSchema,
     mail: require('./mail').readMailConfig(env),
+    reviewWebhookUrl: require('./review-webhook').readReviewWebhookUrl(env),
   };
 }
 

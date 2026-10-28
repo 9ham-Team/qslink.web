@@ -5,6 +5,7 @@ data/uploads/
 
 # ---- QA 截图与临时产物（可重新生成，体积大）----
 qa-shots/
+/promo-video/
 /qslink-deployment.zip
 *.log
 *.tmp

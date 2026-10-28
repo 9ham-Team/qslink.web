@@ -14,6 +14,8 @@ const auth = require('../auth');
 const { paginate, cascadeDeleteCard, cascadeDeleteUser } = require('../db');
 const { saveImage } = require('../uploads');
 const serialize = require('../serialize');
+const { reviewAfterCommit } = require('../review-webhook');
+const { approvedMailAfterCommit } = require('../card-review-mail');
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const CARD_STATUSES = ['all', 'pending', 'approved', 'rejected'];
@@ -236,12 +238,17 @@ async function updateCard(ctx) {
       : '';
   }
 
+  const previousStatus = card.status;
   Object.assign(card, patch);
   if (patch.status === 'approved' || patch.status === 'pending') card.rejectReason = null;
   card.updatedAt = new Date().toISOString();
   await ctx.db.save();
 
-  return { body: { card: serialize.cardPublic(ctx.db, card, admin, alwaysVisible()) } };
+  return {
+    body: { card: serialize.cardPublic(ctx.db, card, admin, alwaysVisible()) },
+    afterCommit: approvedMailAfterCommit(ctx, card, previousStatus) ||
+      (previousStatus !== 'pending' ? reviewAfterCommit(ctx, card, 'resubmitted') : undefined),
+  };
 }
 
 /** DELETE /api/admin/cards/:id */
