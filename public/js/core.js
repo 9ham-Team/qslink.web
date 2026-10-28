@@ -70,6 +70,7 @@
     { path: '/dashboard/cards/new', page: 'card-editor', auth: true },
     { path: '/dashboard/cards/:id/edit', page: 'card-editor', auth: true },
     { path: '/dashboard/exchanges', page: 'exchanges', auth: true },
+    { path: '/dashboard/logbook', page: 'logbook', auth: true },
     { path: '/dashboard/profile', page: 'profile', auth: true },
     { path: '/admin', page: 'admin', auth: true, admin: true }
   ];
@@ -229,6 +230,12 @@
     if (route.auth && !QSL.state.user) {
       const next = encodeURIComponent(location.pathname + location.search);
       QSL.navigate('/login?next=' + next, { replace: true });
+      return;
+    }
+    // A direct logbook URL requires a configured station callsign too.
+    if (route.page === 'logbook' && (!QSL.state.user.callSign || !QSL.state.user.callSign.trim())) {
+      QSL.toast('请先在个人资料中设置呼号，才能上传通联日志', 'info');
+      QSL.navigate('/dashboard/profile', { replace: true });
       return;
     }
     // 守卫：游客页，已登录跳走

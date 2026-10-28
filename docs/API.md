@@ -342,3 +342,13 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 - `/uploads/*`：上传的卡片图片，长缓存头。
 - 其余 GET 非 `/api` 路径：优先返回 `public/` 下静态文件；未命中且带扩展名的 404；未命中且无扩展名的路径返回 `public/index.html`（SPA history 路由回退）。
 - `/share/:token`、`/card/:id`、`/dashboard/*`、`/admin` 均回退到 index.html，由前端路由处理。
+
+## 通联日志（登录后私有）
+
+- `GET /api/me/logbook?page=1&q=JA1`：仅当前用户，呼号包含搜索（不区分大小写），UTC 时间倒序，每页 25 条。返回 `{items,total,page,limit,pages,stats:{total,confirmed}}`；stats 为本人全部日志统计，confirmed 为记录标记的 LoTW 确认数。
+- `POST /api/me/logbook/import`：JSON `{adif: "ADIF 文本"}`。支持 ADI 文本，不支持 ADX XML；UTF-8，最多 5MB / 10000 条，每账号最多 50000 条。字段按声明字符长度解析，大小写不敏感，支持有/无 EOH 的文件。必需 CALL、QSO_DATE（YYYYMMDD）、TIME_ON（HHMM/HHMMSS）、BAND、MODE（LoTW 可用 APP_LOTW_MODE）。非法记录跳过；结构损坏或全部记录无效返回 400 且不写入。
+- `POST /api/me/logbook/lotw`：JSON `{username,password}`，使用 LoTW 网站登录密码；服务端仅向固定的 `https://lotw.arrl.org/lotwuser/lotwreport.adi` 发起 HTTPS 请求，不跟随重定向，30 秒超时，最多下载 5MB，检查 APP_LoTW_EOF，失败不写入。凭据不保存、不返回、不记录外部错误详情。每用户每进程一分钟一次，超频 429；上游失败/密码错误/截断返回 502，不触发本站 401 会话失效。下载在写事务外进行，保存前重新检查本站登录态与禁用状态。使用 qso_query=1、qso_qsl=no、qso_qsorxsince=1900-01-01、qso_withown=yes、qso_mydetail=yes、qso_qsldetail=yes，每次全量请求。接口依据 [ARRL 官方查询说明](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/)。
+
+两个导入接口返回 `{added,updated,duplicates,skipped,total,issues:[{record,message}]}`，issues 最多前 10 条。去重范围为当前账号，键为本站呼号、对方呼号、UTC 日期时间（HHMM 补秒 00）、波段、模式、子模式、传播方式及卫星名。不同秒、模式/子模式视为不同记录。重复记录补充非空元数据、保留已有确认状态，LoTW 来源优先。文件中的 LOTW_QSL_RCVD=Y 记为 LoTW 确认；普通 QSL_RCVD 不等同于 LoTW 确认，只有直接从 LoTW 下载时使用该字段。不进行第三方真实性认证，用户上传文件可自行标记确认。记录输出包含 id、callSign、stationCallSign、qsoAt、band、mode、submode、frequency（MHz）、rstSent、rstReceived、name、country、grid、propagation、satellite、lotwConfirmed、source，不公开原始 ADIF 或账号密码。
+
+导入限制：ADIF 与 LoTW 均要求当前账号已在个人资料设置非空呼号；每条记录必须包含 STATION_CALLSIGN，并与该呼号去除首尾空白、忽略大小写后完全一致（不去除 /P 等后缀）。不使用 CALL（对方呼号）、OPERATOR 或请求体中的呼号替代本站呼号。缺失或任意一条不匹配均返回 400 VALIDATION、整批不写入，包括原本会因其它字段错误被跳过的记录。未设置呼号时 fields.callSign 提示先设置；日志不匹配时 fields.adif 标出首条问题记录。LoTW 下载前检查已设置呼号，保存时按数据库中最新呼号重新校验；不影响既有日志的查看。

@@ -2325,3 +2325,22 @@
   .f-auth-page-reg .f-consent input[type="checkbox"] { appearance: auto; }
   .f-auth-page-reg .f-consent input[type="checkbox"]::after { display: none; }
 }
+.f-logbook-imports { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 24px; }
+.f-logbook-panel { padding: 24px; min-width: 0; }
+.f-logbook-panel h2 { margin-bottom: 14px; }
+.f-logbook-panel .field { display: block; margin: 16px 0; }
+.f-logbook-panel .hint { margin: 12px 0; }
+.f-logbook-panel .f-logbook-error { display: block; color: var(--danger); }
+.f-logbook-panel .f-logbook-error:empty { display: none; }
+.f-logbook-result { margin-bottom: 24px; overflow-wrap: anywhere; }
+.f-logbook-pages { margin-top: 20px; }
+.f-logbook .table { white-space: nowrap; }
+.f-logbook .table-wrap { margin-top: 20px; }
+.f-logbook small { font-size: 14px; font-weight: normal; }
+@media (max-width: 620px) {
+  .f-logbook-imports { grid-template-columns: 1fr; gap: 16px; }
+  .f-logbook-panel { padding: 18px; }
+  .f-logbook [data-search] { width: 100%; }
+  .f-logbook [data-search] label { flex: 1; min-width: 0; }
+  .f-logbook [data-search] input { width: 100%; }
+}
