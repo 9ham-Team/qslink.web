@@ -72,9 +72,9 @@ function createFileImport(parser = parseTq8) {
     const hasTq8 = !!ctx.body && Object.hasOwn(ctx.body, 'tq8');
     if (hasAdif === hasTq8) throw badRequest({ file: '请提交一种日志文件：ADI / ADIF 或 TQ8' });
     const parsed = hasAdif ? parseAdif(ctx.body.adif) : parser(ctx.body.tq8, callSign);
-    // Plain ADIF belongs to the selected account station; signed TQ8 retains
-    // its certificate-derived station and must still match the profile.
-    if (hasAdif) parsed.records = parsed.records.map(raw => ({ ...raw, STATION_CALLSIGN: callSign }));
+    // Only fill absent ADIF station fields. Present fields, including empty ones,
+    // must pass the whole-batch station check before any records are merged.
+    if (hasAdif) parsed.records = parsed.records.map(raw => Object.hasOwn(raw, 'STATION_CALLSIGN') ? raw : { ...raw, STATION_CALLSIGN: callSign });
     const result = importRecords(ctx.db, user, parsed, hasAdif ? 'adif' : 'tq8');
     await ctx.db.save();
     return { body: result };

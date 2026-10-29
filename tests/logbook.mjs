@@ -94,11 +94,22 @@ export async function testLogbook() {
     assert.equal(plainSaved.stationCallSign, 'B1AAA', 'ADIF without station uses the profile callsign');
     assert.equal(plainSaved.source, 'adif');
     assert.equal((await call('GET', '', other, null, 'q=JA8ADI')).body.total, 0);
-    assert.equal((await call('POST', '/import', member, { adif: record({ CALL: 'JA8ADI', STATION_CALLSIGN: 'B2BBB', OPERATOR: 'B9ZZZ' }) })).body.duplicates, 1, 'ADIF station and operator cannot override the profile');
+    assert.equal((await call('POST', '/import', member, { adif: record({ CALL: 'JA8ADI', STATION_CALLSIGN: ' b1aaa ', OPERATOR: 'B9ZZZ' }) })).body.duplicates, 1, 'matching station ignores case/whitespace and operator does not override it');
+    assert.equal((await call('POST', '/import', member, { adif: record({ CALL: 'JA8ADI', STATION_CALLSIGN: '', OPERATOR: 'B9ZZZ' }).replace('<STATION_CALLSIGN:0>', '') })).body.duplicates, 1, 'missing station falls back to profile, never OPERATOR');
+    const beforeStationErrors = await database.db.transaction(db => JSON.stringify(db.data.contactLogs));
+    for (const station of ['B2BBB', '', ' ', 'B1AAA/P']) {
+      const conflicting = record({ CALL: 'JA8ADI', STATION_CALLSIGN: station, OPERATOR: 'B1AAA' });
+      await assert.rejects(call('POST', '/import', member, { adif: conflicting, callSign: 'B1AAA' }), err => err.status === 400 && !!err.fields.adif, 'present station must match, even on duplicate records');
+      await assert.rejects(call('POST', '/import', member, { adif: record({ CALL: 'JA8NEW', NAME: 'must not save' }) + conflicting }), err => err.status === 400 && err.fields.adif.includes('第 2 条'), 'a conflicting record rejects the whole batch');
+      await assert.rejects(call('POST', '/import', member, { adif: record({ CALL: 'JA8ADI', NAME: 'must not update' }) + record({ CALL: '', STATION_CALLSIGN: station }) }), err => err.status === 400 && !!err.fields.adif, 'station checks include otherwise invalid QSOs');
+    }
+    assert.equal(await database.db.transaction(db => JSON.stringify(db.data.contactLogs)), beforeStationErrors, 'station errors neither add nor update any record');
+    const mixedStation = record({ CALL: 'JA8MIX1', STATION_CALLSIGN: '' }).replace('<STATION_CALLSIGN:0>', '') + record({ CALL: 'JA8MIX2', STATION_CALLSIGN: ' b1aaa ' });
+    assert.equal((await call('POST', '/import', member, { adif: mixedStation })).body.added, 2, 'absent and matching station fields can coexist');
     assert.equal((await call('POST', '/import', member, signedData(record({ CALL: 'JA8ADI' })))).body.updated, 1, 'TQ8 support and cross-format dedup remain available');
     await call('POST', '/import', member, { adif: plainAdif });
     assert.equal((await call('GET', '', member, null, 'q=JA8ADI')).body.items[0].source, 'tq8', 'ADIF does not downgrade a signed source');
-    await call('POST', '/import', { ...member, callSign: ' b3ccc ' }, { adif: record({ CALL: 'JA8CHG' }) });
+    await call('POST', '/import', { ...member, callSign: ' b3ccc ' }, { adif: record({ CALL: 'JA8CHG', STATION_CALLSIGN: '' }).replace('<STATION_CALLSIGN:0>', '') });
     assert.equal((await call('GET', '', member, null, 'q=JA8CHG')).body.items[0].stationCallSign, 'B3CCC');
     const countBeforeInvalid = (await call('GET')).body.total;
     await assert.rejects(call('POST', '/import', member, { adif: record({ CALL: 'JA8BAD' }) + '<CALL:99>x' }), err => err.status === 400);

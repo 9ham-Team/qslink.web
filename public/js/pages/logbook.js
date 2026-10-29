@@ -12,7 +12,7 @@
     }
     container.innerHTML = '<section class="container section f-logbook">' +
       QSL.pageHeader({ eyebrow: 'MY LOGBOOK', title: '通联日志', desc: '把每一次电波相遇，收进自己的日志。日志仅本人可见，时间统一为 UTC。' }) +
-      '<p class="hint f-logbook-callsign-hint" id="f-logbook-callsign-hint">' + (hasCallSign ? '当前呼号：<strong>' + esc(QSL.state.user.callSign.trim().toUpperCase()) + '</strong>。ADI / ADIF 使用此呼号作为本站呼号；TQ8 证书呼号和 LoTW 本站呼号须与此一致。' : '请先<a href="/dashboard/profile" data-link>在个人资料中设置呼号</a>，才能导入通联日志。') + '</p>' +
+      '<p class="hint f-logbook-callsign-hint" id="f-logbook-callsign-hint">' + (hasCallSign ? '当前呼号：<strong>' + esc(QSL.state.user.callSign.trim().toUpperCase()) + '</strong>。ADI / ADIF 若含 STATION_CALLSIGN，须与此呼号一致；缺少该字段时使用此呼号。TQ8 证书呼号和 LoTW 本站呼号也须一致。' : '请先<a href="/dashboard/profile" data-link>在个人资料中设置呼号</a>，才能导入通联日志。') + '</p>' +
       '<div class="f-logbook-imports">' +
       '<form class="surface f-logbook-panel" data-file-import><h2>导入日志文件</h2><p class="muted">支持 .adi / .adif 文本及 TQSL 签名的 .tq8 文件，每次最多 5MB、10000 条。重复通联会自动合并。</p>' +
       '<label class="field"><span class="label">选择文件</span><input class="input" name="file" type="file" accept=".adi,.adif,.tq8" required><span class="hint f-logbook-error" data-field-error="file"></span></label>' +
