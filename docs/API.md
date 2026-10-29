@@ -122,6 +122,8 @@ Dockerfile 使用构建参数 `QSL_BUILD_REVISION` / `QSL_BUILD_CREATED` 同时�
 ```
 地址可见性规则：申请 `pending` / `rejected` / `cancelled` 时双方地址均不返回（`null`）；`approved` / `completed` 后，参与双方都能看到 `fromAddress` 与 `toAddress`（admin 全部可见）。
 
+换卡通联附件：创建申请可传 `contactLogIds: string[]`（选填，默认空，最多 100 条、不重复）。服务端仅校验记录存在且属于申请人，按提交顺序保存标准化字段快照；不按任何一方呼号、日期、波段、模式自动筛选或判断，不接受客户端直接提交快照代替 ID。任一记录无权访问或不存在时整批返回 400（fields.contactLogIds），不创建申请。`ExchangeItem.selectedContactLogs` 仅对参与双方返回所选记录快照（id 及标准化通联详情，旧申请/未选为 []），旁观管理员省略；第三方仍无权查看申请。后续个人资料变化或日志更新/删除不改变快照，不展示未勾选记录，不修改寄送地址权限。邮件只提示申请人附上的记录数量及自行核对，不发送通联明细。取消旧 hasContactLog 自动匹配字段。
+
 ### 错误格式
 ```json
 { "error": { "message": "用户名已被占用", "code": "USERNAME_TAKEN", "fields": { "username": "..." } } }
@@ -252,7 +254,7 @@ owner 或 admin。级联删除其点赞与换卡申请。→ `{ ok: true }`
 
 ## 5. 换卡申请
 ### POST /api/cards/:cardId/exchanges  🔒
-body: `{ message?, contactName, address: Address }`
+body: `{ message?, contactName, address: Address, contactLogIds?: string[] }`
 - 不能申请自己的卡片；卡片须 approved 且 owner 未被禁用。
 - 同一用户对同一卡片存在 `pending`/`approved` 的活动申请时 → 409 `CONFLICT`（message："你已申请过这张卡片，请等待对方处理"）。
 - 201 → `{ exchange: ExchangeItem }`（允许被拒绝/取消后重新申请）
@@ -357,4 +359,4 @@ TQ8 签名：支持 LOTW V1.0 / V2.0。按官方配置及 TrustedQSL 生成顺�
 
 TQ8 日期时间兼容：QSO_DATE 为 YYYY-MM-DD，QSO_TIME 接受 HH:MM:SS 及带 UTC 标记的 HH:MM:SSZ。按文件原文重建并验证签名，不在校验前删除 Z；验签通过后才去除冒号和末尾 Z，转为内部 UTC 时间。真实日期及时间范围仍由通联校验检查。
 
-卡片详情匹配日志：`GET /api/me/logbook?callSign=JA1ABC&page=1` 使用当前账号私有日志，callSign 参数按去首尾空白、忽略大小写精确匹配对方呼号，不匹配前缀、包含关系或省略 /P 后缀；传空 callSign 返回空集。可与原 q 包含筛选同时使用，分页仍为 25 条，按 UTC 通联时间及 ID 倒序。接口不依据请求体或查询参数切换账号，不向公共卡片接口添加日志字段。
+日志手动筛选：`GET /api/me/logbook?callSign=JA1ABC&page=1` 使用当前账号私有日志，callSign 参数按去首尾空白、忽略大小写精确匹配对方呼号，不匹配前缀、包含关系或省略 /P 后缀；传空 callSign 返回空集。可与原 q 包含筛选同时使用，分页仍为 25 条，按 UTC 通联时间及 ID 倒序。接口不依据请求体或查询参数切换账号，不向公共卡片接口添加日志字段。

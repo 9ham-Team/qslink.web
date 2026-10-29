@@ -81,6 +81,7 @@
       '<time class="f-req-time" datetime="' + esc(ex.createdAt || '') + '">' + esc(timeAgo(ex.createdAt)) + '</time>' +
       '</div>' +
       (ex.message ? '<p class="f-req-msg">' + ico('send', 14) + '<span>' + esc(ex.message) + '</span></p>' : '') +
+      QSL.exchangeRequest.recordsHtml(ex) +
       '<div class="f-req-foot">' +
       '<span class="f-req-tags">' +
       '<span class="f-req-note">' + ico('clock', 13) + ' 待处理</span></span>' +
@@ -210,6 +211,12 @@
     const pendingEl = container.querySelector('#fDashPending');
     const recentEl = container.querySelector('#fDashRecent');
     let alive = true;
+    const offViewer = QSL.on('auth', function () {
+      if (QSL.state.user?.id === user.id) return;
+      alive = false;
+      container.textContent = '';
+      QSL.navigate('/dashboard', { replace: true });
+    });
     let loading = false;
 
     function paintStats(stats) {
@@ -407,7 +414,7 @@
     }
 
     load();
-    return function cleanup() { alive = false; };
+    return function cleanup() { alive = false; offViewer(); };
   }
 
   QSL.registerPage('dashboard', { title: '个人中心', render: render });

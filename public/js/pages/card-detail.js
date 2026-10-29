@@ -196,7 +196,6 @@
       metaItem('卡片比例', esc(QSL.ratioLabel(card.ratio))) +
       metaItem('换卡次数', esc(String(card.exchangeCount || 0)) + ' 次') +
       metaItem('发布时间', esc(QSL.formatDate(card.createdAt))) +
-      '<div class="g-detail__meta-item g-detail__meta-item--logbook"><dt>通联纪录</dt><dd data-card-logbook>无</dd></div>' +
       '</dl>' +
       '<div class="g-detail__actions">' + applyHtml +
       '<button class="btn btn-ghost g-like-btn' + (card.liked ? ' is-liked' : '') + '" type="button" data-like ' +
@@ -341,7 +340,6 @@
 
       function load() {
         if (state.cancelled) return;
-        if (state.logbookCleanup) { state.logbookCleanup(); state.logbookCleanup = null; }
         if (state.viewer) {
           try { state.viewer.destroy(); } catch (err) { /* 忽略 */ }
           state.viewer = null;
@@ -368,7 +366,6 @@
           if (infoPanel) {
             renderInfo(infoPanel, card, owner);
             bindActions(container, card, state);
-            state.logbookCleanup = QSL.cardLogbook.bind(infoPanel.querySelector('[data-card-logbook]'), card, owner);
           }
           renderReco(container, card, cardsApi);
           try { document.title = (card.title || '卡片详情') + ' · QSLink'; } catch (err) { /* 忽略 */ }
@@ -388,7 +385,6 @@
 
       return function cleanup() {
         state.cancelled = true;
-        if (state.logbookCleanup) state.logbookCleanup();
         if (state.shareCleanup) state.shareCleanup();
         if (state.viewer) {
           try { state.viewer.destroy(); } catch (err) { /* 忽略 */ }

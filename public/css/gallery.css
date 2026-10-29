@@ -2028,19 +2028,6 @@
   .g-space__actions { width: 100%; }
   .g-space__actions [data-space-share] { width: 100%; }
 }
-.g-detail__meta-item--logbook { grid-column: 1 / -1; }
-.g-card-logbook { font-weight: 400; }
-.g-card-logbook summary { display: block; list-style: none; cursor: pointer; overflow-wrap: anywhere; }
-.g-card-logbook summary::-webkit-details-marker { display: none; }
-.g-card-logbook__latest { display: block; font-size: 13px; line-height: 1.7; }
-.g-card-logbook__expand, .g-card-logbook__collapse { display: block; color: var(--brand-deep); font-size: 12px; margin-top: 5px; }
-.g-card-logbook__collapse, .g-card-logbook[open] .g-card-logbook__expand { display: none; }
-.g-card-logbook[open] .g-card-logbook__collapse { display: block; }
-.g-card-logbook__records { margin: 12px 0; padding: 0; list-style: none; max-height: 320px; overflow: auto; }
-.g-card-logbook__record { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 12px; overflow-wrap: anywhere; }
-.g-card-logbook__record b { font-size: 12px; font-weight: 600; }
-.g-card-logbook__record small, .g-card-logbook__notice { color: var(--muted); line-height: 1.8; }
-.g-card-logbook__notice { margin-top: 12px; overflow-wrap: anywhere; }
 @media (max-width: 620px) {
   .g-detail__viewer-deco { right: 0; }
 }
