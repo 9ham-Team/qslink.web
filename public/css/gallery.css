@@ -2028,3 +2028,6 @@
   .g-space__actions { width: 100%; }
   .g-space__actions [data-space-share] { width: 100%; }
 }
+@media (max-width: 620px) {
+  .g-detail__viewer-deco { right: 0; }
+}

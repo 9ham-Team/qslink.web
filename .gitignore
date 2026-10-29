@@ -20,3 +20,6 @@ artifacts/
 .DS_Store
 Thumbs.db
 desktop.ini
+/data-promo
+/docs/promo
+/promo

@@ -30,6 +30,8 @@ import { withLegalConsent } from './helpers/legal.mjs';
 import { testShortTokens } from './short-tokens.mjs';
 import { testExchangeCardChoice } from './exchange-card-choice.mjs';
 import { testAnnouncements } from './announcements.mjs';
+import { testLogbook } from './logbook.mjs';
+import { testExchangeContactLog } from './exchange-contact-log.mjs';
 
 // ---------------------------------------------------------------------------
 // Configuration / globals
@@ -2116,6 +2118,8 @@ async function main() {
     await test('short tokens: collision, concurrency, migration and legacy protection', testShortTokens);
     await test('exchange card choice: permissions, selection and confirmation', testExchangeCardChoice);
     await test('announcements: permissions, validation, publishing, pagination and persistence', testAnnouncements);
+    await test('logbook: TQ8 signatures, LoTW download, privacy, deduplication and persistence', testLogbook);
+    await test('exchange contact logs: manual selection, snapshots and privacy', testExchangeContactLog);
     await runPhases();
   } finally {
     await stopServer();

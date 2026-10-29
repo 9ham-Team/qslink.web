@@ -122,6 +122,8 @@ Dockerfile 使用构建参数 `QSL_BUILD_REVISION` / `QSL_BUILD_CREATED` 同时�
 ```
 地址可见性规则：申请 `pending` / `rejected` / `cancelled` 时双方地址均不返回（`null`）；`approved` / `completed` 后，参与双方都能看到 `fromAddress` 与 `toAddress`（admin 全部可见）。
 
+换卡通联附件：创建申请可传 `contactLogIds: string[]`（选填，默认空，最多 100 条、不重复）。服务端仅校验记录存在且属于申请人，按提交顺序保存标准化字段快照；不按任何一方呼号、日期、波段、模式自动筛选或判断，不接受客户端直接提交快照代替 ID。任一记录无权访问或不存在时整批返回 400（fields.contactLogIds），不创建申请。`ExchangeItem.selectedContactLogs` 仅对参与双方返回所选记录快照（id 及标准化通联详情，旧申请/未选为 []），旁观管理员省略；第三方仍无权查看申请。后续个人资料变化或日志更新/删除不改变快照，不展示未勾选记录，不修改寄送地址权限。邮件只提示申请人附上的记录数量及自行核对，不发送通联明细。取消旧 hasContactLog 自动匹配字段。
+
 ### 错误格式
 ```json
 { "error": { "message": "用户名已被占用", "code": "USERNAME_TAKEN", "fields": { "username": "..." } } }
@@ -252,7 +254,7 @@ owner 或 admin。级联删除其点赞与换卡申请。→ `{ ok: true }`
 
 ## 5. 换卡申请
 ### POST /api/cards/:cardId/exchanges  🔒
-body: `{ message?, contactName, address: Address }`
+body: `{ message?, contactName, address: Address, contactLogIds?: string[] }`
 - 不能申请自己的卡片；卡片须 approved 且 owner 未被禁用。
 - 同一用户对同一卡片存在 `pending`/`approved` 的活动申请时 → 409 `CONFLICT`（message："你已申请过这张卡片，请等待对方处理"）。
 - 201 → `{ exchange: ExchangeItem }`（允许被拒绝/取消后重新申请）
@@ -342,3 +344,19 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 - `/uploads/*`：上传的卡片图片，长缓存头。
 - 其余 GET 非 `/api` 路径：优先返回 `public/` 下静态文件；未命中且带扩展名的 404；未命中且无扩展名的路径返回 `public/index.html`（SPA history 路由回退）。
 - `/share/:token`、`/card/:id`、`/dashboard/*`、`/admin` 均回退到 index.html，由前端路由处理。
+
+## 通联日志（登录后私有）
+
+- `GET /api/me/logbook?page=1&q=JA1`：仅当前用户，呼号包含搜索（不区分大小写），UTC 时间倒序，每页 25 条。返回 `{items,total,page,limit,pages,stats:{total,confirmed}}`；stats 为本人全部日志统计，confirmed 为记录标记的 LoTW 确认数。
+- `POST /api/me/logbook/import`：JSON 必须且只能提交一种：`{adif: "UTF-8 ADI / ADIF 文本"}` 或 `{tq8: "TQ8 二进制的标准 Base64"}`。支持未签名 `.adi/.adif` 和 TQSL 签名生成的 gzip `.tq8`，不支持 ADX XML；改扩展名的 ADI 文本不能通过 TQ8 校验。ADI / ADIF 最多 5MB，TQ8 压缩最多 5MB、解压最多 20MB；每次最多 10000 条通联，每账号最多 50000 条。格式解析使用 GABBI 声明的字节长度，支持带点号的签名字段和 `:6` 数据类型。TQ8 先完成整批校验，再写入；结构错误、未知签名版本、任一签名或记录无效均返回 400 且整批不写入。ADI / ADIF 沿用字段长度解析，结构错误整批拒绝；缺少 CALL、QSO_DATE、TIME_ON、BAND、MODE 或值无效的记录跳过，全部无效返回 400。大小超限返回 413。同时提交两种格式或均未提交时返回 400、fields.file。
+- `POST /api/me/logbook/lotw`：JSON `{username,password}`，使用 LoTW 网站登录密码；服务端仅向固定的 `https://lotw.arrl.org/lotwuser/lotwreport.adi` 发起 HTTPS 请求，不跟随重定向，30 秒超时，最多下载 5MB，检查 APP_LoTW_EOF，失败不写入。凭据不保存、不返回、不记录外部错误详情。每用户每进程一分钟一次，超频 429；上游失败/密码错误/截断返回 502，不触发本站 401 会话失效。下载在写事务外进行，保存前重新检查本站登录态与禁用状态。使用 qso_query=1、qso_qsl=no、qso_qsorxsince=1900-01-01、qso_withown=yes、qso_mydetail=yes、qso_qsldetail=yes，每次全量请求。接口依据 [ARRL 官方查询说明](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/)。
+
+两个导入接口返回 `{added,updated,duplicates,skipped,total,issues:[{record,message}]}`，issues 最多前 10 条。去重范围为当前账号，键为本站呼号、对方呼号、UTC 日期时间（HHMM 补秒 00）、波段、模式、子模式、传播方式及卫星名。不同秒、模式/子模式视为不同记录。重复记录补充非空元数据、保留已有确认状态，来源优先级为 LoTW > TQ8 > ADIF。TQ8 仅代表文件签名已校验，不代表 LoTW 已接受或确认通联；文件中的未签名 NAME、LOTW_QSL_RCVD 等额外字段不导入。ADI / ADIF 中 LOTW_QSL_RCVD=Y 可作为文件自报确认标记，普通 QSL_RCVD 不作 LoTW 确认；直接从 LoTW 下载时使用 QSL_RCVD。已有确认不会被后续导入撤销。ADIF 自报标记不代表本站验证了 LoTW 确认。记录输出包含 id、callSign、stationCallSign、qsoAt、band、mode、submode、frequency（MHz）、rstSent、rstReceived、name、country、grid、propagation、satellite、lotwConfirmed、source，不保存原始 TQ8、用户证书或账号密码；source 可为 adif / tq8 / lotw。
+
+导入限制：账号必须在个人资料设置非空呼号。ADI / ADIF 每条记录的本站呼号一律由服务端设置为当前登录账号的资料呼号（去除首尾空白并大写），逐条检查文件中的 STATION_CALLSIGN：字段存在时必须与账号呼号一致（忽略大小写及首尾空白，保留 /P 等后缀），空值也拒绝；字段缺失时由账号呼号补齐。任一记录的该字段不一致或为空时返回 400（fields.adif），整批不新增也不更新，即使该记录本身无效或重复也不跳过本站呼号校验。OPERATOR 及请求体中的呼号不会覆盖账号设置；对方 CALL 保持原语义，不改为本站呼号。TQ8 按 CERT_UID / STATION_UID 关联证书、台站和通联，从证书主题的 ARRL AROcallsign OID（1.3.6.1.4.1.12348.1.1）读取本站呼号，忽略大小写及首尾空白后必须与账号完全一致，不去除 /P 等后缀。文件不需要另外包含 STATION_CALLSIGN；不能通过 CALL、OPERATOR、请求体参数或台站文本冒充证书呼号。缺少账号呼号时 fields.callSign 提示先设置，其它 TQ8 校验错误使用 fields.tq8。LoTW 下载继续要求每条记录 STATION_CALLSIGN 与保存时账号最新呼号一致。
+
+TQ8 签名：支持 LOTW V1.0 / V2.0。按官方配置及 TrustedQSL 生成顺序重建台站和通联的规范化签名文本，必须同时匹配 SIGNDATA 并通过 RSA / SHA-1 签名验证；仅验证 SIGNDATA 本身而不核对记录内容是不足的。证书必须为 RSA 非 CA 呼号证书，当前处于有效期内，并链接到应用内固定的 ARRL Production CA / Root CA。公共 CA 来源、指纹与更新说明见 [server/certs/README.md](../server/certs/README.md)；不接受上传者提供的信任根。过期证书、未知或过期 CA 会拒绝导入，应使用有效证书重新签名或更新经核实的 CA。校验不联网查询证书吊销状态，不认证签名实际发生时间或核对证书自定义 QSO 授权日期范围；持有 TQ8 文件也不等于持有签名私钥，不能将导入当作实时身份认证。
+
+TQ8 日期时间兼容：QSO_DATE 为 YYYY-MM-DD，QSO_TIME 接受 HH:MM:SS 及带 UTC 标记的 HH:MM:SSZ。按文件原文重建并验证签名，不在校验前删除 Z；验签通过后才去除冒号和末尾 Z，转为内部 UTC 时间。真实日期及时间范围仍由通联校验检查。
+
+日志手动筛选：`GET /api/me/logbook?callSign=JA1ABC&page=1` 使用当前账号私有日志，callSign 参数按去首尾空白、忽略大小写精确匹配对方呼号，不匹配前缀、包含关系或省略 /P 后缀；传空 callSign 返回空集。可与原 q 包含筛选同时使用，分页仍为 25 条，按 UTC 通联时间及 ID 倒序。接口不依据请求体或查询参数切换账号，不向公共卡片接口添加日志字段。

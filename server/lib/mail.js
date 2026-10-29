@@ -116,12 +116,12 @@ function notificationMessage({ title, summary, instruction, buttonLabel, footer,
   };
 }
 
-function exchangeRequestMessage({ applicantName, callSign, cardTitle, url }) {
+function exchangeRequestMessage({ applicantName, callSign, cardTitle, url, contactLogCount }) {
   const applicant = applicantName + (callSign ? `（${callSign}）` : '');
   return notificationMessage({
     title: '收到新的换卡申请',
     summary: `${applicant} 希望与您交换卡片「${cardTitle}」。`,
-    instruction: '请登录 QSLink，在“收到的申请”中查看并处理。',
+    instruction: (contactLogCount > 0 ? `申请人附上了 ${contactLogCount} 条通联记录，请自行核对。` : '') + '请登录 QSLink，在“收到的申请”中查看并处理。',
     buttonLabel: '查看收到的申请',
     footer: '此邮件仅为申请提醒，不代表您已同意交换。寄送地址仅在双方同意后可见。',
     url,

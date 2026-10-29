@@ -7,6 +7,7 @@ const { validateExchangeCreate, validateRejectReason, isObj, parsePagination } =
 const auth = require('../auth');
 const { createId, paginate } = require('../db');
 const serialize = require('../serialize');
+const { snapshotSelectedLogs } = require('../exchange-contact-logs');
 
 function findExchange(ctx) {
   const exchange = ctx.db.find('exchanges', (item) => item.id === ctx.params.id);
@@ -70,6 +71,7 @@ async function create(ctx) {
   }
 
   const now = new Date().toISOString();
+  const selectedContactLogs = snapshotSelectedLogs(ctx.db, user.id, payload.contactLogIds);
   const exchange = {
     id: createId('e'),
     cardId: card.id,
@@ -80,6 +82,7 @@ async function create(ctx) {
     rejectReason: null,
     contactName: payload.contactName,
     fromAddress: payload.address,
+    selectedContactLogs,
     createdAt: now,
     updatedAt: now,
     decidedAt: null,
@@ -96,6 +99,7 @@ async function create(ctx) {
       applicantName: user.displayName || user.username,
       callSign: user.callSign || '',
       cardTitle: card.title || '未命名卡片',
+      contactLogCount: selectedContactLogs.length,
     }, '/dashboard/exchanges?box=incoming&status=pending'),
   };
 }

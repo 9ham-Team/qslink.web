@@ -41,6 +41,7 @@ const ROUTES = [
   { method: 'GET', pattern: '/api/config', handler: publicConfig },
   ...authApi.routes,
   ...meApi.routes,
+  ...require('./lib/api/logbook').routes,
   ...cardsApi.routes,
   ...require('./lib/api/spaces').routes,
   ...exchangesApi.routes,

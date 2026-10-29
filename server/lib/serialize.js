@@ -253,6 +253,7 @@ function exchangeItem(db, exchange, viewer) {
     updatedAt: exchange.updatedAt || exchange.createdAt,
     decidedAt: exchange.decidedAt || null,
     direction,
+    ...(['incoming', 'outgoing'].includes(direction) ? { selectedContactLogs: exchange.selectedContactLogs || [] } : {}),
     card: exchangeCardBrief(db, card),
     preferredCardId: exchange.preferredCardId || null,
     preferredCardTitle: exchange.preferredCardTitle || null,

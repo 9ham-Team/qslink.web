@@ -1,7 +1,7 @@
 /* ============================================================
  * QSLink · 换卡申请中心（flows-ui）
  * 路由：/dashboard/exchanges
- * 跨模块接口：window.QSL.exchangeRequest = { open(card) }（卡片详情/分享页调用）
+ * 跨模块接口：window.QSL.exchangeRequest = { open(card), recordsHtml(exchange) }
  * 依赖：core.js / api.js / ui.js
  * ============================================================ */
 (function () {
@@ -28,6 +28,26 @@
   function personLabel(user) {
     if (!user) return '未知用户';
     return displayName(user) + (user.callSign ? '（' + user.callSign + '）' : '');
+  }
+
+  function contactRecordHtml(row) {
+    const fields = [
+      ['UTC', String(row.qsoAt || '').replace('T', ' ').replace(/\.000Z$/, ' UTC')],
+      ['本站', row.stationCallSign], ['对方', row.callSign], ['波段', row.band], ['模式', row.mode],
+      ['子模式', row.submode], ['频率 MHz', row.frequency], ['发送信号', row.rstSent], ['接收信号', row.rstReceived],
+      ['姓名', row.name], ['国家', row.country], ['网格', row.grid], ['传播', row.propagation], ['卫星', row.satellite], ['来源', row.source]
+    ];
+    return '<span class="f-ex-log-record">' + fields.filter(pair => pair[1]).map(pair =>
+      '<span><b>' + esc(pair[0]) + '</b> ' + esc(pair[1]) + '</span>').join('') +
+      '<span>LoTW 确认：' + (row.lotwConfirmed ? '是' : '否') + '</span></span>';
+  }
+
+  function submittedLogsHtml(ex) {
+    const rows = ex.selectedContactLogs || [];
+    if (!rows.length) return '';
+    return '<details class="f-ex-submitted-logs"><summary>' + ico('clock', 15) +
+      (ex.direction === 'incoming' ? '申请人附上的通联记录' : '本次申请附上的通联记录') + '（' + rows.length + ' 条）</summary>' +
+      '<p class="muted">由申请人自主选择，请自行核对。</p><ol>' + rows.map(row => '<li>' + contactRecordHtml(row) + '</li>').join('') + '</ol></details>';
   }
 
   function formatAddress(address) {
@@ -139,14 +159,28 @@
       '<textarea class="textarea" name="message" rows="3" maxlength="500" placeholder="例如：希望交换卡片，73！"></textarea>' +
       '<span class="f-error" data-error="message" role="alert" hidden></span>' +
       '</label>' +
+      '<section class="f-xreq-logs" aria-label="选择通联记录">' +
+      '<div class="f-xreq-section-head"><b>' + ico('clock', 16) + ' 附上通联记录</b><span class="f-label-hint">选填 · 最多 100 条</span></div>' +
+      '<p class="muted">请自行选择要分享给对方的记录。所选记录的全部下列信息将随申请发送，双方自行核对。</p>' +
+      '<div class="f-xreq-log-search"><input class="input" data-log-search aria-label="搜索自己的通联日志" placeholder="输入对方呼号搜索自己的日志" maxlength="32">' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-log-search-btn>搜索</button></div>' +
+      '<p data-log-status role="status"></p><div class="f-xreq-log-options" data-log-options></div>' +
+      '<div class="f-xreq-log-nav"><button type="button" class="btn btn-ghost btn-sm" data-log-prev>上一页</button><span data-log-page></span><button type="button" class="btn btn-ghost btn-sm" data-log-next>下一页</button></div>' +
+      '<details class="f-ex-submitted-logs"><summary data-log-selected-count>已选择 0 条</summary><div data-log-selected></div></details>' +
+      '</section>' +
       '</form>' +
       '</div>';
 
     let busy = false;
+    let closed = false, logJob = 0, logPage = 1, logPages = 1, logRows = [], logQuery = '';
+    const selectedLogs = new Map();
+    const logEvents = new AbortController();
+    let offAuth = function () {}, offRoute = function () {};
     const modal = QSL.modal({
       title: '申请换卡',
       size: 'lg',
       content: content,
+      onClose: function () { closed = true; logJob++; logEvents.abort(); offAuth(); offRoute(); selectedLogs.clear(); },
       actions: [
         { label: '取消', type: 'ghost' },
         {
@@ -161,6 +195,69 @@
     const messageEl = formEl.querySelector('[name="message"]');
     const counterEl = body.querySelector('[data-msg-counter]');
     const submitBtn = modal.el ? modal.el.querySelector('.modal-actions .btn-primary') : null;
+    offAuth = QSL.on('auth', function () { if (QSL.state.user?.id !== currentUser.id) modal.close(); });
+    offRoute = QSL.on('route', function () { modal.close(); });
+
+    function logAlive() { return !closed && modal.el.isConnected && QSL.state.user?.id === currentUser.id; }
+    function logOption(row) {
+      return '<label class="f-xreq-log-option"><input type="checkbox" data-select-log="' + esc(row.id) + '"' +
+        (selectedLogs.has(row.id) ? ' checked' : '') + (busy ? ' disabled' : '') + '>' + contactRecordHtml(row) + '</label>';
+    }
+    function paintLogs() {
+      const focused = document.activeElement;
+      const focusedId = focused && focused.dataset.selectLog;
+      const focusedArea = focused && focused.closest('[data-log-selected]') ? '[data-log-selected]' : '[data-log-options]';
+      const scrollTop = body.querySelector('[data-log-options]').scrollTop;
+      body.querySelector('[data-log-options]').innerHTML = logRows.map(logOption).join('');
+      body.querySelector('[data-log-selected]').innerHTML = Array.from(selectedLogs.values()).map(logOption).join('');
+      body.querySelector('[data-log-selected-count]').textContent = '已选择 ' + selectedLogs.size + ' 条';
+      body.querySelector('[data-log-page]').textContent = logPage + ' / ' + logPages;
+      body.querySelector('[data-log-prev]').disabled = logPage <= 1;
+      body.querySelector('[data-log-next]').disabled = logPage >= logPages;
+      body.querySelector('[data-log-options]').scrollTop = scrollTop;
+      if (focusedId) {
+        const replacement = Array.from(body.querySelectorAll(focusedArea + ' [data-select-log]')).find(input => input.dataset.selectLog === focusedId);
+        (replacement || body.querySelector('[data-log-selected-count]')).focus({ preventScroll: true });
+      }
+    }
+    async function loadLogs(page) {
+      const job = ++logJob;
+      body.querySelector('[data-log-status]').textContent = '正在加载自己的通联日志…';
+      body.querySelector('[data-log-options]').setAttribute('aria-busy', 'true');
+      try {
+        const data = await QSL.api.get('/api/me/logbook?' + new URLSearchParams({ q: logQuery, page }));
+        if (!logAlive() || job !== logJob) return;
+        logRows = data.items; logPage = data.page; logPages = Math.max(1, data.pages);
+        paintLogs();
+        body.querySelector('[data-log-status]').textContent = data.total ? '共 ' + data.total + ' 条，默认不勾选任何记录。' : (logQuery ? '没有搜索结果，可修改呼号后搜索。' : '暂无通联日志，可以不附记录直接申请。');
+      } catch (err) {
+        if (!logAlive() || job !== logJob) return;
+        body.querySelector('[data-log-status]').textContent = '加载失败：' + (err.message || '请点击搜索重试');
+      } finally {
+        if (logAlive() && job === logJob) body.querySelector('[data-log-options]').removeAttribute('aria-busy');
+      }
+    }
+    body.addEventListener('change', function (event) {
+      const input = event.target.closest('[data-select-log]');
+      if (!input) return;
+      if (busy) { paintLogs(); return; }
+      const id = input.dataset.selectLog;
+      if (!input.checked) selectedLogs.delete(id);
+      else if (selectedLogs.size >= 100) QSL.toast('每次最多附上 100 条通联记录', 'info');
+      else {
+        const row = logRows.find(item => item.id === id);
+        if (row) selectedLogs.set(id, row);
+      }
+      paintLogs();
+    }, { signal: logEvents.signal });
+    function searchLogs() { logQuery = body.querySelector('[data-log-search]').value.trim(); loadLogs(1); }
+    body.querySelector('[data-log-search-btn]').addEventListener('click', searchLogs, { signal: logEvents.signal });
+    body.querySelector('[data-log-search]').addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); searchLogs(); }
+    }, { signal: logEvents.signal });
+    body.querySelector('[data-log-prev]').addEventListener('click', function () { loadLogs(Math.max(1, logPage - 1)); }, { signal: logEvents.signal });
+    body.querySelector('[data-log-next]').addEventListener('click', function () { loadLogs(logPage + 1); }, { signal: logEvents.signal });
+    loadLogs(1);
 
     if (messageEl && counterEl) {
       messageEl.addEventListener('input', () => {
@@ -273,7 +370,7 @@
         const targetKey = short === 'contactName' ? 'name' : short;
         const message = fields[key];
         if (!showFieldError(targetKey, message)) {
-          if (targetKey === 'address') setAlert(message);
+          if (targetKey === 'address' || targetKey === 'contactLogIds') setAlert(message);
         }
       });
     }
@@ -288,11 +385,12 @@
     }
 
     async function submitRequest(instance) {
-      if (busy) return false;
+      if (busy || !logAlive()) return false;
       clearErrors();
       const values = collect();
       if (!validate(values)) return false;
       busy = true;
+      paintLogs();
       QSL.setBusy(submitBtn, true, '发送中…');
       const address = {
         name: values.name,
@@ -307,8 +405,10 @@
         await QSL.api.exchanges.create(target.id, {
           message: values.message,
           contactName: values.name,
-          address: address
+          address: address,
+          contactLogIds: Array.from(selectedLogs.keys())
         });
+        if (!logAlive()) return false;
         instance.close();
         saveAddressSilently(address);
         if (QSL.fx && typeof QSL.fx.confetti === 'function') {
@@ -317,8 +417,9 @@
         QSL.toast('换卡申请已发送，等待对方处理', 'success');
         QSL.navigate('/dashboard/exchanges?box=outgoing');
       } catch (err) {
-        if (instance.el && !instance.el.isConnected) return false;
+        if (!logAlive()) return false;
         busy = false;
+        paintLogs();
         QSL.setBusy(submitBtn, false);
         if (err && err.status === 401) {
           instance.close();
@@ -356,6 +457,13 @@
     const initialBox = query.get('box') === 'outgoing' ? 'outgoing' : 'incoming';
     const initialStatus = STATUS_FILTERS.some((s) => s.key === query.get('status')) ? query.get('status') : 'all';
     const state = { items: [], counts: {}, box: initialBox, status: initialStatus, alive: true, loading: false };
+    const viewerId = QSL.state.user.id;
+    const offViewer = QSL.on('auth', function () {
+      if (QSL.state.user?.id === viewerId) return;
+      state.alive = false;
+      container.textContent = '';
+      QSL.navigate('/dashboard/exchanges', { replace: true });
+    });
     let listEl = null;
     let approvalModal = null, approvalCheck = null;
 
@@ -559,6 +667,7 @@
         '</div>' +
         '<div class="f-ex-direction">' + ico(incoming ? 'inbox' : 'send', 14) + '<span>' + dirText + '</span>' +
         (ex.decidedAt ? '<span class="f-ex-decided">处理于 ' + esc(timeAgo(ex.decidedAt)) + '</span>' : '') + '</div>' +
+        submittedLogsHtml(ex) +
         (ex.message ? '<p class="f-ex-message">' + ico('mail', 14) + '<span>' + esc(ex.message) + '</span></p>' : '') +
         (ex.rejectReason && (status === 'rejected' || status === 'cancelled')
           ? '<p class="f-ex-reject">' + ico('alert', 14) + '<span>拒绝理由：' + esc(ex.rejectReason) + '</span></p>'
@@ -627,6 +736,7 @@
       const options = {
         title: '选择希望交换的卡片', size: 'lg',
         content: '<p class="modal-text">申请者：' + esc(personLabel(ex.fromUser)) + '。请选择希望收到的卡片，也可以保持“无所谓”。确认同意后，双方寄送地址将互相可见。</p>' +
+          submittedLogsHtml(ex) +
           '<p class="muted" data-choice-status role="status">正在加载申请者的卡片…</p><div class="f-ex-showcase" role="radiogroup" aria-label="希望收到的卡片"></div>' +
           '<p class="f-modal-error" data-choice-error hidden></p><button type="button" class="btn btn-ghost btn-sm" data-choice-reload>重新加载卡片</button>',
         onClose: function () {
@@ -912,6 +1022,7 @@
     load();
     return function cleanup() {
       state.alive = false;
+      offViewer();
       if (approvalCheck) approvalCheck.close();
       if (approvalModal) approvalModal.close();
       clearTimeout(switchTimer);
@@ -923,6 +1034,7 @@
 
   /* 跨模块接口：卡片详情/分享页调用 */
   QSL.exchangeRequest = {
+    recordsHtml: submittedLogsHtml,
     open(card) {
       try {
         openExchangeRequest(card);

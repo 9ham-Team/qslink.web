@@ -70,6 +70,7 @@
     { path: '/dashboard/cards/new', page: 'card-editor', auth: true },
     { path: '/dashboard/cards/:id/edit', page: 'card-editor', auth: true },
     { path: '/dashboard/exchanges', page: 'exchanges', auth: true },
+    { path: '/dashboard/logbook', page: 'logbook', auth: true },
     { path: '/dashboard/profile', page: 'profile', auth: true },
     { path: '/admin', page: 'admin', auth: true, admin: true }
   ];

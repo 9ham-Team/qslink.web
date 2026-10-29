@@ -274,9 +274,15 @@ function validateExchangeCreate(input) {
   }
   const contactName = requiredText(body.contactName, 'contactName', LIMITS.contactName, '联系人姓名', fields);
   const address = validateAddress(body.address, fields, 'address');
+  const contactLogIds = hasOwn(body, 'contactLogIds') ? body.contactLogIds : [];
+  if (!Array.isArray(contactLogIds) || contactLogIds.length > 100 ||
+      contactLogIds.some(id => typeof id !== 'string' || !id || id.length > 100) ||
+      new Set(contactLogIds).size !== contactLogIds.length) {
+    fields.contactLogIds = '请选择最多 100 条不重复的本人通联记录';
+  }
 
   if (Object.keys(fields).length) throw badRequest(fields, '请检查换卡申请信息');
-  return { message, contactName, address };
+  return { message, contactName, address, contactLogIds };
 }
 
 function validateRejectReason(input) {
