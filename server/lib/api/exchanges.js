@@ -55,6 +55,7 @@ async function create(ctx) {
   if (card.status !== 'approved') {
     throw badRequest(null, '该卡片尚未通过审核，暂不可申请');
   }
+  if (card.stock === 0) throw conflict('OUT_OF_STOCK', '该卡片库存不足，暂不可申请');
   const owner = serialize.findUser(ctx.db, card.ownerId);
   if (!owner || owner.status === 'banned') {
     throw badRequest(null, '该卡片暂不可申请');
@@ -158,6 +159,15 @@ async function approve(ctx) {
   if (id !== null && !preferred) throw badRequest({ preferredCardId: '所选卡片已不可用，请重新选择' });
 
   const now = new Date().toISOString();
+  const card = ctx.db.find('cards', item => item.id === exchange.cardId);
+  if (!card) throw notFound('卡片不存在');
+  if (card.stock === 0) throw conflict('OUT_OF_STOCK', '该卡片库存不足，请补充库存后再同意');
+  // The existing database write transaction serializes approval and manual stock changes.
+  // A preferred card is a wish, not a second exchange or a stock reservation.
+  if (card.stock != null) {
+    card.stock--;
+    card.updatedAt = now;
+  }
   exchange.status = 'approved';
   exchange.preferredCardId = preferred ? preferred.id : null;
   exchange.preferredCardTitle = preferred ? preferred.title || '未命名卡片' : null;

@@ -157,6 +157,11 @@
       '<textarea id="fCardNotes" class="textarea" name="notes" maxlength="500" rows="4" placeholder="记录这张卡片背后的通联故事，例如：海拔 4500 米的通联纪念。"></textarea>' +
       '<p class="f-error" data-error="notes" role="alert" hidden></p>' +
       '</div>' +
+      '<div class="f-field f-span-2" data-field="stock">' +
+      '<label class="label" for="fCardStock">卡片库存<span class="f-optional">选填</span></label>' +
+      '<input id="fCardStock" class="input" name="stock" type="number" min="0" max="2147483647" step="1" placeholder="未设置"' + (isEdit ? ' disabled' : '') + '>' +
+      '<p class="hint">' + (isEdit ? '调整库存请前往<a href="/dashboard/cards">我的卡片</a>，无需重新审核。' : '留空不限制换卡；填 0 暂停换卡。同意一笔申请自动扣减 1 张。') + '</p>' +
+      '<p class="f-error" data-error="stock" role="alert" hidden></p></div>' +
       '</div>' +
       '</section>' +
 
@@ -211,6 +216,7 @@
     const titleInput = container.querySelector('#fCardTitle');
     const callSignInput = container.querySelector('#fCardCallSign');
     const notesInput = container.querySelector('#fCardNotes');
+    const stockInput = container.querySelector('#fCardStock');
     const ratioWInput = container.querySelector('#fRatioW');
     const ratioHInput = container.querySelector('#fRatioH');
     const ratioLabelEl = container.querySelector('[data-ratio-label]');
@@ -520,7 +526,7 @@
           mapped++;
           return;
         }
-        if (['title', 'callSign', 'notes', 'front', 'back'].indexOf(field) >= 0) {
+        if (['title', 'callSign', 'notes', 'stock', 'front', 'back'].indexOf(field) >= 0) {
           if (field === 'front' || field === 'back') {
             showFieldError('title', fields[key]);
           } else {
@@ -537,6 +543,7 @@
         title: titleInput.value.trim(),
         callSign: callSignInput.value.trim().toUpperCase(),
         notes: notesInput.value.trim(),
+        stock: stockInput.value.trim() === '' ? null : Number(stockInput.value),
         ratio: { w: state.ratio.w, h: state.ratio.h },
         frontImage: state.images.front ? state.images.front.src : '',
         backImage: state.images.back ? state.images.back.src : ''
@@ -546,6 +553,11 @@
     function validate(values) {
       clearErrors();
       const errors = [];
+      if (!isEdit && (stockInput.validity.badInput || (values.stock !== null &&
+          (!Number.isInteger(values.stock) || values.stock < 0 || values.stock > 2147483647)))) {
+        showFieldError('stock', '库存需为 0–2147483647 的整数，或留空');
+        errors.push('stock');
+      }
       if (!values.title) {
         showFieldError('title', '请填写卡片标题');
         errors.push('title');
@@ -617,6 +629,7 @@
           frontImage: values.frontImage
         };
         if (values.backImage) payload.backImage = values.backImage;
+        if (!isEdit) payload.stock = values.stock;
         let result;
         if (isEdit) result = await QSL.api.cards.update(cardId, payload);
         else result = await QSL.api.cards.create(payload);
@@ -644,7 +657,7 @@
 
     submitButtons.forEach((btn) => btn.addEventListener('click', onSubmit));
 
-    [titleInput, callSignInput, notesInput].forEach((input) => {
+    [titleInput, callSignInput, notesInput, stockInput].forEach((input) => {
       input.addEventListener('input', () => {
         if (input === callSignInput) {
           const pos = callSignInput.selectionStart;
@@ -663,6 +676,7 @@
       titleInput.value = card.title || '';
       callSignInput.value = card.callSign || '';
       notesInput.value = card.notes || '';
+      stockInput.value = card.stock == null ? '' : String(card.stock);
       updateCounter('title', 80);
       updateCounter('notes', 500);
       const ratio = card.ratio && card.ratio.w && card.ratio.h ? card.ratio : { w: 3, h: 2 };

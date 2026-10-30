@@ -838,7 +838,7 @@ test('JSON import supports dry-run, preserves source, refuses overwrite, and rol
   assert.match(imported.cards[0].shortToken, /^[A-Za-z]{6}$/);
   assert.notEqual(imported.cards[0].shortToken, source.cards[0].shareToken);
   delete imported.cards[0].shortToken;
-  assert.deepEqual(imported, source);
+  assert.deepEqual(imported, { ...source, cards: source.cards.map(card => ({ ...card, stock: null })) });
   assert.notEqual((await runImport(targetDir)).code, 0);
   assert.deepEqual(JSON.parse(await fs.readFile(file, 'utf8')), source);
   source.likes.push({ id: 'l_orphan', userId: 'missing', cardId: 'missing', createdAt: new Date().toISOString() });

@@ -86,6 +86,7 @@ Dockerfile 使用构建参数 `QSL_BUILD_REVISION` / `QSL_BUILD_CREATED` 同时�
   "band": "",
   "mode": "",
   "notes": "海拔 4500 米的通联纪念。",
+  "stock": null,
   "ratio": { "w": 3, "h": 2 },
   "frontImage": "/uploads/xxx.webp",
   "backImage": "/uploads/xxx.webp",
@@ -227,7 +228,8 @@ body: `{ currentPassword, newPassword }` → `{ ok: true }`；错误 400 `VALIDA
 ### POST /api/cards  🔒
 
 另须提交 `acceptTerms: true`、`termsVersion: "2026-10-25"`、`acceptContentLicense: true`，确认本次卡片内容授权。服务器保存版本、时间及确认账号；缺失或不匹配返回 `400 VALIDATION`（`legalConsent`），且不写入图片。
-body: `{ title, callSign?, band?, mode?, notes?, ratio: {w,h}, frontImage, backImage? }`
+body: `{ title, callSign?, band?, mode?, notes?, stock?, ratio: {w,h}, frontImage, backImage? }`
+- `stock` 为公开的剩余库存：0–2147483647 的 JSON 整数或 null，省略创建时默认 null（未设置，不限制换卡）。字符串、负数、小数等返回 400 `VALIDATION`，错误字段为 `stock`。`CardPublic` / `CardDetail` 均返回此字段。库存 0 的卡片仍公开展示、可点赞和分享，但详情 `canApply: false`。
 - `callSign` 选填，去除首尾空白、≤20 个字符；服务端不强制格式或大写。
 - `band` / `mode` 为兼容字段，v3 起可省略或传空字符串；仍接受、保存并返回 ≤20 个字符的值，但前端不再填写或展示为筛选项。
 - 正面图片必需；背面可省略或为空，返回空字符串，由前端显示占位背面。
@@ -244,6 +246,9 @@ owner 或 admin。body 同上（字段可选）。普通 owner 修改后 `status
 
 管理员将非 approved 卡片更新为 approved 时，事务提交后向卡片主人注册邮箱发送“卡片审核已通过”邮件；`PUT /api/admin/cards/:id` 同样适用。邮件含标题和 `${QSL_PUBLIC_ORIGIN}/card/:id`，不含备注、地址或拒绝原因。复用现有 Direct Mail 配置，未配置邮件/站点地址、主人缺少邮箱或被禁用时跳过；发送不占用写事务，失败不影响审核结果，当前无持久化重试。重复设置 approved、编辑已 approved 卡片、拒绝、未授权请求及事务回滚不发送；重新送审后再次通过可以再次发送。
 → `{ card: CardPublic }`
+### PUT /api/cards/:id/stock 🔒 (仅卡片 owner)
+body：`{ stock: number | null }`，必传；校验同创建。独立设置新的剩余库存（绝对值），无需再次确认内容授权，不改变审核状态、拒绝原因及内容授权记录，不触发审核通知。返回 `{ card: CardPublic }`（含 shareToken、rejectReason）。管理员不能通过此接口修改他人库存；原有卡片编辑接口仍按 owner/admin 权限处理 stock，普通 owner 使用内容编辑接口依旧需要授权确认并重新审核。仅修改内容时应省略 stock，避免用过期库存覆盖自动扣减。
+
 ### DELETE /api/cards/:id  🔒
 owner 或 admin。级联删除其点赞与换卡申请。→ `{ ok: true }`
 ### POST /api/cards/:id/like  🔒
@@ -256,6 +261,7 @@ owner 或 admin。级联删除其点赞与换卡申请。→ `{ ok: true }`
 ### POST /api/cards/:cardId/exchanges  🔒
 body: `{ message?, contactName, address: Address, contactLogIds?: string[] }`
 - 不能申请自己的卡片；卡片须 approved 且 owner 未被禁用。
+- 库存为 0 时返回 409 `OUT_OF_STOCK`；申请 pending 时不预占或扣减库存。
 - 同一用户对同一卡片存在 `pending`/`approved` 的活动申请时 → 409 `CONFLICT`（message："你已申请过这张卡片，请等待对方处理"）。
 - 201 → `{ exchange: ExchangeItem }`（允许被拒绝/取消后重新申请）
 - 新申请事务提交后，使用现有阿里云 Direct Mail 服务向卡片主人的注册邮箱发送一次提醒；等待本次投递调用完成后返回 201，网络发送不占用数据库事务锁。邮件含申请人昵称/呼号、卡片标题及 `${QSL_PUBLIC_ORIGIN}/dashboard/exchanges?box=incoming&status=pending`，用户需登录后查看；不含联系姓名、寄送地址或申请留言。
@@ -271,6 +277,7 @@ query：`page`、`limit`。返回分页列表 `{ items: CardPublic[], total, pag
 - body：`{ preferredCardId?: string | null, confirmNoCards?: boolean }`。省略或 null 表示“无所谓”；指定卡片必须属于申请人、已审核公开且用户未被禁用，否则 400 `VALIDATION`（`fields.preferredCardId`）。
 - 申请人当前没有任何上传卡片时，须明确传 `confirmNoCards: true`，否则 409 `APPLICANT_HAS_NO_CARDS`，提示“该申请者没有上传卡片哦，请确认是否进行交换”。有上传但暂无公开卡片时可选择“无所谓”。
 - 仅 pending 可操作；每笔申请独立审批，同意后不改变同一卡片的其他申请。同一卡片可同时与多个不同用户处于 `approved` 状态，也允许其他用户继续提交申请。
+- 同意时若目标卡片库存已设置，原子扣减 1 张；库存为 0 返回 409 `OUT_OF_STOCK`，申请保持 pending。扣减、申请状态和手动库存调整使用同一数据库写事务锁，防止并发超卖或重复审批扣减。null 库存不扣减。完成、拒绝、撤回不再扣减；既有 approved/completed 申请不追溯扣减。“希望收到的卡片”只是偏好，不扣减申请人库存。
 - 同一用户对同一卡片仍只能有一笔 `pending`/`approved` 活动申请；各笔交换独立完成，地址仅对该笔交换的双方及管理员可见。
 - → `{ exchange: ExchangeItem }`（包含双方地址）
 - 成功将 `pending` 更新为 `approved` 并提交后，向申请人的注册邮箱发送“换卡申请已被同意”提醒，链接为 `${QSL_PUBLIC_ORIGIN}/dashboard/exchanges?box=outgoing&status=approved`，登录后查看寄送信息；邮件不含地址。

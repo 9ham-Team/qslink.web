@@ -194,6 +194,14 @@ function validateProfile(input) {
 
 /* ---------------- 卡片 ---------------- */
 
+function validateStock(value) {
+  if (value === null) return null;
+  if (!Number.isInteger(value) || value < 0 || value > 2147483647) {
+    throw badRequest({ stock: '库存需为 0–2147483647 的整数，或 null（未设置）' });
+  }
+  return value;
+}
+
 function validateCardImages(rawFront, rawBack, fields) {
   const front = typeof rawFront === 'string' ? rawFront.trim() : '';
   if (!front) fields.frontImage = '请上传卡片正面图片';
@@ -219,7 +227,7 @@ function validateCardCreate(input) {
   const images = validateCardImages(body.frontImage, body.backImage, fields);
 
   if (Object.keys(fields).length) throw badRequest(fields, '请检查卡片信息');
-  return { title, callSign, band, mode, notes, ratio, ...images };
+  return { title, callSign, band, mode, notes, ratio, stock: hasOwn(body, 'stock') ? validateStock(body.stock) : null, ...images };
 }
 
 /** PUT /api/cards/:id 与 PUT /api/admin/cards/:id（allowStatus 仅管理员） */
@@ -227,6 +235,8 @@ function validateCardUpdate(input, { allowStatus = false } = {}) {
   const body = isObj(input) ? input : {};
   const fields = {};
   const patch = {};
+
+  if (hasOwn(body, 'stock')) patch.stock = validateStock(body.stock);
 
   if (hasOwn(body, 'title')) patch.title = requiredText(body.title, 'title', LIMITS.title, '卡片标题', fields);
   if (hasOwn(body, 'callSign')) patch.callSign = optionalText(body.callSign, 'callSign', LIMITS.callSign, '呼号', fields);
@@ -377,6 +387,7 @@ module.exports = {
   validateLogin,
   validateProfile,
   validateCardCreate,
+  validateStock,
   validateCardUpdate,
   validateExchangeCreate,
   validateRejectReason,

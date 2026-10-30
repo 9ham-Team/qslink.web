@@ -569,6 +569,7 @@
       '<div class="qsl-tile-meta">' +
       QSL.ownerLine(c.owner) +
       '</div>' +
+      '<p class="hint">' + (c.stock == null ? '库存未设置' : c.stock === 0 ? '暂无库存' : '剩余 ' + esc(c.stock) + ' 张') + '</p>' +
       (opts.footerHtml || '') +
       '</div>';
 

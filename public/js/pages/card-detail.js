@@ -160,7 +160,7 @@
         '<span>对方已同意你的换卡申请，去换卡申请页查看地址并寄出卡片吧。</span></div>';
     } else if (!canApply) {
       applyHtml = '<button class="btn btn-ghost btn-lg" type="button" disabled>' + ic('send', 17) +
-        '<span>暂不可申请</span></button>';
+        '<span>' + (card.stock === 0 ? '暂无库存' : '暂不可申请') + '</span></button>';
     } else {
       applyHtml = '<button class="btn btn-primary btn-lg" type="button" data-apply>' + ic('send', 17) +
         '<span>申请换卡</span></button>';
@@ -194,6 +194,7 @@
       notes +
       '<dl class="g-detail__meta">' +
       metaItem('卡片比例', esc(QSL.ratioLabel(card.ratio))) +
+      metaItem('剩余库存', card.stock == null ? '未设置' : esc(card.stock) + ' 张') +
       metaItem('换卡次数', esc(String(card.exchangeCount || 0)) + ' 次') +
       metaItem('发布时间', esc(QSL.formatDate(card.createdAt))) +
       '</dl>' +
