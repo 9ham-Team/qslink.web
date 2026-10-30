@@ -101,6 +101,8 @@
       alive: true
     };
     let viewer = null;
+    let editorCard = null;
+    let stockModal = null;
 
     const ratioChips = RATIO_PRESETS.map((preset) =>
       '<button class="f-ratio-chip" type="button" data-ratio="' + preset.w + 'x' + preset.h + '">' +
@@ -159,8 +161,10 @@
       '</div>' +
       '<div class="f-field f-span-2" data-field="stock">' +
       '<label class="label" for="fCardStock">卡片库存<span class="f-optional">选填</span></label>' +
-      '<input id="fCardStock" class="input" name="stock" type="number" min="0" max="2147483647" step="1" placeholder="未设置"' + (isEdit ? ' disabled' : '') + '>' +
-      '<p class="hint">' + (isEdit ? '调整库存请前往<a href="/dashboard/cards">我的卡片</a>，无需重新审核。' : '留空不限制换卡；填 0 暂停换卡。同意一笔申请自动扣减 1 张。') + '</p>' +
+      (isEdit
+        ? '<button id="fCardStock" class="input f-stock-trigger" type="button" aria-haspopup="dialog" aria-label="调整卡片库存" disabled>加载中…</button>'
+        : '<input id="fCardStock" class="input" name="stock" type="number" min="0" max="2147483647" step="1" placeholder="未设置">') +
+      '<p class="hint">' + (isEdit ? '点击库存框打开调整弹窗，单独保存，无需重新审核。' : '留空不限制换卡；填 0 暂停换卡。同意一笔申请自动扣减 1 张。') + '</p>' +
       '<p class="f-error" data-error="stock" role="alert" hidden></p></div>' +
       '</div>' +
       '</section>' +
@@ -225,6 +229,22 @@
     const unsavedEl = container.querySelector('[data-unsaved]');
     const stageEl = container.querySelector('#fPreviewStage');
     const submitButtons = Array.from(container.querySelectorAll('[data-submit]'));
+
+    function paintStock() {
+      stockInput.innerHTML = '<span>' + (editorCard.stock == null ? '未设置（不限制换卡）' : esc(editorCard.stock) + ' 张') + '</span>' + ico('edit', 16);
+    }
+
+    if (isEdit) stockInput.addEventListener('click', () => {
+      if (!editorCard || stockModal || state.submitting) return;
+      stockModal = QSL.openCardStock(editorCard, {
+        isActive: () => state.alive,
+        onSaved: paintStock,
+        onClose: () => {
+          stockModal = null;
+          if (state.alive) stockInput.focus();
+        }
+      });
+    });
 
     /* ---------------- 预览 ---------------- */
     function previewFront() { return state.images.front ? state.images.front.src : null; }
@@ -543,7 +563,7 @@
         title: titleInput.value.trim(),
         callSign: callSignInput.value.trim().toUpperCase(),
         notes: notesInput.value.trim(),
-        stock: stockInput.value.trim() === '' ? null : Number(stockInput.value),
+        stock: isEdit || stockInput.value.trim() === '' ? null : Number(stockInput.value),
         ratio: { w: state.ratio.w, h: state.ratio.h },
         frontImage: state.images.front ? state.images.front.src : '',
         backImage: state.images.back ? state.images.back.src : ''
@@ -580,6 +600,7 @@
 
     function setSubmitting(busy) {
       state.submitting = busy;
+      if (isEdit) stockInput.disabled = busy || !editorCard;
       submitButtons.forEach((btn) => QSL.setBusy(btn, busy, busy ? '提交中…' : ''));
     }
 
@@ -591,7 +612,7 @@
     }
 
     async function onSubmit() {
-      if (state.submitting) return;
+      if (state.submitting || stockModal) return;
       const consent = container.querySelector('[name="contentConsent"]');
       const consentError = container.querySelector('[data-consent-error]');
       consentError.hidden = consent.checked;
@@ -657,7 +678,7 @@
 
     submitButtons.forEach((btn) => btn.addEventListener('click', onSubmit));
 
-    [titleInput, callSignInput, notesInput, stockInput].forEach((input) => {
+    [titleInput, callSignInput, notesInput].concat(isEdit ? [] : [stockInput]).forEach((input) => {
       input.addEventListener('input', () => {
         if (input === callSignInput) {
           const pos = callSignInput.selectionStart;
@@ -676,7 +697,9 @@
       titleInput.value = card.title || '';
       callSignInput.value = card.callSign || '';
       notesInput.value = card.notes || '';
-      stockInput.value = card.stock == null ? '' : String(card.stock);
+      editorCard = card;
+      paintStock();
+      stockInput.disabled = false;
       updateCounter('title', 80);
       updateCounter('notes', 500);
       const ratio = card.ratio && card.ratio.w && card.ratio.h ? card.ratio : { w: 3, h: 2 };
@@ -778,6 +801,7 @@
 
     return function cleanup() {
       state.alive = false;
+      if (stockModal) stockModal.close();
       window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('dragover', preventWindowDrop);
       window.removeEventListener('drop', preventWindowDrop);

@@ -162,48 +162,11 @@
 
     function editStock(card) {
       if (stockModal) return;
-      let open = true;
-      let busy = false;
-      const modal = QSL.modal({
-        title: '调整卡片库存', size: 'sm',
-        content: '<p>' + esc(card.title) + '</p><label class="field"><span class="label">库存（张）</span>' +
-          '<input class="input" type="number" min="0" max="2147483647" step="1" placeholder="未设置" value="' + esc(card.stock == null ? '' : card.stock) + '" data-stock></label>' +
-          '<p class="hint">留空不限制换卡；填 0 暂停换卡。同意申请时自动扣减 1 张。此处保存为新的剩余库存，不影响审核状态。</p>' +
-          '<p class="f-error" role="alert" data-stock-error hidden></p>',
-        onClose: () => { open = false; stockModal = null; },
-        actions: [
-          { label: '取消', type: 'ghost' },
-          { label: '保存库存', type: 'primary', closeOnClick: false, onClick: async () => {
-            if (busy) return false;
-            const input = modal.body.querySelector('[data-stock]');
-            const error = modal.body.querySelector('[data-stock-error]');
-            const stock = input.value.trim() === '' ? null : Number(input.value);
-            error.hidden = true;
-            if (!input.checkValidity() || (stock !== null && !Number.isInteger(stock))) {
-              error.textContent = '请输入 0–2147483647 的整数，或留空'; error.hidden = false; return false;
-            }
-            busy = true;
-            modal.el.querySelectorAll('.modal-actions button, input').forEach(el => { el.disabled = true; });
-            try {
-              const result = await QSL.api.cards.updateStock(card.id, stock);
-              if (!alive || !open) return false;
-              Object.assign(card, result.card);
-              modal.close();
-              paint();
-              QSL.toast('库存已更新', 'success');
-            } catch (err) {
-              if (!alive || !open) return false;
-              error.textContent = (err.fields && err.fields.stock) || err.message || '保存失败，请重试';
-              error.hidden = false;
-            } finally {
-              busy = false;
-              if (alive && open) modal.el.querySelectorAll('.modal-actions button, input').forEach(el => { el.disabled = false; });
-            }
-            return false;
-          } }
-        ]
+      stockModal = QSL.openCardStock(card, {
+        isActive: () => alive,
+        onSaved: () => paint(),
+        onClose: () => { stockModal = null; }
       });
-      stockModal = modal;
     }
 
     function counts() {
