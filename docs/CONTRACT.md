@@ -258,4 +258,4 @@ viewer = { el, flip(), showFront(), showBack(), reset(), setImages(front, back),
 
 发送 `{ contactLogIds: [...] }`，服务端保存所选记录快照。“收到的申请”“我发出的申请”及同意确认弹窗使用原生 details 展示该申请所附的具体记录；个人中心收到的申请复用 `QSL.exchangeRequest.recordsHtml(exchange)` 展示同一内容。无附件不显示提示，不使用“系统判定有通联”的措辞。正文转义，样式限定 `.f-xreq-log*` / `.f-ex-log*` / `.f-ex-submitted-logs`。不自动审批，不改变地址权限。
 
-图片提交后由服务端统一转为 WebP，只保存转换结果，最长边上限 3840 像素且不放大小图。编辑器在图片说明中告知该行为；响应式图片继续按 CSS 布局宽度和 DPR 选择档位，最高候选宽度为 3840 像素。
+选择或拖入图片后，编辑器立即在本地转为长边最多 3840 像素的 WebP，不放大小图；上传区、3D 预览和降级预览，以及最终提交均使用转换结果，分辨率和文件大小仍显示原文件参数。`image-upload.js` 在页面脚本之前显式加载，按 PNG/JPEG/WebP 文件头读取尺寸（JPEG/WebP 的 EXIF 方向参与宽高计算），通过带 resize 参数的 createImageBitmap 解码及 Canvas 编码。支持 Worker / OffscreenCanvas 时使用本站独立 worker，正反面串行处理；不支持时在页面异步转换。转换期间显示处理中并禁用所有提交按钮，失败保留之前已就绪图片并允许重选；离页终止 worker、取消排队任务并忽略迟到响应，释放 bitmap/canvas。转换结果为 WebP 且不超过 8MB 才可使用，不回退上传原图。服务端继续统一转为 WebP，只保存转换结果且不设置输入像素数量上限，保留上传体积和处理并发限制。响应式图片按 CSS 布局宽度和 DPR 选择档位，最高候选宽度为 3840 像素。

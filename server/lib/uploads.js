@@ -93,11 +93,11 @@ async function saveImage(value, uploadsDir, field) {
 
   const converted = await withImageSlot(async () => {
     try {
-      return await sharp(buffer, { limitInputPixels: 40_000_000, sequentialRead: true })
+      return await sharp(buffer, { limitInputPixels: false, sequentialRead: true })
         .rotate().resize({ width: 3840, height: 3840, fit: 'inside', withoutEnlargement: true })
         .webp({ quality: 82, effort: 4 }).toBuffer();
     } catch {
-      throw badRequest({ [field]: '图片无法解码或尺寸过大，请重新上传' }, '图片无法处理');
+      throw badRequest({ [field]: '图片无法解码或转换失败，请重新上传' }, '图片无法处理');
     }
   });
   const filename = `${crypto.randomUUID()}.webp`;

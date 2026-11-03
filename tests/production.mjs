@@ -17,6 +17,7 @@ import { testExchangeCardChoice } from './exchange-card-choice.mjs';
 test('exchange card choice: privacy, validation, empty confirmation and persistence', testExchangeCardChoice);
 import './poster-palette.mjs';
 import './qr.mjs';
+import './image-upload.mjs';
 import { testShortTokens } from './short-tokens.mjs';
 import { testAnnouncements } from './announcements.mjs';
 import { testLogbook } from './logbook.mjs';
@@ -33,6 +34,7 @@ test('new uploads save only bounded WebP, preserve small images and reject inval
   const dir = await temp(t);
   const { saveImage } = require('../server/lib/uploads');
   const samples = [
+    { width: 9000, height: 5000, format: 'png', expected: [3840, 2133] },
     { width: 4800, height: 2400, format: 'png', expected: [3840, 1920] },
     { width: 2400, height: 4800, format: 'jpeg', expected: [1920, 3840] },
     { width: 32, height: 16, format: 'webp', expected: [32, 16] },

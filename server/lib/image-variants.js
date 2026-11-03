@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const { ApiError } = require('./errors');
 
-// Keep the derivative space finite. Never upscale originals or decode huge rasters.
+// Keep the derivative space finite and never upscale saved images.
 const WIDTHS = [160, 320, 480, 640, 960, 1280, 1600, 1920, 2560, 3840];
 const pending = new Map();
 let active = 0;
@@ -51,7 +51,7 @@ async function imageVariant(file, cacheDir, width) {
     await fs.mkdir(cacheDir, { recursive: true, mode: 0o700 });
     const temporary = output + '.' + crypto.randomUUID() + '.tmp';
     try {
-      await sharp(file, { limitInputPixels: 40_000_000, sequentialRead: true })
+      await sharp(file, { limitInputPixels: false, sequentialRead: true })
         .rotate().resize({ width, withoutEnlargement: true })
         .webp({ quality: 82, effort: 4 }).toFile(temporary);
       await fs.rename(temporary, output);
