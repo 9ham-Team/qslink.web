@@ -132,6 +132,7 @@
       get: (id) => request('GET', '/api/cards/' + encodeURIComponent(id)),
       create: (payload) => request('POST', '/api/cards', payload),
       update: (id, payload) => request('PUT', '/api/cards/' + encodeURIComponent(id), payload),
+      updateStock: (id, stock) => request('PUT', '/api/cards/' + encodeURIComponent(id) + '/stock', { stock }),
       remove: (id) => request('DELETE', '/api/cards/' + encodeURIComponent(id)),
       like: (id) => request('POST', '/api/cards/' + encodeURIComponent(id) + '/like', {}),
       mine: () => request('GET', '/api/me/cards'),

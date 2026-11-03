@@ -17,6 +17,8 @@ import { testExchangeCardChoice } from './exchange-card-choice.mjs';
 test('exchange card choice: privacy, validation, empty confirmation and persistence', testExchangeCardChoice);
 import './poster-palette.mjs';
 import './qr.mjs';
+import './image-upload.mjs';
+import './image-migration.mjs';
 import { testShortTokens } from './short-tokens.mjs';
 import { testAnnouncements } from './announcements.mjs';
 import { testLogbook } from './logbook.mjs';
@@ -28,6 +30,32 @@ test('announcements: permissions, validation, publishing, pagination and persist
 
 const require = createRequire(import.meta.url);
 const sharp = require('sharp');
+
+test('new uploads save only bounded WebP, preserve small images and reject invalid images', async t => {
+  const dir = await temp(t);
+  const { saveImage } = require('../server/lib/uploads');
+  const samples = [
+    { width: 9000, height: 5000, format: 'png', expected: [3840, 2133] },
+    { width: 4800, height: 2400, format: 'png', expected: [3840, 1920] },
+    { width: 2400, height: 4800, format: 'jpeg', expected: [1920, 3840] },
+    { width: 32, height: 16, format: 'webp', expected: [32, 16] },
+  ];
+  for (const sample of samples) {
+    const buffer = await sharp({ create: { width: sample.width, height: sample.height, channels: 4, background: '#18b59b80' } })[sample.format]().toBuffer();
+    const url = await saveImage(`data:image/${sample.format};base64,${buffer.toString('base64')}`, dir, 'frontImage');
+    assert.match(url, /^\/uploads\/[\w-]+\.webp$/);
+    const metadata = await sharp(await fs.readFile(path.join(dir, path.basename(url)))).metadata();
+    assert.equal(metadata.format, 'webp');
+    assert.deepEqual([metadata.width, metadata.height], sample.expected);
+    if (sample.format !== 'jpeg') assert.equal(metadata.hasAlpha, true);
+    assert.equal(await saveImage(url, dir, 'frontImage'), url, 'existing URL is reused');
+  }
+  const before = await fs.readdir(dir);
+  assert.equal(before.length, samples.length, 'only one WebP per upload, no original files');
+  await assert.rejects(saveImage('data:image/png;base64,aW52YWxpZA==', dir, 'backImage'), err =>
+    err.status === 400 && err.code === 'VALIDATION' && !!err.fields.backImage);
+  assert.deepEqual(await fs.readdir(dir), before, 'invalid upload leaves no file');
+});
 
 test('responsive upload variants resize, cache, deduplicate and preserve original/vector files', async t => {
   const dir = await temp(t);
@@ -55,7 +83,10 @@ test('responsive upload variants resize, cache, deduplicate and preserve origina
   const head = await fetch(url + '?w=480', { method: 'HEAD' });
   assert.equal(head.headers.get('content-length'), String(bodies[0].length));
   assert.equal((await head.arrayBuffer()).byteLength, 0);
-  for (const width of ['', '-1', '0', 'NaN', '3.5', '2561', '999999999999'])
+  const largest = await fetch(url + '?w=3840');
+  assert.equal(largest.status, 200);
+  assert.equal((await sharp(Buffer.from(await largest.arrayBuffer())).metadata()).width, 2400);
+  for (const width of ['', '-1', '0', 'NaN', '3.5', '3841', '999999999999'])
     assert.equal((await fetch(url + '?w=' + width)).status, 400);
   assert.equal((await fetch(app.base + '/uploads/missing.png?w=320')).status, 404);
   await fs.writeFile(path.join(uploads, 'tiny.png'), await sharp({ create: { width: 32, height: 16, channels: 3, background: '#fff' } }).png().toBuffer());
@@ -96,7 +127,7 @@ test('public spaces preserve nine-digit UIDs, paginate approved cards and protec
   assert.notEqual(uid, admin.uid);
   await request(app.base, '/api/me/profile', { token, method: 'PUT', body: { bio: 'Hello <script>world</script>', uid: '999999999' } });
   assert.equal((await (await request(app.base, '/api/auth/me', { token })).json()).user.uid, uid);
-  const cardBody = { title: 'Space card', ratio: { w: 3, h: 2 }, frontImage: 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64') };
+  const cardBody = { title: 'Space card', ratio: { w: 3, h: 2 }, frontImage: 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"/>').toString('base64') };
   const created = await request(app.base, '/api/cards', { token, method: 'POST', body: cardBody });
   assert.equal(created.status, 201);
   const { card } = await created.json();
@@ -173,7 +204,7 @@ test('legal acceptance: explicit version, persistence, content authorization and
   assert.ok(Number.isFinite(Date.parse(saved.legalConsent.acceptedAt)));
   assert.equal(user.legalConsent, undefined);
   assert.equal(await db.transaction(unit => unit.find('users', item => item.username === credentials.username).legalConsent), null);
-  const cardBody = { title: 'Authorized', ratio: { w: 3, h: 2 }, frontImage: 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64') };
+  const cardBody = { title: 'Authorized', ratio: { w: 3, h: 2 }, frontImage: 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"/>').toString('base64') };
   const rejected = await request(app.base, '/api/cards', { token, method: 'POST', body: { ...cardBody, acceptContentLicense: false } });
   assert.equal(rejected.status, 400);
   assert.equal(await db.transaction(unit => unit.data.cards.length), 0);
@@ -385,7 +416,7 @@ test('new exchange mails only the owner after commit; rejection, duplicates and 
   const applicant = await (await request(app.base, '/api/auth/register', { method: 'POST', body: await withCode(app, {
     username: 'mailapplicant', email: 'applicant@example.test', displayName: '申请人', callSign: 'QA0TEST', password: 'Applicant-Password-42!',
   }) })).json();
-  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64');
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"/>').toString('base64');
   const card = (await (await request(app.base, '/api/cards', { token: owner.token, method: 'POST', body: { title: '<b>Mail card</b>', ratio: { w: 3, h: 2 }, frontImage: svg } })).json()).card;
   const route = `/api/cards/${card.id}/exchanges`;
   const body = { contactName: 'Private contact', address: { name: 'Private recipient', line1: 'Private road', city: 'Private city', country: 'Test' }, message: 'Private message' };
@@ -448,7 +479,7 @@ test('approve/reject notify only the applicant after commit; repeated decisions 
   const applicant = await (await request(app.base, '/api/auth/register', { method: 'POST', body: await withCode(app, {
     username: 'decisionapplicant', email: 'decision@example.test', password: 'Applicant-Password-42!',
   }) })).json();
-  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64');
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"/>').toString('base64');
   const card = (await (await request(app.base, '/api/cards', { token: owner.token, method: 'POST', body: { title: 'Decision card', ratio: { w: 3, h: 2 }, frontImage: svg } })).json()).card;
   await request(app.base, `/api/admin/cards/${card.id}`, { token: owner.token, method: 'PUT', body: { status: 'approved' } });
   async function apply() {
@@ -522,7 +553,7 @@ test('card approval mails the owner after commit through both routes, without du
   const owner = await (await request(app.base, '/api/auth/register', { method: 'POST', body: await withCode(app, {
     username: 'cardmailowner', email: 'cardowner@example.test', password: 'Card-Owner-Password-42!',
   }) })).json();
-  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64');
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"/>').toString('base64');
   const created = await request(app.base, '/api/cards', { token: owner.token, method: 'POST', body: {
     title: '<b>Approved card</b>', notes: 'Private notes', ratio: { w: 3, h: 2 }, frontImage: svg,
   } });
@@ -655,12 +686,14 @@ test('offline initialization is idempotent, never stores plaintext, and producti
   assert.ok(!/Admin@123456|Demo@123456|Unique-Production/.test(app.logs()));
   assert.equal((await request(app.base, '/api/auth/logout', { token, method: 'POST', body: {}, headers: { Origin: 'https://evil.example' } })).status, 403);
 
-  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>').toString('base64');
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"><script>alert(1)</script></svg>').toString('base64');
   const cardRes = await request(app.base, '/api/cards', { token, method: 'POST', body: { title: 'Production card', ratio: { w: 3, h: 2 }, frontImage: svg } });
   assert.equal(cardRes.status, 201);
   const { card } = await cardRes.json();
   const upload = await fetch(app.base + card.frontImage);
-  assert.match(upload.headers.get('content-security-policy'), /sandbox/);
+  assert.match(card.frontImage, /\.webp$/);
+  assert.equal(upload.headers.get('content-type'), 'image/webp');
+  assert.equal((await sharp(Buffer.from(await upload.arrayBuffer())).metadata()).format, 'webp');
   const shared = await (await request(app.base, `/api/cards/${card.id}/share`, { token, headers: { 'X-Forwarded-Proto': 'http' } })).json();
   assert.match(shared.shareToken, /^[A-Za-z]{6}$/);
   assert.equal(shared.url, 'https://qsl.example.test/s/' + shared.shareToken);
@@ -761,7 +794,7 @@ test('concurrent registration and independent exchange approvals remain atomic a
   const results = await Promise.all([a, b].map(app => request(app.base, '/api/auth/register', { method: 'POST', body: registration })));
   assert.deepEqual(results.map(res => res.status).sort(), [201, 409]);
   const token = (await (await request(a.base, '/api/auth/login', { method: 'POST', body: { identifier: credentials.username, password: credentials.password } })).json()).token;
-  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64');
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"/>').toString('base64');
   const card = (await (await request(a.base, '/api/cards', { token, method: 'POST', body: { title: 'Concurrent', ratio: { w: 3, h: 2 }, frontImage: svg } })).json()).card;
   await request(a.base, `/api/admin/cards/${card.id}`, { token, method: 'PUT', body: { status: 'approved' } });
   const address = { name: 'Test', line1: 'Test road', city: 'Test', country: 'Test' };
@@ -838,7 +871,7 @@ test('JSON import supports dry-run, preserves source, refuses overwrite, and rol
   assert.match(imported.cards[0].shortToken, /^[A-Za-z]{6}$/);
   assert.notEqual(imported.cards[0].shortToken, source.cards[0].shareToken);
   delete imported.cards[0].shortToken;
-  assert.deepEqual(imported, source);
+  assert.deepEqual(imported, { ...source, cards: source.cards.map(card => ({ ...card, stock: null })) });
   assert.notEqual((await runImport(targetDir)).code, 0);
   assert.deepEqual(JSON.parse(await fs.readFile(file, 'utf8')), source);
   source.likes.push({ id: 'l_orphan', userId: 'missing', cardId: 'missing', createdAt: new Date().toISOString() });

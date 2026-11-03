@@ -35,24 +35,6 @@
     return RATIO_PRESETS.findIndex((p) => p.w === ratio.w && p.h === ratio.h);
   }
 
-  function readFileAsDataURL(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(reader.error || new Error('读取失败'));
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function loadImageDimensions(dataUrl) {
-    return new Promise((resolve) => {
-      const image = new Image();
-      image.onload = () => resolve({ w: image.naturalWidth, h: image.naturalHeight });
-      image.onerror = () => resolve(null);
-      image.src = dataUrl;
-    });
-  }
-
   function validateFile(file) {
     if (!file) return '没有读取到文件';
     const typeOk = ALLOWED_TYPES.indexOf(file.type) >= 0 || /\.(png|jpe?g|webp)$/i.test(file.name || '');
@@ -77,7 +59,7 @@
       '<span class="f-upload-meta"><b data-preview-name>已上传</b><span data-preview-size></span></span>' +
       '<span class="f-upload-replace">' + ico('refresh', 14) + ' 点击替换</span>' +
       '</div>' +
-      '<span class="f-upload-loading">' + '<span class="spinner"></span><span>读取中…</span></span>' +
+      '<span class="f-upload-loading">' + '<span class="spinner"></span><span>正在上传…</span></span>' +
       '</div>'
     );
   }
@@ -97,10 +79,14 @@
       ratio: { w: defaultRatio.w, h: defaultRatio.h },
       dirty: false,
       submitting: false,
+      processing: 0,
       leaving: false,
       alive: true
     };
     let viewer = null;
+    let editorCard = null;
+    let stockModal = null;
+    const imageProcessor = QSL.imageUpload.createProcessor();
 
     const ratioChips = RATIO_PRESETS.map((preset) =>
       '<button class="f-ratio-chip" type="button" data-ratio="' + preset.w + 'x' + preset.h + '">' +
@@ -127,7 +113,7 @@
 
       '<section class="f-form-card" data-reveal>' +
       '<header class="f-form-card-head"><div><h2 class="f-form-card-title">卡片图片</h2>' +
-      '<p class="f-form-card-desc">正面作为卡片封面，背面用于 3D 翻面展示；支持 PNG / JPG / WebP，单张 ≤ 8MB。</p></div>' +
+      '<p class="f-form-card-desc">正面作为卡片封面，背面用于 3D 翻面展示；支持 PNG / JPG / WebP，单张 ≤ 8MB。选择后立即转为 WebP，最长边不超过 3840 像素，不放大小图；预览和提交均使用处理后的图片，参数显示原始分辨率。</p></div>' +
       '<span class="f-form-step">01</span></header>' +
       '<div class="f-upload-grid">' +
       uploadZoneHtml('front', '上传卡片正面', '建议清晰、满幅的扫描或拍摄图') +
@@ -157,6 +143,13 @@
       '<textarea id="fCardNotes" class="textarea" name="notes" maxlength="500" rows="4" placeholder="记录这张卡片背后的通联故事，例如：海拔 4500 米的通联纪念。"></textarea>' +
       '<p class="f-error" data-error="notes" role="alert" hidden></p>' +
       '</div>' +
+      '<div class="f-field f-span-2" data-field="stock">' +
+      '<label class="label" for="fCardStock">卡片库存<span class="f-optional">选填</span></label>' +
+      (isEdit
+        ? '<button id="fCardStock" class="input f-stock-trigger" type="button" aria-haspopup="dialog" aria-label="调整卡片库存" disabled>加载中…</button>'
+        : '<input id="fCardStock" class="input" name="stock" type="number" min="0" max="2147483647" step="1" placeholder="未设置">') +
+      '<p class="hint">' + (isEdit ? '点击库存框打开调整弹窗，单独保存，无需重新审核。' : '留空不限制换卡；填 0 暂停换卡。同意一笔申请自动扣减 1 张。') + '</p>' +
+      '<p class="f-error" data-error="stock" role="alert" hidden></p></div>' +
       '</div>' +
       '</section>' +
 
@@ -211,6 +204,7 @@
     const titleInput = container.querySelector('#fCardTitle');
     const callSignInput = container.querySelector('#fCardCallSign');
     const notesInput = container.querySelector('#fCardNotes');
+    const stockInput = container.querySelector('#fCardStock');
     const ratioWInput = container.querySelector('#fRatioW');
     const ratioHInput = container.querySelector('#fRatioH');
     const ratioLabelEl = container.querySelector('[data-ratio-label]');
@@ -219,6 +213,22 @@
     const unsavedEl = container.querySelector('[data-unsaved]');
     const stageEl = container.querySelector('#fPreviewStage');
     const submitButtons = Array.from(container.querySelectorAll('[data-submit]'));
+
+    function paintStock() {
+      stockInput.innerHTML = '<span>' + (editorCard.stock == null ? '未设置（不限制换卡）' : esc(editorCard.stock) + ' 张') + '</span>' + ico('edit', 16);
+    }
+
+    if (isEdit) stockInput.addEventListener('click', () => {
+      if (!editorCard || stockModal || state.submitting) return;
+      stockModal = QSL.openCardStock(editorCard, {
+        isActive: () => state.alive,
+        onSaved: paintStock,
+        onClose: () => {
+          stockModal = null;
+          if (state.alive) stockInput.focus();
+        }
+      });
+    });
 
     /* ---------------- 预览 ---------------- */
     function previewFront() { return state.images.front ? state.images.front.src : null; }
@@ -372,6 +382,7 @@
     }
 
     async function handleFile(side, file) {
+      if (!state.alive || state.submitting) return;
       const zoneState = zones[side];
       const error = validateFile(file);
       if (error) {
@@ -383,16 +394,18 @@
         return;
       }
       if (zoneState) zoneState.zone.classList.add('is-reading');
+      state.processing++;
+      setSubmitting(false);
+      markDirty();
       try {
-        const dataUrl = await readFileAsDataURL(file);
-        const dimensions = await loadImageDimensions(dataUrl);
+        const prepared = await imageProcessor.process(file);
         if (!state.alive) return;
         state.images[side] = {
-          src: dataUrl,
+          src: prepared.src,
           size: file.size,
           name: file.name,
-          width: dimensions ? dimensions.w : null,
-          height: dimensions ? dimensions.h : null,
+          width: prepared.width,
+          height: prepared.height,
           isNew: true
         };
         paintZone(side);
@@ -401,10 +414,15 @@
         markDirty();
         QSL.toast((side === 'front' ? '卡片正面' : '卡片背面') + '已选择，记得提交审核', 'success');
       } catch (err) {
+        if (!state.alive) return;
         console.error('[card-editor] 图片读取失败', err);
-        QSL.toast('图片读取失败，请重新选择', 'error');
+        QSL.toast((err && err.message) || '图片处理失败，请重新选择', 'error');
       } finally {
-        if (zoneState) zoneState.zone.classList.remove('is-reading');
+        state.processing--;
+        if (state.alive) {
+          if (zoneState) zoneState.zone.classList.remove('is-reading');
+          setSubmitting(state.submitting);
+        }
       }
     }
 
@@ -520,7 +538,7 @@
           mapped++;
           return;
         }
-        if (['title', 'callSign', 'notes', 'front', 'back'].indexOf(field) >= 0) {
+        if (['title', 'callSign', 'notes', 'stock', 'front', 'back'].indexOf(field) >= 0) {
           if (field === 'front' || field === 'back') {
             showFieldError('title', fields[key]);
           } else {
@@ -537,6 +555,7 @@
         title: titleInput.value.trim(),
         callSign: callSignInput.value.trim().toUpperCase(),
         notes: notesInput.value.trim(),
+        stock: isEdit || stockInput.value.trim() === '' ? null : Number(stockInput.value),
         ratio: { w: state.ratio.w, h: state.ratio.h },
         frontImage: state.images.front ? state.images.front.src : '',
         backImage: state.images.back ? state.images.back.src : ''
@@ -546,6 +565,11 @@
     function validate(values) {
       clearErrors();
       const errors = [];
+      if (!isEdit && (stockInput.validity.badInput || (values.stock !== null &&
+          (!Number.isInteger(values.stock) || values.stock < 0 || values.stock > 2147483647)))) {
+        showFieldError('stock', '库存需为 0–2147483647 的整数，或留空');
+        errors.push('stock');
+      }
       if (!values.title) {
         showFieldError('title', '请填写卡片标题');
         errors.push('title');
@@ -568,7 +592,9 @@
 
     function setSubmitting(busy) {
       state.submitting = busy;
-      submitButtons.forEach((btn) => QSL.setBusy(btn, busy, busy ? '提交中…' : ''));
+      if (isEdit) stockInput.disabled = busy || !editorCard;
+      submitButtons.forEach((btn) => QSL.setBusy(btn, busy || state.processing > 0,
+        busy ? '提交中…' : state.processing > 0 ? '图片处理中…' : ''));
     }
 
     function showNotice(html, tone) {
@@ -579,7 +605,7 @@
     }
 
     async function onSubmit() {
-      if (state.submitting) return;
+      if (state.submitting || state.processing > 0 || stockModal) return;
       const consent = container.querySelector('[name="contentConsent"]');
       const consentError = container.querySelector('[data-consent-error]');
       consentError.hidden = consent.checked;
@@ -617,6 +643,7 @@
           frontImage: values.frontImage
         };
         if (values.backImage) payload.backImage = values.backImage;
+        if (!isEdit) payload.stock = values.stock;
         let result;
         if (isEdit) result = await QSL.api.cards.update(cardId, payload);
         else result = await QSL.api.cards.create(payload);
@@ -644,7 +671,7 @@
 
     submitButtons.forEach((btn) => btn.addEventListener('click', onSubmit));
 
-    [titleInput, callSignInput, notesInput].forEach((input) => {
+    [titleInput, callSignInput, notesInput].concat(isEdit ? [] : [stockInput]).forEach((input) => {
       input.addEventListener('input', () => {
         if (input === callSignInput) {
           const pos = callSignInput.selectionStart;
@@ -663,6 +690,9 @@
       titleInput.value = card.title || '';
       callSignInput.value = card.callSign || '';
       notesInput.value = card.notes || '';
+      editorCard = card;
+      paintStock();
+      stockInput.disabled = false;
       updateCounter('title', 80);
       updateCounter('notes', 500);
       const ratio = card.ratio && card.ratio.w && card.ratio.h ? card.ratio : { w: 3, h: 2 };
@@ -764,6 +794,8 @@
 
     return function cleanup() {
       state.alive = false;
+      imageProcessor.destroy();
+      if (stockModal) stockModal.close();
       window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('dragover', preventWindowDrop);
       window.removeEventListener('drop', preventWindowDrop);

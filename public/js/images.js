@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const QSL = window.QSL;
-  const widths = [160, 320, 480, 640, 960, 1280, 1600, 1920, 2560];
+  const widths = [160, 320, 480, 640, 960, 1280, 1600, 1920, 2560, 3840];
   const raster = /^\/uploads\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.(?:png|jpe?g|webp)$/i;
   function candidates(src) {
     if (!raster.test(src || '')) return '';

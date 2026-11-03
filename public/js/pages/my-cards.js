@@ -73,10 +73,12 @@
       '<a class="f-card-act" href="/card/' + esc(card.id || '') + '">' + ico('external', 15) + '<span>查看</span></a>' +
       '<a class="f-card-act" href="/dashboard/cards/' + esc(card.id || '') + '/edit">' + ico('edit', 15) + '<span>编辑</span></a>' +
       '<button class="f-card-act" type="button" data-act="share">' + ico('share', 15) + '<span>分享</span></button>' +
+      '<button class="f-card-act" type="button" data-act="stock">' + ico('cards', 15) + '<span>库存</span></button>' +
       '<button class="f-card-act is-danger" type="button" data-act="delete">' + ico('trash', 15) + '<span>删除</span></button>' +
       '</div>' +
       statusNote(card);
     cell.appendChild(foot);
+    foot.querySelector('[data-act="stock"]').addEventListener('click', () => handlers.onStock(card));
 
     const shareBtn = foot.querySelector('[data-act="share"]');
     if (shareBtn) {
@@ -155,7 +157,17 @@
     const totalEl = container.querySelector('[data-cards-total]');
     let items = [];
     let alive = true;
+    let stockModal = null;
     let deleted = false;
+
+    function editStock(card) {
+      if (stockModal) return;
+      stockModal = QSL.openCardStock(card, {
+        isActive: () => alive,
+        onSaved: () => paint(),
+        onClose: () => { stockModal = null; }
+      });
+    }
 
     function counts() {
       return {
@@ -228,6 +240,7 @@
       const grid = gridWrap.firstElementChild;
       list.forEach((card, index) => {
         const cell = buildCardCell(card, {
+          onStock: editStock,
           onDeleted: (deletedCard) => {
             items = items.filter((item) => item.id !== deletedCard.id);
             paint();
@@ -275,7 +288,7 @@
 
     load();
     void deleted;
-    return function cleanup() { alive = false; };
+    return function cleanup() { alive = false; if (stockModal) stockModal.close(); };
   }
 
   QSL.registerPage('my-cards', { title: '我的卡片', render: render });

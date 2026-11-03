@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
-const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql'];
 const SCHEMA_VERSION = MIGRATIONS.length;
 const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals', 'contactLogs'];
 const FIELDS = {
@@ -38,6 +38,7 @@ const FIELDS = {
     'band',
     'mode',
     'notes',
+    'stock',
     'ratio',
     'frontImage',
     'backImage',

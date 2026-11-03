@@ -5,11 +5,11 @@
 
 ### 上传图片的响应式版本
 
-卡片 API 的 `frontImage` / `backImage` 仍返回原图路径。`GET` / `HEAD /uploads/<filename>?w=<像素宽度>` 可请求 PNG/JPEG/WebP 的 WebP 缩放版本，质量 82，保留宽高比及透明度、自动纠正 EXIF 方向、不放大小图。`w` 须为 1–2560 的整数，向上归入 `160/320/480/640/960/1280/1600/1920/2560` 档；不合法返回 `400 INVALID_IMAGE_WIDTH`，文件不存在返回 404。SVG 保持矢量原文件和沙箱响应头。不带 `w` 始终获取原图，编辑和原图查看不受影响。
+卡片 API 的 `frontImage` / `backImage` 返回保存后的图片路径；新上传统一为 WebP，旧图片路径保持兼容。`GET` / `HEAD /uploads/<filename>?w=<像素宽度>` 可请求 PNG/JPEG/WebP 的 WebP 缩放版本，质量 82，保留宽高比及透明度、自动纠正 EXIF 方向、不放大小图。`w` 须为 1–3840 的整数，向上归入 `160/320/480/640/960/1280/1600/1920/2560/3840` 档；不合法返回 `400 INVALID_IMAGE_WIDTH`，文件不存在返回 404。历史 SVG 保持矢量原文件和沙箱响应头。不带 `w` 获取保存后的图片（新上传为最大尺寸 WebP，历史图片为原文件）。
 
 前端按图片所在位置的实际 CSS 布局宽度和设备 DPR，通过 `srcset` / `sizes` 选择档位；列表尺寸变化由 `ResizeObserver` 同步，3D 卡片采用旋转前的布局宽度，旋转不触发重复换图。已有上传图片无需重新上传。
 
-首次请求按需生成，缓存到 `QSL_DATA_DIR/image-cache/`，同一进程的同图同档并发请求合并；最多同时处理 2 张、等待 64 项，满载返回 `503 IMAGE_BUSY`。成功响应带一年不可变缓存。源文件变更会更换磁盘缓存键；缩放解码上限 4000 万像素。无法缩放或缓存写入失败时退回原文件并禁用长缓存，避免旧卡片损坏。生成端使用 Sharp，需要 Node.js ≥20.9，生产镜像和 CI 使用 Node 24。
+首次请求按需生成，缓存到 `QSL_DATA_DIR/image-cache/`，同一进程的同图同档并发请求合并；最多同时处理 2 张、等待 64 项，满载返回 `503 IMAGE_BUSY`。成功响应带一年不可变缓存。源文件变更会更换磁盘缓存键；不设置输入像素数量上限（上传体积和处理并发限制仍保留）。无法缩放或缓存写入失败时退回原文件并禁用长缓存，避免旧卡片损坏。生成端使用 Sharp，需要 Node.js ≥20.9，生产镜像和 CI 使用 Node 24。
 
 ## 0. 通用约定
 
@@ -86,6 +86,7 @@ Dockerfile 使用构建参数 `QSL_BUILD_REVISION` / `QSL_BUILD_CREATED` 同时�
   "band": "",
   "mode": "",
   "notes": "海拔 4500 米的通联纪念。",
+  "stock": null,
   "ratio": { "w": 3, "h": 2 },
   "frontImage": "/uploads/xxx.webp",
   "backImage": "/uploads/xxx.webp",
@@ -139,7 +140,7 @@ Dockerfile 使用构建参数 `QSL_BUILD_REVISION` / `QSL_BUILD_CREATED` 同时�
 ### 图片上传
 上传接口在 JSON body 中提交 data URL：
 `"frontImage": "data:image/webp;base64,...."`（支持 png / jpeg / webp / svg+xml；单张解码后 ≤ 8MB）。
-服务端保存为文件并返回 `/uploads/<uuid>.<ext>` 形式的 URL。也可直接提交已保存的 `/uploads/...` URL（编辑时沿用旧图）。
+服务端在上传请求完成前解码并转为 WebP（质量 82），自动纠正 EXIF 方向、保留透明度，按比例限制最长边至 3840 像素，不放大小图；仅保存转换结果并返回 `/uploads/<uuid>.webp`，不落盘保留上传原图。SVG 新上传也栅格化为 WebP。不设置输入像素数量上限；无法解码或转换失败返回 `400 VALIDATION`（含对应图片字段）；与响应式派生共用最多 2 项处理、64 项等待的队列，满载返回 `503 IMAGE_BUSY`。也可直接提交已保存的 `/uploads/...` URL（编辑时沿用旧图，不重新编码）；不批量转换或删除历史文件。
 
 ---
 
@@ -227,7 +228,8 @@ body: `{ currentPassword, newPassword }` → `{ ok: true }`；错误 400 `VALIDA
 ### POST /api/cards  🔒
 
 另须提交 `acceptTerms: true`、`termsVersion: "2026-10-25"`、`acceptContentLicense: true`，确认本次卡片内容授权。服务器保存版本、时间及确认账号；缺失或不匹配返回 `400 VALIDATION`（`legalConsent`），且不写入图片。
-body: `{ title, callSign?, band?, mode?, notes?, ratio: {w,h}, frontImage, backImage? }`
+body: `{ title, callSign?, band?, mode?, notes?, stock?, ratio: {w,h}, frontImage, backImage? }`
+- `stock` 为公开的剩余库存：0–2147483647 的 JSON 整数或 null，省略创建时默认 null（未设置，不限制换卡）。字符串、负数、小数等返回 400 `VALIDATION`，错误字段为 `stock`。`CardPublic` / `CardDetail` 均返回此字段。库存 0 的卡片仍公开展示、可点赞和分享，但详情 `canApply: false`。
 - `callSign` 选填，去除首尾空白、≤20 个字符；服务端不强制格式或大写。
 - `band` / `mode` 为兼容字段，v3 起可省略或传空字符串；仍接受、保存并返回 ≤20 个字符的值，但前端不再填写或展示为筛选项。
 - 正面图片必需；背面可省略或为空，返回空字符串，由前端显示占位背面。
@@ -244,6 +246,9 @@ owner 或 admin。body 同上（字段可选）。普通 owner 修改后 `status
 
 管理员将非 approved 卡片更新为 approved 时，事务提交后向卡片主人注册邮箱发送“卡片审核已通过”邮件；`PUT /api/admin/cards/:id` 同样适用。邮件含标题和 `${QSL_PUBLIC_ORIGIN}/card/:id`，不含备注、地址或拒绝原因。复用现有 Direct Mail 配置，未配置邮件/站点地址、主人缺少邮箱或被禁用时跳过；发送不占用写事务，失败不影响审核结果，当前无持久化重试。重复设置 approved、编辑已 approved 卡片、拒绝、未授权请求及事务回滚不发送；重新送审后再次通过可以再次发送。
 → `{ card: CardPublic }`
+### PUT /api/cards/:id/stock 🔒 (仅卡片 owner)
+body：`{ stock: number | null }`，必传；校验同创建。独立设置新的剩余库存（绝对值），无需再次确认内容授权，不改变审核状态、拒绝原因及内容授权记录，不触发审核通知。返回 `{ card: CardPublic }`（含 shareToken、rejectReason）。管理员不能通过此接口修改他人库存；原有卡片编辑接口仍按 owner/admin 权限处理 stock，普通 owner 使用内容编辑接口依旧需要授权确认并重新审核。仅修改内容时应省略 stock，避免用过期库存覆盖自动扣减。
+
 ### DELETE /api/cards/:id  🔒
 owner 或 admin。级联删除其点赞与换卡申请。→ `{ ok: true }`
 ### POST /api/cards/:id/like  🔒
@@ -256,6 +261,7 @@ owner 或 admin。级联删除其点赞与换卡申请。→ `{ ok: true }`
 ### POST /api/cards/:cardId/exchanges  🔒
 body: `{ message?, contactName, address: Address, contactLogIds?: string[] }`
 - 不能申请自己的卡片；卡片须 approved 且 owner 未被禁用。
+- 库存为 0 时返回 409 `OUT_OF_STOCK`；申请 pending 时不预占或扣减库存。
 - 同一用户对同一卡片存在 `pending`/`approved` 的活动申请时 → 409 `CONFLICT`（message："你已申请过这张卡片，请等待对方处理"）。
 - 201 → `{ exchange: ExchangeItem }`（允许被拒绝/取消后重新申请）
 - 新申请事务提交后，使用现有阿里云 Direct Mail 服务向卡片主人的注册邮箱发送一次提醒；等待本次投递调用完成后返回 201，网络发送不占用数据库事务锁。邮件含申请人昵称/呼号、卡片标题及 `${QSL_PUBLIC_ORIGIN}/dashboard/exchanges?box=incoming&status=pending`，用户需登录后查看；不含联系姓名、寄送地址或申请留言。
@@ -271,6 +277,7 @@ query：`page`、`limit`。返回分页列表 `{ items: CardPublic[], total, pag
 - body：`{ preferredCardId?: string | null, confirmNoCards?: boolean }`。省略或 null 表示“无所谓”；指定卡片必须属于申请人、已审核公开且用户未被禁用，否则 400 `VALIDATION`（`fields.preferredCardId`）。
 - 申请人当前没有任何上传卡片时，须明确传 `confirmNoCards: true`，否则 409 `APPLICANT_HAS_NO_CARDS`，提示“该申请者没有上传卡片哦，请确认是否进行交换”。有上传但暂无公开卡片时可选择“无所谓”。
 - 仅 pending 可操作；每笔申请独立审批，同意后不改变同一卡片的其他申请。同一卡片可同时与多个不同用户处于 `approved` 状态，也允许其他用户继续提交申请。
+- 同意时若目标卡片库存已设置，原子扣减 1 张；库存为 0 返回 409 `OUT_OF_STOCK`，申请保持 pending。扣减、申请状态和手动库存调整使用同一数据库写事务锁，防止并发超卖或重复审批扣减。null 库存不扣减。完成、拒绝、撤回不再扣减；既有 approved/completed 申请不追溯扣减。“希望收到的卡片”只是偏好，不扣减申请人库存。
 - 同一用户对同一卡片仍只能有一笔 `pending`/`approved` 活动申请；各笔交换独立完成，地址仅对该笔交换的双方及管理员可见。
 - → `{ exchange: ExchangeItem }`（包含双方地址）
 - 成功将 `pending` 更新为 `approved` 并提交后，向申请人的注册邮箱发送“换卡申请已被同意”提醒，链接为 `${QSL_PUBLIC_ORIGIN}/dashboard/exchanges?box=outgoing&status=approved`，登录后查看寄送信息；邮件不含地址。

@@ -151,6 +151,7 @@ function cardPublic(db, card, viewer, options = {}) {
     band: card.band,
     mode: card.mode,
     notes: card.notes || '',
+    stock: card.stock == null ? null : card.stock,
     ratio: card.ratio,
     frontImage: card.frontImage,
     backImage: card.backImage || '',
@@ -185,7 +186,7 @@ function cardDetail(db, card, viewer) {
 
   // canApply：卡片可被申请（申请动作本身需登录）。匿名访问分享页时为 true，便于前端展示 CTA。
   const canApply =
-    card.status === 'approved' && ownerActive && !isOwner && !hasActiveExchange;
+    card.status === 'approved' && ownerActive && card.stock !== 0 && !isOwner && !hasActiveExchange;
 
   return {
     ...base,

@@ -131,6 +131,10 @@
     const myExchange = card.myExchange || null;
     const ownerName = owner.callSign || owner.displayName || owner.username || '卡片主人';
 
+    if (!isOwner && card.stock === 0 && !(myExchange && ['pending', 'approved'].includes(myExchange.status))) {
+      return '<div class="g-share__cta"><h2>暂无库存</h2><p>这张卡片暂时没有库存，仍可欣赏与分享。</p><a class="btn btn-ghost" href="/explore" data-link>看看其它卡片</a></div>';
+    }
+
     if (!user) {
       return (
         '<div class="g-share__cta is-guest">' +
@@ -240,6 +244,7 @@
         : '<p class="g-share__notes is-empty">这张卡片的主人还没有留下简介。</p>') +
       '<dl class="g-share__meta">' +
       '<div><dt>卡片比例</dt><dd>' + esc(QSL.ratioLabel(card.ratio)) + '</dd></div>' +
+      '<div><dt>剩余库存</dt><dd>' + (card.stock == null ? '未设置' : esc(card.stock) + ' 张') + '</dd></div>' +
       '<div><dt>点赞</dt><dd>' + esc(QSL.formatNumber(card.likeCount || 0)) + '</dd></div>' +
       '<div><dt>换卡</dt><dd>' + esc(String(card.exchangeCount || 0)) + ' 次</dd></div>' +
       '<div><dt>发布时间</dt><dd>' + esc(QSL.formatDate(card.createdAt)) + '</dd></div>' +

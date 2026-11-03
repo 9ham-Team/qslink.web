@@ -10,6 +10,7 @@ const {
   parseEnum,
   validateCardCreate,
   validateCardUpdate,
+  validateStock,
 } = require('../validate');
 const { saveImage } = require('../uploads');
 const { createId, randomString, paginate, cascadeDeleteCard } = require('../db');
@@ -126,6 +127,7 @@ async function create(ctx) {
     band: payload.band,
     mode: payload.mode,
     notes: payload.notes,
+    stock: payload.stock,
     ratio: payload.ratio,
     frontImage,
     backImage,
@@ -191,6 +193,18 @@ async function update(ctx) {
       card: serialize.cardPublic(ctx.db, card, user, { shareToken: true, rejectReason: true }),
     },
   };
+}
+
+/** PUT /api/cards/:id/stock：仅发卡者，独立维护库存，不改变内容审核。 */
+async function updateStock(ctx) {
+  const user = auth.requireUser(ctx);
+  const card = ctx.db.find('cards', item => item.id === ctx.params.id);
+  if (!card) throw notFound('卡片不存在');
+  if (card.ownerId !== user.id) throw forbidden('只能调整自己的卡片库存');
+  card.stock = validateStock(isObj(ctx.body) ? ctx.body.stock : undefined);
+  card.updatedAt = new Date().toISOString();
+  await ctx.db.save();
+  return { body: { card: serialize.cardPublic(ctx.db, card, user, { shareToken: true, rejectReason: true }) } };
 }
 
 /** DELETE /api/cards/:id：owner/admin，级联删除点赞与换卡申请 */
@@ -261,6 +275,7 @@ module.exports = {
     { method: 'GET', pattern: '/api/public/cards/:shareToken', handler: publicByShareToken },
     { method: 'POST', pattern: '/api/cards', handler: create },
     { method: 'PUT', pattern: '/api/cards/:id', handler: update },
+    { method: 'PUT', pattern: '/api/cards/:id/stock', handler: updateStock },
     { method: 'DELETE', pattern: '/api/cards/:id', handler: remove },
     { method: 'POST', pattern: '/api/cards/:id/like', handler: toggleLike },
     { method: 'GET', pattern: '/api/cards/:id/share', handler: share },
