@@ -59,7 +59,7 @@
       '<span class="f-upload-meta"><b data-preview-name>已上传</b><span data-preview-size></span></span>' +
       '<span class="f-upload-replace">' + ico('refresh', 14) + ' 点击替换</span>' +
       '</div>' +
-      '<span class="f-upload-loading">' + '<span class="spinner"></span><span>正在处理为 WebP…</span></span>' +
+      '<span class="f-upload-loading">' + '<span class="spinner"></span><span>正在上传…</span></span>' +
       '</div>'
     );
   }

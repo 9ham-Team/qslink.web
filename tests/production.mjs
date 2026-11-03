@@ -18,6 +18,7 @@ test('exchange card choice: privacy, validation, empty confirmation and persiste
 import './poster-palette.mjs';
 import './qr.mjs';
 import './image-upload.mjs';
+import './image-migration.mjs';
 import { testShortTokens } from './short-tokens.mjs';
 import { testAnnouncements } from './announcements.mjs';
 import { testLogbook } from './logbook.mjs';

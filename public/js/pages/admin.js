@@ -128,18 +128,18 @@
     return (
       '<div class="a-thumbs' + extraCls + '">' +
       '<figure class="a-thumb" style="--ar:' + ar + '">' +
-      '<img src="' + escAttr(front) + '" alt="' + escAttr((c.title || '卡片') + ' 正面') + '" loading="lazy" decoding="async">' +
+      '<img ' + QSL.images.attributes(front, '240px') + ' alt="' + escAttr((c.title || '卡片') + ' 正面') + '" loading="lazy" decoding="async">' +
       '<figcaption>正面</figcaption></figure>' +
       '<figure class="a-thumb' + (back ? '' : ' a-thumb--empty') + '" style="--ar:' + ar + '">' +
       (back
-        ? '<img src="' + escAttr(back) + '" alt="' + escAttr((c.title || '卡片') + ' 背面') + '" loading="lazy" decoding="async"><figcaption>背面</figcaption>'
+        ? '<img ' + QSL.images.attributes(back, '240px') + ' alt="' + escAttr((c.title || '卡片') + ' 背面') + '" loading="lazy" decoding="async"><figcaption>背面</figcaption>'
         : '<span class="a-thumb-none">' + ico('image', 16) + '<span>无背面</span></span>') +
       '</figure></div>'
     );
   }
 
   function miniThumb(src, title) {
-    return '<span class="a-mini-thumb"><img src="' + escAttr(imageSrc(src)) + '" alt="' + escAttr(title || '卡片缩略图') + '" loading="lazy"></span>';
+    return '<span class="a-mini-thumb"><img ' + QSL.images.attributes(imageSrc(src), '56px') + ' alt="' + escAttr(title || '卡片缩略图') + '" loading="lazy" decoding="async"></span>';
   }
 
   function emptyInto(container, options) {

@@ -99,6 +99,8 @@ docker compose exec -T app tar -czf - -C /var/lib/qslink uploads > "backups/$bac
 
 ## 升级与回滚
 
+历史卡片图片转换不是启动时的数据库迁移。需要将既有 PNG/JPEG 转为有备份的 WebP 并清理原图时，先按 [历史图片迁移指南](IMAGE-MIGRATION.md) 执行试运行、转换、验证和清理；容器回退不会撤销这类文件和引用变更。
+
 可通过 `QSL_RELEASE_DIR=/实际部署目录 sh deploy/backup.sh` 执行带互斥锁和校验和的备份，输出目录默认 `/var/backups/qslink`。脚本还保存 `.env`，因此备份含数据库凭据，必须仅限管理员访问并加密异地保存。失败文件保留 `.partial` 后缀，不会当作完整备份；脚本不会自动删除旧备份，需要监控磁盘和制定保留策略。
 
 可选的 `deploy/qslink-backup.service` 和 `.timer` 假定 `/opt/qslink/current` 指向已部署版本，每日香港时间 03:15 起随机延后最多五分钟执行。安装前核对目录、建立权限为 700 的备份目录，再复制单元至 `/etc/systemd/system/` 并启用 timer。先手动运行一次 service，验证 dump 可列出、tar 可解压和校验和正确；定期在隔离环境演练完整恢复。本机备份不能代替异地备份。
