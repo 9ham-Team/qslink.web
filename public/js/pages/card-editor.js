@@ -129,7 +129,7 @@
 
       '<section class="f-form-card" data-reveal>' +
       '<header class="f-form-card-head"><div><h2 class="f-form-card-title">卡片图片</h2>' +
-      '<p class="f-form-card-desc">正面作为卡片封面，背面用于 3D 翻面展示；支持 PNG / JPG / WebP，单张 ≤ 8MB。</p></div>' +
+      '<p class="f-form-card-desc">正面作为卡片封面，背面用于 3D 翻面展示；支持 PNG / JPG / WebP，单张 ≤ 8MB。提交后转为 WebP，最长边不超过 3840 像素，不放大小图，不保留原图。</p></div>' +
       '<span class="f-form-step">01</span></header>' +
       '<div class="f-upload-grid">' +
       uploadZoneHtml('front', '上传卡片正面', '建议清晰、满幅的扫描或拍摄图') +

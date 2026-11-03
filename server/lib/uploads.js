@@ -1,8 +1,8 @@
 'use strict';
 
 /**
- * 图片上传：把 JSON body 中的 data URL（png/jpeg/webp/svg+xml）解码落盘到
- * data/uploads/<uuid>.<ext>，返回 /uploads/<uuid>.<ext>。
+ * 图片上传：把 JSON body 中的 data URL（png/jpeg/webp/svg+xml）转换为 WebP，
+ * 最长边不超过 3840px，不放大，不保存上传原图。
  * 也支持传入已保存的 /uploads/... URL（编辑卡片时沿用旧图）。
  * 单张图片解码后上限 8MB（整个请求体上限 25MB 由 server.js 控制）。
  */
@@ -11,6 +11,8 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
+const sharp = require('sharp');
+const { withImageSlot } = require('./image-variants');
 const { badRequest, payloadTooLarge } = require('./errors');
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -89,8 +91,17 @@ async function saveImage(value, uploadsDir, field) {
     throw payloadTooLarge('单张图片不能超过 8MB');
   }
 
-  const filename = `${crypto.randomUUID()}.${ext}`;
-  await fsp.writeFile(path.join(uploadsDir, filename), buffer);
+  const converted = await withImageSlot(async () => {
+    try {
+      return await sharp(buffer, { limitInputPixels: 40_000_000, sequentialRead: true })
+        .rotate().resize({ width: 3840, height: 3840, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 82, effort: 4 }).toBuffer();
+    } catch {
+      throw badRequest({ [field]: '图片无法解码或尺寸过大，请重新上传' }, '图片无法处理');
+    }
+  });
+  const filename = `${crypto.randomUUID()}.webp`;
+  await fsp.writeFile(path.join(uploadsDir, filename), converted);
   return `/uploads/${filename}`;
 }
 

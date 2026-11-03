@@ -7,7 +7,7 @@ const sharp = require('sharp');
 const { ApiError } = require('./errors');
 
 // Keep the derivative space finite. Never upscale originals or decode huge rasters.
-const WIDTHS = [160, 320, 480, 640, 960, 1280, 1600, 1920, 2560];
+const WIDTHS = [160, 320, 480, 640, 960, 1280, 1600, 1920, 2560, 3840];
 const pending = new Map();
 let active = 0;
 const waiting = [];
@@ -15,8 +15,8 @@ sharp.cache(false);
 sharp.concurrency(1);
 
 function imageWidth(value) {
-  if (!/^\d+$/.test(value || '') || Number(value) < 1 || Number(value) > 2560) {
-    throw new ApiError(400, 'INVALID_IMAGE_WIDTH', '图片宽度须为 1–2560 的整数');
+  if (!/^\d+$/.test(value || '') || Number(value) < 1 || Number(value) > 3840) {
+    throw new ApiError(400, 'INVALID_IMAGE_WIDTH', '图片宽度须为 1–3840 的整数');
   }
   return WIDTHS.find(width => width >= Number(value));
 }
@@ -65,4 +65,4 @@ async function imageVariant(file, cacheDir, width) {
   finally { pending.delete(output); }
 }
 
-module.exports = { imageWidth, imageVariant, WIDTHS };
+module.exports = { imageWidth, imageVariant, WIDTHS, withImageSlot: slot };

@@ -5,7 +5,7 @@
 
 ### 上传图片的响应式版本
 
-卡片 API 的 `frontImage` / `backImage` 仍返回原图路径。`GET` / `HEAD /uploads/<filename>?w=<像素宽度>` 可请求 PNG/JPEG/WebP 的 WebP 缩放版本，质量 82，保留宽高比及透明度、自动纠正 EXIF 方向、不放大小图。`w` 须为 1–2560 的整数，向上归入 `160/320/480/640/960/1280/1600/1920/2560` 档；不合法返回 `400 INVALID_IMAGE_WIDTH`，文件不存在返回 404。SVG 保持矢量原文件和沙箱响应头。不带 `w` 始终获取原图，编辑和原图查看不受影响。
+卡片 API 的 `frontImage` / `backImage` 返回保存后的图片路径；新上传统一为 WebP，旧图片路径保持兼容。`GET` / `HEAD /uploads/<filename>?w=<像素宽度>` 可请求 PNG/JPEG/WebP 的 WebP 缩放版本，质量 82，保留宽高比及透明度、自动纠正 EXIF 方向、不放大小图。`w` 须为 1–3840 的整数，向上归入 `160/320/480/640/960/1280/1600/1920/2560/3840` 档；不合法返回 `400 INVALID_IMAGE_WIDTH`，文件不存在返回 404。历史 SVG 保持矢量原文件和沙箱响应头。不带 `w` 获取保存后的图片（新上传为最大尺寸 WebP，历史图片为原文件）。
 
 前端按图片所在位置的实际 CSS 布局宽度和设备 DPR，通过 `srcset` / `sizes` 选择档位；列表尺寸变化由 `ResizeObserver` 同步，3D 卡片采用旋转前的布局宽度，旋转不触发重复换图。已有上传图片无需重新上传。
 
@@ -140,7 +140,7 @@ Dockerfile 使用构建参数 `QSL_BUILD_REVISION` / `QSL_BUILD_CREATED` 同时�
 ### 图片上传
 上传接口在 JSON body 中提交 data URL：
 `"frontImage": "data:image/webp;base64,...."`（支持 png / jpeg / webp / svg+xml；单张解码后 ≤ 8MB）。
-服务端保存为文件并返回 `/uploads/<uuid>.<ext>` 形式的 URL。也可直接提交已保存的 `/uploads/...` URL（编辑时沿用旧图）。
+服务端在上传请求完成前解码并转为 WebP（质量 82），自动纠正 EXIF 方向、保留透明度，按比例限制最长边至 3840 像素，不放大小图；仅保存转换结果并返回 `/uploads/<uuid>.webp`，不落盘保留上传原图。SVG 新上传也栅格化为 WebP。解码上限 4000 万像素，无法解码或超限返回 `400 VALIDATION`（含对应图片字段）；与响应式派生共用最多 2 项处理、64 项等待的队列，满载返回 `503 IMAGE_BUSY`。也可直接提交已保存的 `/uploads/...` URL（编辑时沿用旧图，不重新编码）；不批量转换或删除历史文件。
 
 ---
 
