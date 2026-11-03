@@ -2,7 +2,7 @@
 
 /**
  * 图片上传：把 JSON body 中的 data URL（png/jpeg/webp/svg+xml）转换为 WebP，
- * 最长边不超过 3840px，不放大，不保存上传原图。
+ * 最长边不超过 3840px，不放大；合规静态 WebP 校验后直接保存，其余转换。
  * 也支持传入已保存的 /uploads/... URL（编辑卡片时沿用旧图）。
  * 单张图片解码后上限 8MB（整个请求体上限 25MB 由 server.js 控制）。
  */
@@ -93,6 +93,17 @@ async function saveImage(value, uploadsDir, field) {
 
   const converted = await withImageSlot(async () => {
     try {
+      const image = sharp(buffer, { limitInputPixels: false, sequentialRead: true });
+      const metadata = await image.metadata();
+      if (metadata.format === 'webp' && metadata.width > 0 && metadata.height > 0 &&
+          Math.max(metadata.width, metadata.height) <= 3840 &&
+          (metadata.orientation === undefined || metadata.orientation === 1) &&
+          (metadata.pages === undefined || metadata.pages === 1)) {
+        // Metadata alone does not validate the compressed pixels. Decode fully,
+        // then preserve the original bytes to avoid another lossy encoding.
+        await image.raw().toBuffer();
+        return buffer;
+      }
       return await sharp(buffer, { limitInputPixels: false, sequentialRead: true })
         .rotate().resize({ width: 3840, height: 3840, fit: 'inside', withoutEnlargement: true })
         .webp({ quality: 82, effort: 4 }).toBuffer();

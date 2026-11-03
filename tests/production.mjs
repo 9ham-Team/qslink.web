@@ -57,6 +57,45 @@ test('new uploads save only bounded WebP, preserve small images and reject inval
   assert.deepEqual(await fs.readdir(dir), before, 'invalid upload leaves no file');
 });
 
+test('compliant WebP uploads preserve bytes; oversized, oriented and disguised inputs are converted', async t => {
+  const dir = await temp(t);
+  const { saveImage, MAX_IMAGE_BYTES } = require('../server/lib/uploads');
+  const image = (width, height) => sharp({ create: { width, height, channels: 4, background: '#18b59b80' } });
+  const save = async (buffer, mime = 'webp') => {
+    const url = await saveImage(`data:image/${mime};base64,${buffer.toString('base64')}`, dir, 'frontImage');
+    return fs.readFile(path.join(dir, path.basename(url)));
+  };
+  for (const [width, height, options] of [[37, 19, {}], [3840, 16, { lossless: true }]]) {
+    const input = await image(width, height).webp(options).toBuffer();
+    assert.deepEqual(await save(input), input, 'valid bounded WebP is saved byte for byte');
+  }
+  const oversized = await image(4000, 20).webp().toBuffer();
+  const resized = await save(oversized);
+  assert.notDeepEqual(resized, oversized);
+  assert.equal((await sharp(resized).metadata()).width, 3840);
+  const oriented = await image(37, 19).withMetadata({ orientation: 6 }).webp().toBuffer();
+  const rotated = await sharp(await save(oriented)).metadata();
+  assert.deepEqual([rotated.width, rotated.height], [19, 37]);
+  assert.equal(rotated.orientation, undefined);
+  const png = await image(37, 19).png().toBuffer();
+  assert.equal((await sharp(await save(png)).metadata()).format, 'webp', 'declared MIME does not determine actual format');
+  const frames = Buffer.alloc(16 * 32 * 3);
+  frames.fill(255, 16 * 16 * 3);
+  const animated = await sharp(frames, { raw: { width: 16, height: 32, channels: 3, pageHeight: 16 } })
+    .webp({ loop: 0, delay: [100, 100] }).toBuffer();
+  assert.equal((await sharp(animated).metadata()).pages, 2);
+  const flattened = await sharp(await save(animated)).metadata();
+  assert.ok(!flattened.pages || flattened.pages === 1, 'animation keeps the existing first-frame conversion');
+  const before = await fs.readdir(dir);
+  const damaged = await sharp({ create: { width: 64, height: 32, channels: 4, background: '#12345680' } }).webp().toBuffer();
+  damaged[38] ^= 255;
+  assert.equal((await sharp(damaged).metadata()).format, 'webp', 'damaged pixel payload still has readable metadata');
+  await assert.rejects(save(damaged), err => err.status === 400 && err.code === 'VALIDATION' && !!err.fields.frontImage);
+  await assert.rejects(save(Buffer.alloc(MAX_IMAGE_BYTES + 1)), err => err.status === 413 && err.code === 'PAYLOAD_TOO_LARGE');
+  await assert.rejects(save(Buffer.from('invalid webp')), err => err.status === 400 && !!err.fields.frontImage);
+  assert.deepEqual(await fs.readdir(dir), before, 'rejected inputs leave no files');
+});
+
 test('responsive upload variants resize, cache, deduplicate and preserve original/vector files', async t => {
   const dir = await temp(t);
   assert.equal((await init(dir)).code, 0);
