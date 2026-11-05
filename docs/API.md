@@ -148,6 +148,10 @@ Dockerfile 使用构建参数 `QSL_BUILD_REVISION` / `QSL_BUILD_CREATED` 同时�
 
 `GET /api/health` → `{ "ok": true, "name": "QSLink", "version": "1.0.0", "uptime": 12.3, "time": "...", "storage": "postgresql" }`。健康检查会验证数据库连接。
 
+### GET /api/stats
+
+公开首页统计，无需登录，返回 `{ "userCount": 42 }`。`userCount` 为全库 `status=active` 的注册用户数量（包含管理员、未填写呼号和未上传卡片的用户，不计禁用用户），不受卡片审核、卡片列表分页或筛选影响。只公开聚合数量，不返回个人资料。
+
 ### GET /api/config
 
 公开运行配置，响应不缓存。默认及生产返回 `{ "demo": false, "demoAccounts": [] }`。仅开发/测试显式启用 `QSL_SEED_DEMO=true` 时返回演示账号供登录页填入；前端不内置演示密码。生产模式禁止此开关。前端仅在 `demo: true` 时接受 `devToken` URL 参数，其余情况下忽略并清除该参数。

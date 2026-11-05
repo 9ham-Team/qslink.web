@@ -32,6 +32,23 @@ test('announcements: permissions, validation, publishing, pagination and persist
 const require = createRequire(import.meta.url);
 const sharp = require('sharp');
 
+test('public user count includes active accounts without cards or callsigns and excludes banned accounts', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const app = await start(t, dir);
+  const db = databases.get(dir).db;
+  const now = new Date().toISOString();
+  await db.transaction(unit => {
+    for (const [id, status] of [['without-cards', 'active'], ['also-without-cards', 'active'], ['banned-user', 'banned']]) {
+      unit.insert('users', { id, uid: id === 'without-cards' ? '123456789' : id === 'also-without-cards' ? '123456780' : '123456781', username: id, email: id + '@example.test', displayName: '', callSign: '', bio: '', avatarColor: '#fff', role: 'user', status, passwordHash: 'unused', createdAt: now, updatedAt: now });
+    }
+  }, { write: true });
+  const response = await fetch(app.base + '/api/stats');
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { userCount: 3 });
+  assert.equal((await (await fetch(app.base + '/api/cards')).json()).total, 0);
+});
+
 test('new uploads save only bounded WebP, preserve small images and reject invalid images', async t => {
   const dir = await temp(t);
   const { saveImage } = require('../server/lib/uploads');

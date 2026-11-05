@@ -270,7 +270,8 @@
         faceEl.classList.add('is-empty');
       };
       imgEl.alt = label === 'back' ? QSL.t("卡片背面") : QSL.t("卡片正面");
-      QSL.images.apply(imgEl, url, cssWidth || 340);
+      // Keep fine card text readable, even in small 3D layouts.
+      QSL.images.apply(imgEl, url, cssWidth || 340, 1280);
     }
 
     function paintImages() {

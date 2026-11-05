@@ -39,6 +39,7 @@ const startedAt = Date.now();
 const ROUTES = [
   { method: 'GET', pattern: '/api/health', handler: health },
   { method: 'GET', pattern: '/api/config', handler: publicConfig },
+  { method: 'GET', pattern: '/api/stats', handler: publicStats },
   ...authApi.routes,
   ...meApi.routes,
   ...require('./lib/api/logbook').routes,
@@ -90,6 +91,10 @@ function publicConfig(ctx) {
       }))
     : [];
   return { body: { demo: ctx.config.demo, demoAccounts: accounts, build: publicBuild } };
+}
+
+function publicStats(ctx) {
+  return { body: { userCount: ctx.db.count('users', user => user.status === 'active') } };
 }
 
 /** 用 :param 模式匹配路径，返回参数对象；不匹配返回 null */

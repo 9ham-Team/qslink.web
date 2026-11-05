@@ -141,7 +141,7 @@
       ("<span>" + QSL.escapeHtml(QSL.t("已收录")) + " <b data-g-stat-text=\"cards\">—</b> " + QSL.escapeHtml(QSL.t("张 QSL 卡片 · 地址只在双方同意后可见")) + "</span></p>") +
       '<dl class="g-hero__stats" data-reveal data-reveal-delay="260">' +
       ("<div class=\"g-stat\"><dt>" + QSL.escapeHtml(QSL.t("收录卡片")) + "</dt><dd><span data-g-stat=\"cards\">—</span><small>" + QSL.escapeHtml(QSL.t("张")) + "</small></dd></div>") +
-      ("<div class=\"g-stat\"><dt>" + QSL.escapeHtml(QSL.t("独立呼号")) + "</dt><dd><span data-g-stat=\"callsigns\">—</span><small>" + QSL.escapeHtml(QSL.t("位")) + "</small></dd></div>") +
+      ("<div class=\"g-stat\"><dt>" + QSL.escapeHtml(QSL.t("用户数")) + "</dt><dd><span data-g-stat=\"users\">—</span><small>" + QSL.escapeHtml(QSL.t("位")) + "</small></dd></div>") +
       ("<div class=\"g-stat\"><dt>" + QSL.escapeHtml(QSL.t("累计点赞")) + "</dt><dd><span data-g-stat=\"likes\">—</span><small>" + QSL.escapeHtml(QSL.t("次")) + "</small></dd></div>") +
       '</dl>' +
       '</div>' +
@@ -361,15 +361,11 @@
   }
 
   function applyStats(root, items, total) {
-    const callSignSet = new Set();
     let likes = 0;
     items.forEach(function (card) {
-      const call = (card.owner && card.owner.callSign) || card.callSign || '';
-      if (call) callSignSet.add(String(call).toUpperCase());
       likes += Number(card.likeCount) || 0;
     });
     setStat(root, 'cards', total || items.length, true);
-    setStat(root, 'callsigns', callSignSet.size, false);
     setStat(root, 'likes', likes, true);
     const textEl = root.querySelector('[data-g-stat-text="cards"]');
     if (textEl) textEl.textContent = QSL.formatNumber(total || items.length);
@@ -526,6 +522,18 @@
       mountHero(root, state, { ratio: { w: 104, h: 154 } });
       renderShowcaseError(root, function () { loadData(root, state); });
       if (QSL.toast) QSL.toast((err && err.message) || QSL.t("卡片加载失败，请稍后重试"), 'error');
+    });
+  }
+
+  function loadUserCount(root, state) {
+    return QSL.api.stats().then(function (res) {
+      if (state.cancelled || !res || !Number.isInteger(res.userCount) || res.userCount < 0) return;
+      setStat(root, 'users', res.userCount, false);
+      if (QSL.fx && typeof QSL.fx.enhance === 'function') {
+        QSL.fx.enhance(root.querySelector('.g-hero__stats'));
+      }
+    }).catch(function () {
+      // Keep the unknown count as a dash; stats failures must not block cards.
     });
   }
 
@@ -712,6 +720,7 @@
       container.innerHTML = pageHtml(user);
       const cleanupFaq = mountFaq(container);
       const cleanupAnnouncements = mountAnnouncements(container, state);
+      loadUserCount(container, state);
 
       // 先创建 3D 卡片（使用品牌占位面），卡片图片到达后再替换，避免空白等待
       mountHero(container, state, { ratio: { w: 104, h: 154 } });

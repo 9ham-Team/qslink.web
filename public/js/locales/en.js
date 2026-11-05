@@ -678,7 +678,7 @@
   "互寄，完成交换": "Mail cards and complete the exchange",
   "双方同意后即可查看地址、邮寄卡片，在电波之外留下可触的纪念。": "Once both sides agree, view the addresses and mail the cards—a tangible keepsake beyond the airwaves.",
   "什么是 QSL 卡片？": "What is a QSL card?",
-  "QSL 卡片是业余无线电爱好者用于确认通联的纸质卡片，通常记录双方呼号、通联时间与信号报告等信息。它既是通联凭证，也是一张可以交换与收藏的「电波明信片」。": "A QSL card is a paper card amateur radio operators use to confirm a QSO. It usually records both callsigns, the contact time, signal reports, and other details. It's proof of a contact and a “radio postcard” to exchange and collect.",
+  "QSL 卡片是业余无线电爱好者用于确认通联的纸质卡片，通常记录双方呼号、通联时间与信号报告等信息。它既是通联凭证，也是一张可以交换与收藏的「电波明信片」。": "A QSL card is a paper card amateur radio operators use to confirm a QSO. It usually records both callsigns, the contact time, signal reports, and other details. It's proof of a contact and a \"radio postcard\" to exchange and collect.",
   "上传卡片需要审核吗？": "Do uploaded cards need review?",
   "需要。为了让广场保持干净与可信，每张新上传的卡片都会进入人工审核队列；通过后才会公开展示。审核中的卡片仅你自己可见，可以随时编辑补充内容。": "Yes. To keep Explore clean and trustworthy, every new card goes through manual review before it's public. While under review, only you can see it, and you can edit it at any time.",
   "换卡时我的地址会公开吗？": "Will my address be public when I exchange cards?",

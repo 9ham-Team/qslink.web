@@ -97,6 +97,7 @@
   }
 
   const api = (QSL.api = {
+    stats: () => request('GET', '/api/stats'),
     request,
     get: (path, opts) => request('GET', path, null, opts),
     post: (path, body, opts) => request('POST', path, body, opts),
