@@ -41,6 +41,7 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 |---|---|---|
 | `/` | `home` | 公开 |
 | `/explore` | `explore` | 公开 |
+| `/events/qsl-design-2026-11` | `qsl-design-contest` | 公开，报名需登录；含赛事动态、报名和三部分参赛须知 |
 | `/space/:uid` | `space` | 公开，九位 UID |
 | `/card/:id` | `card-detail` | 公开（申请按钮需登录） |
 | `/share/:token` | `share` | 历史兼容，公开（卡片须通过审核且持有者未封禁） |

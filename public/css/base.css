@@ -484,6 +484,18 @@ html { -webkit-tap-highlight-color: transparent; }
 
 /* ---------------- 响应式导航 ---------------- */
 .nav-language { flex: 0 0 auto; min-width: 42px; white-space: nowrap; }
+.nav-links a { white-space: nowrap; }
+.nav-menu a.is-active { background: var(--brand-soft); color: var(--brand-deep); }
+.nav-menu .nav-contest span, .nav-mobile .nav-contest span { min-width: 0; overflow-wrap: anywhere; }
+.nav-menu { max-width: calc(100vw - 24px); }
+.nav-mobile { max-height: calc(100dvh - var(--nav-h)); overflow-y: auto; }
+@media (min-width: 1181px) and (max-width: 1400px) {
+  .nav-shell { gap: 14px; }
+  .nav-links { margin-left: 0; gap: 2px; }
+  .nav-links a { padding-inline: 9px; font-size: 13px; gap: 5px; }
+  .nav-user-name { display: none; }
+  html[lang="en"] .brand-text small { display: none; }
+}
 html[lang="en"] .brand-text small { letter-spacing: 0; }
 @media (min-width: 901px) and (max-width: 1180px) {
   html[lang="en"] .nav-links a { padding-inline: 8px; gap: 5px; font-size: 12px; }
@@ -498,7 +510,7 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   .nav-guest .btn-primary { padding-inline: 10px; }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
   .nav-links { display: none; }
   .nav-toggle {
     display: inline-flex;
@@ -567,10 +579,12 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   .nav-mobile a:hover,
   .nav-mobile a.is-active { background: var(--brand-soft); color: var(--brand-deep); }
   .nav-mobile .btn { margin-top: 8px; }
+}
+@media (max-width: 900px) {
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; }
 }
 
-@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+@media (max-width: 1180px) and (prefers-reduced-motion: reduce) {
   .nav-mobile,
   .nav-mobile.is-open { transform: none; clip-path: none; transition-duration: 0s; transition-delay: 0s; }
 }

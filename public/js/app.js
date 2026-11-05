@@ -18,6 +18,13 @@
   const headerEl = document.getElementById('site-header');
   const footerEl = document.getElementById('site-footer');
 
+  const contestPath = '/events/qsl-design-2026-11';
+  function contestMenuLink(size) {
+    return '<a href="' + contestPath + '" data-link class="nav-contest' +
+      (location.pathname === contestPath ? ' is-active' : '') + '">' + QSL.icon('trophy', size) +
+      '<span>' + QSL.escapeHtml(QSL.t('QSL设计大赛-2026.11')) + '</span></a>';
+  }
+
   function logbookMenuLink(size) {
     return '<a href="/dashboard/logbook" data-link>' + QSL.icon('list', size) + (QSL.escapeHtml(QSL.t("通联日志")) + "</a>");
   }
@@ -30,6 +37,7 @@
     ];
     if (user) links.push({ href: '/dashboard/exchanges', label: QSL.t("换卡申请"), icon: 'send', match: '/dashboard/exchanges' });
     if (user) links.push({ href: '/dashboard/logbook', label: QSL.t("通联日志"), icon: 'list', match: '/dashboard/logbook' });
+    links.push({ href: contestPath, label: QSL.t('QSL设计大赛-2026.11'), icon: 'trophy', match: contestPath });
     return links
       .map(function (link) {
         const active = path === link.match || (link.match === '/explore' && path.startsWith('/explore'));
@@ -78,7 +86,7 @@
         '<a href="/dashboard" data-link>' + QSL.icon('layout', 17) + (QSL.escapeHtml(QSL.t("个人中心")) + "</a>") +
         '<a href="/dashboard/cards" data-link>' + QSL.icon('cards', 17) + (QSL.escapeHtml(QSL.t("我的卡片")) + "</a>") +
         '<a href="/dashboard/exchanges" data-link>' + QSL.icon('send', 17) + QSL.t("换卡申请") + pendingBadge(user) + '</a>' +
-        logbookMenuLink(17) +
+        logbookMenuLink(17) + contestMenuLink(17) +
         '<a href="/dashboard/profile" data-link>' + QSL.icon('user', 17) + (QSL.escapeHtml(QSL.t("个人资料")) + "</a>") +
         (isAdmin ? '<div class="menu-sep"></div><a class="menu-admin" href="/admin" data-link>' + QSL.icon('shield', 17) + (QSL.escapeHtml(QSL.t("管理后台")) + "</a>") : '') +
         '<div class="menu-sep"></div>' +
@@ -96,11 +104,11 @@
         ? '<a href="/dashboard" data-link>' + QSL.icon('layout', 18) + (QSL.escapeHtml(QSL.t("个人中心")) + "</a>") +
           '<a href="/dashboard/cards" data-link>' + QSL.icon('cards', 18) + (QSL.escapeHtml(QSL.t("我的卡片")) + "</a>") +
           '<a href="/dashboard/exchanges" data-link>' + QSL.icon('send', 18) + QSL.t("换卡申请") + pendingBadge(user) + '</a>' +
-          logbookMenuLink(18) +
+          logbookMenuLink(18) + contestMenuLink(18) +
           '<a href="/dashboard/profile" data-link>' + QSL.icon('user', 18) + (QSL.escapeHtml(QSL.t("个人资料")) + "</a>") +
           (isAdmin ? '<a href="/admin" data-link>' + QSL.icon('shield', 18) + (QSL.escapeHtml(QSL.t("管理后台")) + "</a>") : '') +
           '<button type="button" class="btn btn-ghost btn-block" data-logout>' + QSL.icon('logout', 18) + (QSL.escapeHtml(QSL.t("退出登录")) + "</button>")
-        : '<a href="/login" data-link>' + QSL.icon('log-in', 18) + (QSL.escapeHtml(QSL.t("登录")) + "</a>"));
+        : contestMenuLink(18) + '<a href="/login" data-link>' + QSL.icon('log-in', 18) + (QSL.escapeHtml(QSL.t("登录")) + "</a>"));
 
     headerEl.innerHTML =
       '<div class="nav-shell container">' +
@@ -241,11 +249,11 @@
       let active = false;
       if (href === '/') active = path === '/';
       else if (href === '/explore') active = path.startsWith('/explore');
-      else if (href === '/dashboard/logbook') active = path === href;
+      else if (href === '/dashboard/logbook' || href === contestPath) active = path === href;
       else if (href === '/dashboard/exchanges') active = path.startsWith('/dashboard/exchanges');
       a.classList.toggle('is-active', active);
     });
-    document.querySelectorAll('.nav-mobile a').forEach(function (a) {
+    document.querySelectorAll('.nav-mobile a, .nav-user-menu a').forEach(function (a) {
       const href = a.getAttribute('href');
       if (!href || !href.startsWith('/')) return;
       const path = location.pathname;

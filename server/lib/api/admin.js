@@ -239,9 +239,11 @@ async function updateCard(ctx) {
   }
 
   const previousStatus = card.status;
+  const before = structuredClone(card);
   Object.assign(card, patch);
   if (patch.status === 'approved' || patch.status === 'pending') card.rejectReason = null;
   card.updatedAt = new Date().toISOString();
+  require('../contests').invalidateCardEntries(ctx.db, before, card);
   await ctx.db.save();
 
   return {

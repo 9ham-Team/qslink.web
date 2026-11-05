@@ -329,7 +329,7 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ## 公告
 
-公告对象 `Announcement` 包含 `id`、`title`、`body`、`status`、`displaySeconds`、`publishedAt`、`createdAt`、`updatedAt`。`displaySeconds` 为浮层停留秒数，整数 1–3600，默认 30。标题和正文均为纯文本；去除首尾空白后分别为 1–120 和 1–10000 个 Unicode 字符，不允许 NUL。状态仅为 `draft`（草稿 / 已撤下）或 `published`（已发布）。时间由服务端生成，为 UTC ISO 字符串，未发布过的草稿 `publishedAt: null`。客户端提交的 ID、时间及其它未知字段不参与写入。
+公告对象 `Announcement` 包含 `id`、`eventKey`、`title`、`body`、`status`、`displaySeconds`、`publishedAt`、`createdAt`、`updatedAt`。`eventKey: null` 为全站公告，`qsl-design-2026-11` 为本届比赛动态，创建后不可改变所属范围。`displaySeconds` 为浮层停留秒数，整数 1–3600，默认 30。标题和正文均为纯文本；去除首尾空白后分别为 1–120 和 1–10000 个 Unicode 字符，不允许 NUL。状态仅为 `draft`（草稿 / 已撤下）或 `published`（已发布）。时间由服务端生成，为 UTC ISO 字符串，未发布过的草稿 `publishedAt: null`。客户端提交的 ID、时间及其它未知字段不参与写入。
 
 ### GET /api/announcements
 
@@ -350,6 +350,48 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 ### POST /api/announcements/:id/dismiss
 
 需要登录。以服务端当前用户身份保存此公告的“不再提醒”偏好；无需请求体，忽略客户端传入的用户 ID。成功 `200 → { dismissed: true }`，重复提交幂等；游客 `401`，禁用用户 `403`，不存在或未发布公告 `404`。偏好保存在数据库，跨设备、重新登录以及此公告编辑 / 撤下再发布后仍生效；新建公告使用新 ID，独立提醒。不会从公告板隐藏公告，也不返回其他用户的偏好。
+
+## QSL 设计大赛（2026.11）
+
+本届 `eventKey` 固定为 `qsl-design-2026-11`，其他赛事键返回 404。公开页面为 `/events/qsl-design-2026-11`。本轮仅提供赛事动态、报名及报名审核，不提供投票、评分计算或证照上传接口。未明确的赛期、完整评分和奖品细则在页面标注待公布。
+
+迁移 `014_qsl_design_contest.sql` 新增报名表与公告范围字段，原有公告保留为全站公告。旧版程序不会识别赛事范围，不应直接恢复旧镜像对升级后的数据继续写入；回滚须另行评估数据兼容性，不能以镜像回退代替数据库恢复。
+
+### GET /api/contests/:eventKey
+
+公开读取赛事定义，返回 `{ contest: { key, title } }`；不返回参赛者名单、联系邮箱或审核备注。
+
+### GET /api/contests/:eventKey/entry 🔒
+
+仅读取当前用户自己的报名，返回 `{ entry }`，未报名为 `{ entry: null }`。报名包含 `id`、`eventKey`、`userId`、`cardId`、`description`、`contactEmail`、`status`、`reviewReason`、`reviewedBy`、`reviewedAt`、`revision`、`createdAt`、`updatedAt` 及当前关联卡片的展示信息。联系邮箱仅本人及管理员可见，不修改账号邮箱，不在报名时收集领奖证照。
+
+### PUT /api/contests/:eventKey/entry 🔒
+
+body：`{ cardId, description, contactEmail, expectedRevision? }`。首次可省略 `expectedRevision`，更新已有报名必须携带当前版本。服务端检查所选卡片属于当前用户且已通过广场审核，客户端不能指定报名用户、审核状态或审核人。
+
+- 每账号本届仅保留一份报名，数据库唯一约束保护并发请求；待审核、驳回、通过后修改均更新原记录。
+- 有效修改递增 `revision`、转为 `pending` 并清空旧审核信息；没有实际变化的重复保存不撤销审核结果。
+- 旧版本更新返回 `409`，需重新读取再提交；非法字段为 `400`，未登录为 `401`。
+- 卡片作品内容变化或失去广场通过状态时，关联报名同事务重新待审核；仅库存变化不影响赛事审核。删卡清空引用、保留报名，允许重新选择卡片；删除用户清理报名。
+- 成功返回 `{ entry }`，首次创建为 `201`，更新为 `200`。作品说明为 1–2000 个字符，联系邮箱为有效邮箱且最多 120 个字符。
+
+### GET /api/admin/contests/:eventKey/entries 🔒👑
+
+支持 `status=all|pending|approved|rejected`、`page`、`limit`，返回通用分页结构 `{ items, total, page, limit, pages }`。列表包含报名审核所需字段及参赛者简要信息，不通过公开接口暴露。
+
+### GET /api/admin/contests/:eventKey/entries/:id 🔒👑
+
+返回 `{ entry }`，供管理员核对当前卡片双面图片、作品说明、联系邮箱及版本。
+
+### PUT /api/admin/contests/:eventKey/entries/:id/review 🔒👑
+
+body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。驳回必须填写 1–200 个字符的原因；旧版本返回 `409 REVISION_CONFLICT`。实质审核变化递增 `revision`，相同结果与原因的重复审核保持幂等。通过时再次检查当前卡片存在、属于报名人、广场状态为 approved，且报名用户可用。审核只改变赛事报名，不代替或改变广场审核。返回 `{ entry }`。
+
+### 赛事动态与全站公告隔离
+
+上述公告列表接口默认仅返回 `eventKey: null` 的全站公告；显式传 `?eventKey=qsl-design-2026-11` 只返回比赛动态，按范围和发布状态过滤后分页。公开端不返回草稿。管理员创建公告可附加 `eventKey`，普通更新不可改变范围。
+
+赛事动态不参加全站自动提醒，`reminder=1` 不可与赛事筛选组合（400）；对赛事动态调用 dismiss 返回404。赛事动态正文为纯文本，`displaySeconds` 不影响比赛页面中的展示时长。
 
 ## 7. 静态资源
 - `/uploads/*`：上传的卡片图片，长缓存头。

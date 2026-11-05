@@ -48,6 +48,7 @@ const ROUTES = [
   ...exchangesApi.routes,
   ...adminApi.routes,
   ...require('./lib/api/announcements').routes,
+  ...require('./lib/api/contests').routes,
 ];
 
 /* =========================================================================

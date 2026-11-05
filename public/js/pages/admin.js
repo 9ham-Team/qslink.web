@@ -1,7 +1,7 @@
 /* ============================================================
  * QSLink · 管理后台 Admin（admin-ui）
  * 依赖：core.js / api.js / ui.js / card3d.js（可选）
- * 路由：/admin?tab=overview|users|cards|exchanges
+ * 路由：/admin?tab=overview|users|cards|exchanges|announcements|contest
  * 数据：GET /api/admin/stats、/users、/cards、/exchanges
  * 说明：仅写 public/js/pages/admin.js、public/css/admin.css；共享层只使用不修改。
  * ============================================================ */
@@ -14,13 +14,16 @@
   const escAttr = (v) => (typeof QSL.escapeAttr === 'function' ? QSL.escapeAttr(v) : esc(v));
   const ico = (name, size) => (typeof QSL.icon === 'function' ? QSL.icon(name, size || 18) : '');
 
-  const TABS = ['overview', 'users', 'cards', 'exchanges', 'announcements'];
+  const CONTEST_KEY = 'qsl-design-2026-11';
+  const CONTEST_API = '/api/admin/contests/' + CONTEST_KEY + '/entries';
+  const TABS = ['overview', 'users', 'cards', 'exchanges', 'announcements', 'contest'];
   const TAB_META = {
     overview: { label: QSL.t("概览"), icon: 'layout' },
     users: { label: QSL.t("用户管理"), icon: 'users' },
     cards: { label: QSL.t("卡片审核"), icon: 'cards' },
     exchanges: { label: QSL.t("换卡记录"), icon: 'send' },
-    announcements: { label: QSL.t("公告管理"), icon: 'info' }
+    announcements: { label: QSL.t("公告管理"), icon: 'info' },
+    contest: { label: QSL.t("比赛审核"), icon: 'trophy' }
   };
   const LIMITS = { users: 10, cards: 8, exchanges: 12 };
   const CARD_STATUS_TABS = [
@@ -128,11 +131,11 @@
     return (
       '<div class="a-thumbs' + extraCls + '">' +
       '<figure class="a-thumb" style="--ar:' + ar + '">' +
-      '<img ' + QSL.images.attributes(front, '240px') + ' alt="' + escAttr((c.title || QSL.t("卡片")) + (" " + QSL.t("正面"))) + '" loading="lazy" decoding="async">' +
+      '<img ' + QSL.images.attributes(front, o.sizes || '240px') + ' alt="' + escAttr((c.title || QSL.t("卡片")) + (" " + QSL.t("正面"))) + '" loading="lazy" decoding="async">' +
       ("<figcaption>" + QSL.escapeHtml(QSL.t("正面")) + "</figcaption></figure>") +
       '<figure class="a-thumb' + (back ? '' : ' a-thumb--empty') + '" style="--ar:' + ar + '">' +
       (back
-        ? '<img ' + QSL.images.attributes(back, '240px') + ' alt="' + escAttr((c.title || QSL.t("卡片")) + (" " + QSL.t("背面"))) + ("\" loading=\"lazy\" decoding=\"async\"><figcaption>" + QSL.escapeHtml(QSL.t("背面")) + "</figcaption>")
+        ? '<img ' + QSL.images.attributes(back, o.sizes || '240px') + ' alt="' + escAttr((c.title || QSL.t("卡片")) + (" " + QSL.t("背面"))) + ("\" loading=\"lazy\" decoding=\"async\"><figcaption>" + QSL.escapeHtml(QSL.t("背面")) + "</figcaption>")
         : '<span class="a-thumb-none">' + ico('image', 16) + ("<span>" + QSL.escapeHtml(QSL.t("无背面")) + "</span></span>")) +
       '</figure></div>'
     );
@@ -215,7 +218,9 @@
       stats: null,
       announcementPage: 1,
       announcementModal: null,
-      jobs: { overview: 0, users: 0, cards: 0, exchanges: 0, announcements: 0, stats: 0 },
+      contestModal: null,
+      contest: { status: 'pending', page: 1, announcementPage: 1, detailJob: 0 },
+      jobs: { overview: 0, users: 0, cards: 0, exchanges: 0, announcements: 0, contest: 0, stats: 0 },
       users: { q: '', status: '', role: '', page: 1, data: null, map: Object.create(null) },
       cards: { status: 'all', q: '', page: 1, data: null, map: Object.create(null) },
       exchanges: { status: '', page: 1, data: null, map: Object.create(null) }
@@ -366,11 +371,13 @@
 
   function drawTab(tab, panel) {
     closeAnnouncementModal();
+    closeContestModal();
     S.root = null;
     if (tab === 'overview') drawOverview(panel);
     else if (tab === 'users') drawUsers(panel);
     else if (tab === 'cards') drawCards(panel);
     else if (tab === 'announcements') drawAnnouncements(panel);
+    else if (tab === 'contest') drawContest(panel);
     else drawExchanges(panel);
   }
 
@@ -383,13 +390,15 @@
     S.announcementModal = null;
   }
 
-  function editAnnouncement(root, item) {
+  function editAnnouncement(root, item, eventKey) {
+    closeContestModal();
     closeAnnouncementModal();
     const owner = S;
+    const tab = eventKey ? 'contest' : 'announcements';
     let closed = false;
     let busy = false;
     const modal = QSL.modal({
-      title: item ? QSL.t("编辑公告") : QSL.t("新建公告"),
+      title: eventKey ? (item ? QSL.t("编辑赛事动态") : QSL.t("新建赛事动态")) : (item ? QSL.t("编辑公告") : QSL.t("新建公告")),
       size: 'lg',
       content: ("<form class=\"a-announcement-form\"><div class=\"a-announcement-field\"><label>" + QSL.escapeHtml(QSL.t("标题")) + "<input class=\"input\" name=\"title\" required aria-describedby=\"a-ann-count-title\" value=\"") + escAttr(item ? item.title : '') + ("\"></label><small class=\"muted a-announcement-count\" id=\"a-ann-count-title\" data-count-for=\"title\" data-max=\"120\"></small></div><div class=\"a-announcement-field\"><label>" + QSL.escapeHtml(QSL.t("正文（纯文本）")) + "<textarea class=\"textarea\" name=\"body\" required aria-describedby=\"a-ann-count-body\">") + esc(item ? item.body : '') + ("</textarea></label><small class=\"muted a-announcement-count\" id=\"a-ann-count-body\" data-count-for=\"body\" data-max=\"10000\"></small></div><label>" + QSL.escapeHtml(QSL.t("弹窗停留时长（秒）")) + "<input class=\"input\" type=\"number\" name=\"displaySeconds\" min=\"1\" max=\"3600\" step=\"1\" required value=\"") + escAttr(item ? item.displaySeconds : 30) + ("\"></label><small class=\"muted\">" + QSL.escapeHtml(QSL.t("默认 30 秒，可设置 1–3600 秒；读条结束后自动关闭。")) + "</small><label>" + QSL.escapeHtml(QSL.t("状态")) + "<select class=\"select\" name=\"status\"><option value=\"draft\">" + QSL.escapeHtml(QSL.t("草稿 / 已撤下")) + "</option><option value=\"published\"") + (item && item.status === 'published' ? ' selected' : '') + (">" + QSL.escapeHtml(QSL.t("已发布")) + "</option></select></label><p class=\"a-hint-error\" data-error role=\"alert\"></p><button class=\"btn btn-primary\" type=\"submit\">" + QSL.escapeHtml(QSL.t("保存公告")) + "</button></form>"),
       onClose: function () {
@@ -401,6 +410,12 @@
     });
     owner.announcementModal = modal;
     const form = modal.body.querySelector('form');
+    if (eventKey) {
+      const durationLabel = form.elements.displaySeconds.closest('label');
+      durationLabel.nextElementSibling.remove();
+      durationLabel.remove();
+      form.querySelector('[type="submit"]').textContent = QSL.t("保存赛事动态");
+    }
     form.querySelectorAll('[data-count-for]').forEach(function (counter) {
       const field = form.elements[counter.dataset.countFor];
       const max = Number(counter.dataset.max);
@@ -414,22 +429,23 @@
     });
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
-      if (busy || closed || S !== owner || !isLive(root, 'announcements')) return;
+      if (busy || closed || S !== owner || !isLive(root, tab)) return;
       busy = true;
       const btn = form.querySelector('[type="submit"]');
       animateBusy(btn, true);
       form.querySelector('[data-error]').textContent = '';
       const values = Object.fromEntries(new FormData(form));
-      values.displaySeconds = Number(values.displaySeconds);
+      if (!eventKey) values.displaySeconds = Number(values.displaySeconds);
+      if (eventKey && !item) values.eventKey = eventKey;
       try {
         if (item) await QSL.api.put('/api/admin/announcements/' + encodeURIComponent(item.id), values);
         else await QSL.api.post('/api/admin/announcements', values);
-        if (closed || S !== owner || !isLive(root, 'announcements')) return;
+        if (closed || S !== owner || !isLive(root, tab)) return;
         modal.close();
-        toast(QSL.t("公告已保存"));
+        toast(eventKey ? QSL.t("赛事动态已保存") : QSL.t("公告已保存"));
         redrawTab();
       } catch (err) {
-        if (!closed && S === owner && isLive(root, 'announcements')) {
+        if (!closed && S === owner && isLive(root, tab)) {
           form.querySelector('[data-error]').textContent = err.message || QSL.t("保存失败");
           if (err.fields) QSL.showFieldErrors(form, err.fields);
         }
@@ -440,48 +456,205 @@
     });
   }
 
-  function drawAnnouncements(panel) {
+  function drawAnnouncements(panel, eventKey, host) {
     const owner = S;
-    const root = tabRoot(panel, ("<div class=\"toolbar a-toolbar\"><h2>" + QSL.escapeHtml(QSL.t("公告管理")) + "</h2><span class=\"a-toolbar-spacer\"></span><button class=\"btn btn-primary btn-sm\" data-ann-new type=\"button\">" + QSL.escapeHtml(QSL.t("新建公告")) + "</button></div><div data-ann-list>" + QSL.escapeHtml(QSL.t("正在加载公告…")) + "</div><div class=\"pagination a-pager\" data-ann-pager></div>"));
+    const tab = eventKey ? 'contest' : 'announcements';
+    const html = ("<div class=\"toolbar a-toolbar\"><h2>" + QSL.escapeHtml(QSL.t("公告管理")) + "</h2><span class=\"a-toolbar-spacer\"></span><button class=\"btn btn-primary btn-sm\" data-ann-new type=\"button\">" + QSL.escapeHtml(QSL.t("新建公告")) + "</button></div><div data-ann-list>" + QSL.escapeHtml(QSL.t("正在加载公告…")) + "</div><div class=\"pagination a-pager\" data-ann-pager></div>");
+    const root = host || tabRoot(panel, html);
+    if (host) host.innerHTML = html;
+    if (eventKey) {
+      root.querySelector('h2').textContent = QSL.t("赛事动态");
+      root.querySelector('[data-ann-new]').textContent = QSL.t("新建赛事动态");
+      root.querySelector('[data-ann-list]').textContent = QSL.t("正在加载赛事动态…");
+    }
     const job = ++S.jobs.announcements;
-    const page = S.announcementPage;
-    root.querySelector('[data-ann-new]').addEventListener('click', function () { editAnnouncement(root); });
-    QSL.api.get('/api/admin/announcements?page=' + page + '&limit=8').then(function (res) {
-      if (S !== owner || !aliveRoot(root, 'announcements', job)) return;
+    const page = eventKey ? S.contest.announcementPage : S.announcementPage;
+    const live = function () { return S === owner && isLive(root, tab) && S.jobs.announcements === job; };
+    root.querySelector('[data-ann-new]').addEventListener('click', function () { editAnnouncement(root, null, eventKey); });
+    QSL.api.get('/api/admin/announcements?page=' + page + '&limit=8' + (eventKey ? '&eventKey=' + encodeURIComponent(eventKey) : '')).then(function (res) {
+      if (!live()) return;
       const list = root.querySelector('[data-ann-list]');
       list.innerHTML = res.items.length ? res.items.map(function (item) {
-        return '<article class="a-announcement-row"><h3>' + esc(item.title) + '</h3>' + badge(item.status === 'published' ? QSL.t("已发布") : QSL.t("草稿 / 已撤下"), item.status === 'published' ? 'mint' : 'slate') + '<p class="a-announcement-body">' + esc(item.body) + ("</p><small class=\"muted\">" + QSL.escapeHtml(QSL.t("更新："))) + esc(fmtDateTime(item.updatedAt)) + (" " + QSL.t("· 停留：")) + esc(item.displaySeconds) + (" " + QSL.t("秒 · 发布时间：")) + esc(item.publishedAt ? fmtDateTime(item.publishedAt) : QSL.t("未发布")) + '</small><div class="a-announcement-actions"><button class="btn btn-ghost btn-sm" type="button" data-ann-edit="' + escAttr(item.id) + ("\">" + QSL.escapeHtml(QSL.t("编辑")) + "</button><button class=\"btn btn-soft btn-sm\" type=\"button\" data-ann-toggle=\"") + escAttr(item.id) + '">' + (item.status === 'published' ? QSL.t("撤下") : QSL.t("发布")) + '</button></div></article>';
-      }).join('') : ("<p class=\"muted\">" + QSL.escapeHtml(QSL.t("暂无公告，点击「新建公告」开始。")) + "</p>");
+        return '<article class="a-announcement-row"><h3>' + esc(item.title) + '</h3>' + badge(item.status === 'published' ? QSL.t("已发布") : QSL.t("草稿 / 已撤下"), item.status === 'published' ? 'mint' : 'slate') + '<p class="a-announcement-body">' + esc(item.body) + ("</p><small class=\"muted\">" + QSL.escapeHtml(QSL.t("更新："))) + esc(fmtDateTime(item.updatedAt)) + (eventKey ? (' · ' + esc(QSL.t("发布时间："))) : (" " + esc(QSL.t("· 停留："))) + esc(item.displaySeconds) + (" " + esc(QSL.t("秒 · 发布时间：")))) + esc(item.publishedAt ? fmtDateTime(item.publishedAt) : QSL.t("未发布")) + '</small><div class="a-announcement-actions"><button class="btn btn-ghost btn-sm" type="button" data-ann-edit="' + escAttr(item.id) + ("\">" + QSL.escapeHtml(QSL.t("编辑")) + "</button><button class=\"btn btn-soft btn-sm\" type=\"button\" data-ann-toggle=\"") + escAttr(item.id) + '">' + (item.status === 'published' ? QSL.t("撤下") : QSL.t("发布")) + '</button></div></article>';
+      }).join('') : ("<p class=\"muted\">" + esc(eventKey ? QSL.t("暂无赛事动态，点击「新建赛事动态」开始。") : QSL.t("暂无公告，点击「新建公告」开始。")) + "</p>");
       list.onclick = async function (event) {
         const btn = event.target.closest('[data-ann-edit], [data-ann-toggle]');
-        if (!btn || btn.disabled) return;
+        if (!btn || btn.disabled || !live()) return;
         const item = res.items.find(function (row) { return row.id === (btn.dataset.annEdit || btn.dataset.annToggle); });
         if (!item) return;
-        if (btn.dataset.annEdit) { editAnnouncement(root, item); return; }
+        if (btn.dataset.annEdit) { editAnnouncement(root, item, eventKey); return; }
         if (item.status === 'published') {
           const ok = await QSL.confirm({
-            title: QSL.t("撤下公告"),
-            message: QSL.t("确定撤下公告「") + item.title + QSL.t("」吗？撤下后首页不再显示，可稍后重新发布。"),
+            title: eventKey ? QSL.t("撤下赛事动态") : QSL.t("撤下公告"),
+            message: eventKey ? QSL.t("确定撤下这条赛事动态吗？可稍后重新发布。") : QSL.t("确定撤下公告「") + item.title + QSL.t("」吗？撤下后首页不再显示，可稍后重新发布。"),
             confirmText: QSL.t("撤下"),
             cancelText: QSL.t("取消"),
             danger: true
           });
-          if (!ok || S !== owner || !isLive(root, 'announcements')) return;
+          if (!ok || S !== owner || !isLive(root, tab)) return;
         }
         animateBusy(btn, true);
         try {
           await QSL.api.put('/api/admin/announcements/' + encodeURIComponent(item.id), { status: item.status === 'published' ? 'draft' : 'published' });
-          if (S === owner && isLive(root, 'announcements')) { toast(QSL.t("公告状态已更新")); redrawTab(); }
+          if (S === owner && isLive(root, tab)) { toast(eventKey ? QSL.t("赛事动态状态已更新") : QSL.t("公告状态已更新")); redrawTab(); }
         } catch (err) {
-          if (S === owner && isLive(root, 'announcements')) { toastError(err); animateBusy(btn, false); }
+          if (S === owner && isLive(root, tab)) { toastError(err); animateBusy(btn, false); }
         }
       };
       renderPager(root.querySelector('[data-ann-pager]'), res, function (next) {
-        owner.announcementPage = next;
+        if (!live()) return;
+        if (eventKey) owner.contest.announcementPage = next;
+        else owner.announcementPage = next;
         redrawTab();
       });
     }).catch(function (err) {
-      if (S === owner && aliveRoot(root, 'announcements', job)) renderLoadError(root.querySelector('[data-ann-list]'), err, redrawTab);
+      if (live()) renderLoadError(root.querySelector('[data-ann-list]'), err, redrawTab);
+    });
+  }
+
+  function closeContestModal() {
+    if (!S) return;
+    S.contest.detailJob++;
+    if (!S.contestModal) return;
+    const modal = S.contestModal;
+    const overlay = modal.el.closest('.modal-overlay');
+    modal.close();
+    if (overlay) overlay.remove();
+    S.contestModal = null;
+  }
+
+  function drawContest(panel) {
+    const owner = S;
+    const state = owner.contest;
+    const root = tabRoot(panel,
+      '<section class="a-contest-section"><div class="toolbar a-toolbar"><h2>' + esc(QSL.t("报名审核")) +
+      '</h2><span class="a-toolbar-spacer"></span><label class="a-filter">' + esc(QSL.t("报名状态")) +
+      '<select class="select a-select" data-contest-status>' + CARD_STATUS_TABS.map(function (item) {
+        return '<option value="' + item.key + '"' + (item.key === state.status ? ' selected' : '') + '>' + esc(item.label) + '</option>';
+      }).join('') + '</select></label></div><p class="muted">' + esc(QSL.t("比赛审核与广场卡片审核独立；作品变更后需重新审核。")) +
+      '</p><div class="a-cardlist" data-contest-list></div><div class="pagination a-pager" data-contest-pager></div></section>' +
+      '<section class="a-contest-section" data-contest-announcements></section>');
+    const job = ++owner.jobs.contest;
+    const live = function () { return S === owner && aliveRoot(root, 'contest', job); };
+    root.querySelector('[data-contest-status]').addEventListener('change', function (event) {
+      if (!live()) return;
+      state.status = event.target.value;
+      state.page = 1;
+      redrawTab();
+    });
+    const list = root.querySelector('[data-contest-list]');
+    QSL.loading(list);
+    QSL.api.get(CONTEST_API + '?status=' + encodeURIComponent(state.status) + '&page=' + state.page + '&limit=8').then(function (res) {
+      if (!live()) return;
+      list.innerHTML = res.items.length ? res.items.map(function (entry) {
+        return '<article class="a-cardrow"><div class="a-cardrow-thumbs">' + (entry.card ? thumbPair(entry.card) : '<p class="muted">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
+          '</div><div class="a-cardrow-main"><div class="a-cardrow-head"><h3 class="a-cardrow-title">' + esc(entry.card ? entry.card.title : QSL.t("未关联卡片")) +
+          '</h3>' + statusBadge(entry.status) + '</div>' + userInline(entry.user) + '<p class="a-contest-excerpt">' + esc(entry.description) +
+          '</p><span class="a-time">' + esc(fmtDateTime(entry.updatedAt)) + '</span></div><div class="a-cardrow-actions"><button class="a-act a-act--wide" type="button" data-contest-detail="' +
+          escAttr(entry.id) + '">' + ico('eye', 16) + esc(QSL.t("查看报名 / 审核")) + '</button></div></article>';
+      }).join('') : '<p class="a-inline-empty">' + esc(QSL.t("暂无符合条件的报名。")) + '</p>';
+      list.onclick = function (event) {
+        const btn = event.target.closest('[data-contest-detail]');
+        if (!btn || btn.disabled || !live()) return;
+        openContestEntry(root, btn.dataset.contestDetail);
+      };
+      renderPager(root.querySelector('[data-contest-pager]'), res, function (page) {
+        if (!live()) return;
+        state.page = page;
+        redrawTab();
+      });
+    }).catch(function (err) {
+      if (live()) renderLoadError(list, err, redrawTab);
+    });
+    drawAnnouncements(panel, CONTEST_KEY, root.querySelector('[data-contest-announcements]'));
+  }
+
+  function openContestEntry(root, id) {
+    closeAnnouncementModal();
+    closeContestModal();
+    const owner = S;
+    const job = ++owner.contest.detailJob;
+    let closed = false;
+    let busy = false;
+    let stale = false;
+    const live = function () {
+      return !closed && S === owner && isLive(root, 'contest') && owner.contest.detailJob === job;
+    };
+    const modal = QSL.modal({
+      title: QSL.t("比赛报名详情"),
+      size: 'lg',
+      content: '<div data-contest-detail-body></div>',
+      onClose: function () {
+        closed = true;
+        const overlay = modal.el.closest('.modal-overlay');
+        if (overlay) document.removeEventListener('keydown', overlay._onKey);
+        if (owner.contestModal === modal) owner.contestModal = null;
+      }
+    });
+    owner.contestModal = modal;
+    const body = modal.body.querySelector('[data-contest-detail-body]');
+    QSL.loading(body);
+    QSL.api.get(CONTEST_API + '/' + encodeURIComponent(id)).then(function (res) {
+      if (!live()) return;
+      const entry = res.entry;
+      const card = entry.card;
+      const canApprove = !!card && card.status === 'approved';
+      body.innerHTML = '<div class="a-contest-detail">' + (card ? '<h3>' + esc(card.title) + '</h3><div class="a-contest-artwork">' + thumbPair(card, { sizes: '(max-width: 620px) 90vw, 380px' }) + '</div><div>' +
+        esc(QSL.t("广场审核状态")) + ' ' + statusBadge(card.status) + '</div>' : '<p class="a-reject-note">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
+        '<div class="a-cardrow-meta">' + userInline(entry.user) + statusBadge(entry.status) + '<span class="a-time">' + esc(fmtDateTime(entry.updatedAt)) + '</span></div>' +
+        '<div class="a-info-block"><h4>' + esc(QSL.t("作品说明")) + '</h4><p class="a-quote a-contest-text">' + esc(entry.description) + '</p></div>' +
+        '<div class="a-info-block"><h4>' + esc(QSL.t("联系邮箱")) + '</h4><p class="a-contest-text">' + esc(entry.contactEmail) + '</p><small class="muted">' + esc(QSL.t("仅参赛者本人及管理员可见，不修改账号邮箱。")) + '</small></div>' +
+        (entry.reviewReason ? '<div class="a-info-block"><h4>' + esc(QSL.t("审核原因")) + '</h4><p class="a-quote a-contest-text">' + esc(entry.reviewReason) + '</p></div>' : '') +
+        '<form class="a-announcement-form" novalidate><label>' + esc(QSL.t("审核原因（驳回必填）")) + '<textarea class="textarea" name="reviewReason" maxlength="200"></textarea></label>' +
+        (!canApprove ? '<p class="a-hint-error">' + esc(QSL.t("关联卡片未通过广场审核，不能批准报名。")) + '</p>' : '') +
+        '<p class="a-hint-error" data-error role="alert"></p><div class="a-announcement-actions"><button class="btn btn-primary" type="submit" value="approved"' + (!canApprove ? ' disabled' : '') + '>' +
+        esc(QSL.t("通过报名")) + '</button><button class="btn btn-danger" type="submit" value="rejected">' + esc(QSL.t("驳回报名")) +
+        '</button><button class="btn btn-ghost" type="button" data-contest-reload>' + esc(QSL.t("刷新详情")) + '</button></div></form></div>';
+      body.querySelector('[data-contest-reload]').addEventListener('click', function () {
+        if (live() && !busy) openContestEntry(root, id);
+      });
+      const form = body.querySelector('form');
+      form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (busy || stale || !live() || !event.submitter) return;
+        const status = event.submitter.value;
+        if (status !== 'approved' && status !== 'rejected') return;
+        const reason = form.elements.reviewReason.value.trim();
+        const error = form.querySelector('[data-error]');
+        error.textContent = '';
+        if (status === 'rejected' && !reason) {
+          error.textContent = QSL.t("请填写驳回原因。");
+          form.elements.reviewReason.focus();
+          return;
+        }
+        busy = true;
+        const buttons = form.querySelectorAll('button');
+        buttons.forEach(function (btn) { btn.disabled = true; });
+        animateBusy(event.submitter, true);
+        try {
+          await QSL.api.put(CONTEST_API + '/' + encodeURIComponent(id) + '/review', {
+            status: status, reviewReason: reason, expectedRevision: entry.revision
+          });
+          if (!live()) return;
+          modal.close();
+          toast(QSL.t("报名审核已更新"));
+          redrawTab();
+        } catch (err) {
+          if (!live()) return;
+          stale = err.status === 409;
+          error.textContent = stale ? QSL.t("报名已更新，请刷新详情后重新审核。") : (err.message || QSL.t("操作失败，请稍后重试"));
+          if (err.fields) QSL.showFieldErrors(form, err.fields);
+        } finally {
+          busy = false;
+          if (live()) {
+            animateBusy(event.submitter, false);
+            buttons.forEach(function (btn) { btn.disabled = stale && btn.type === 'submit'; });
+            form.querySelector('[value="approved"]').disabled = stale || !canApprove;
+          }
+        }
+      });
+    }).catch(function (err) {
+      if (live()) renderLoadError(body, err, function () { if (live()) openContestEntry(root, id); });
     });
   }
 
@@ -1918,6 +2091,7 @@
       cancelled = true;
       if (S) {
         closeAnnouncementModal();
+        closeContestModal();
         S.disposed = true;
         S = null;
       }

@@ -4,12 +4,13 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
-const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql', '014_qsl_design_contest.sql'];
 const SCHEMA_VERSION = MIGRATIONS.length;
-const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals', 'contactLogs'];
+const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals', 'contactLogs', 'contestEntries'];
 const FIELDS = {
+  contestEntries: ['id', 'eventKey', 'userId', 'cardId', 'description', 'contactEmail', 'status', 'reviewReason', 'reviewedBy', 'reviewedAt', 'revision', 'createdAt', 'updatedAt'],
   contactLogs: ['id', 'userId', 'dedupKey', 'qsoAt', 'callSign', 'details', 'createdAt', 'updatedAt'],
-  announcements: ['id', 'title', 'body', 'status', 'displaySeconds', 'publishedAt', 'createdAt', 'updatedAt'],
+  announcements: ['id', 'eventKey', 'title', 'body', 'status', 'displaySeconds', 'publishedAt', 'createdAt', 'updatedAt'],
   announcementDismissals: ['id', 'userId', 'announcementId', 'createdAt'],
   emailVerifications: ['id', 'nonce', 'codeHash', 'attempts', 'status', 'sentAt', 'expiresAt'],
   mailQuotas: ['id', 'count', 'windowAt'],
@@ -325,6 +326,12 @@ function paginate(items, page, limit) {
   };
 }
 function cascadeDeleteCard(db, cardId) {
+  for (const entry of db.data.contestEntries) {
+    if (entry.cardId === cardId) {
+      entry.cardId = null;
+      require('./contests').resetEntry(entry);
+    }
+  }
   for (const exchange of db.data.exchanges)
     if (exchange.preferredCardId === cardId) exchange.preferredCardId = null;
   for (const name of ['cards', 'likes', 'exchanges'])
@@ -333,6 +340,10 @@ function cascadeDeleteCard(db, cardId) {
     );
 }
 function cascadeDeleteUser(db, userId) {
+  db.data.contestEntries = db.data.contestEntries.filter((entry) => entry.userId !== userId);
+  for (const entry of db.data.contestEntries) {
+    if (entry.reviewedBy === userId) entry.reviewedBy = null;
+  }
   for (const card of [...db.data.cards])
     if (card.ownerId === userId) cascadeDeleteCard(db, card.id);
   db.data.likes = db.data.likes.filter((row) => row.userId !== userId);

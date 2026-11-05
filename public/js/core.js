@@ -61,6 +61,7 @@
   QSL.routes = [
     { path: '/', page: 'home' },
     { path: '/explore', page: 'explore' },
+    { path: '/events/qsl-design-2026-11', page: 'qsl-design-contest' },
     { path: '/space/:uid', page: 'space' },
     { path: '/card/:id', page: 'card-detail' },
     { path: '/share/:token', page: 'share' },
