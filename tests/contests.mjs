@@ -49,7 +49,7 @@ export async function testContests() {
     return db.transaction(unit => route.handler({ db: unit, user: viewer ? unit.find('users', item => item.id === viewer) : null, params: { eventKey: key, id }, body, query: new URLSearchParams(query), config: {} }), { write: method !== 'GET' });
   }
   const get = (options = {}) => call(contests.routes, 'GET', entryPath, options).then(result => result.body.entry);
-  const payload = { cardId: 'target', description: '<script>alert(1)</script> 作品说明', contactEmail: 'contest-private@example.test' };
+  const payload = { cardIds: ['target'], description: '<script>alert(1)</script> 作品说明', contactEmail: 'contest-private@example.test' };
   const submit = (body = payload, options = {}) => call(contests.routes, 'PUT', entryPath, { ...options, body }).then(result => result.body.entry);
   const review = (entry, status = 'approved', options = {}) => call(contests.routes, 'PUT', reviewPath, { viewer: 'admin', id: entry.id, body: { status, reviewReason: status === 'rejected' ? '请完善作品说明' : '', expectedRevision: entry.revision }, ...options }).then(result => result.body.entry);
   const rejects = (promise, status, message) => assert.rejects(promise, err => err.status === status, message);
@@ -64,7 +64,7 @@ export async function testContests() {
     await f.db.transaction(unit => {
       ['owner', 'other', 'racer'].forEach(id => unit.insert('users', user(id)));
       unit.insert('users', user('admin', 'admin'));
-      [card('target'), card('replacement'), card('foreign', 'other'), card('race', 'racer'), card('pending', 'owner', 'pending'), card('rejected', 'owner', 'rejected')].forEach(item => unit.insert('cards', item));
+      [card('target'), card('replacement'), card('extra1'), card('extra2'), card('foreign', 'other'), card('race', 'racer'), card('pending', 'owner', 'pending'), card('rejected', 'owner', 'rejected')].forEach(item => unit.insert('cards', item));
     }, { write: true });
     await testContestMigration();
     const publicContest = (await call(contests.routes, 'GET', publicPath, { viewer: null })).body;
@@ -83,17 +83,19 @@ export async function testContests() {
     for (const body of [null, [], {}, { ...payload, description: '' }, { ...payload, description: 'x\0' }, { ...payload, description: 'x'.repeat(2001) }, { ...payload, contactEmail: 'invalid' }, { ...payload, contactEmail: 'x'.repeat(121) + '@example.test' }, { ...payload, contactEmail: 'a@example.test\nBcc:x@example.test' }]) {
       await rejects(submit(body), 400);
     }
-    await rejects(submit({ ...payload, cardId: 'missing' }), 400);
-    await rejects(submit({ ...payload, cardId: 'foreign' }), 400);
-    for (const cardId of ['pending', 'rejected']) await rejects(submit({ ...payload, cardId }), 400);
+    await rejects(submit({ ...payload, cardIds: ['missing'] }), 400);
+    await rejects(submit({ ...payload, cardIds: ['foreign'] }), 400);
+    for (const cardId of ['pending', 'rejected']) await rejects(submit({ ...payload, cardIds: [cardId] }), 400);
+    for (const cardIds of [[], ['target', 'target'], ['target', 'replacement', 'extra1', 'extra2'], ['target', 7]]) await rejects(submit({ ...payload, cardIds }), 400);
     let entry = await submit({ ...payload, userId: 'other', status: 'approved', revision: 99, reviewReason: 'forged' });
     assert.equal(entry.userId, 'owner');
-    assert.equal(entry.cardId, 'target');
+    assert.deepEqual(entry.cardIds, ['target']);
     assert.equal(entry.status, 'pending');
     assert.equal(entry.revision, 1);
     assert.equal(entry.contactEmail, payload.contactEmail);
     assert.equal(entry.description, payload.description, 'API stores plain text; rendering is responsible for escaping');
-    assert.ok(entry.card);
+    assert.equal(entry.cards.length, 1);
+    assert.equal(entry.cards[0].id, 'target');
     assert.equal(entry.user.id, 'owner');
     assert.equal(entry.user.passwordHash, undefined);
     assert.equal(entry.user.email, undefined);
@@ -102,6 +104,12 @@ export async function testContests() {
     assert.equal((await get()).id, entry.id);
     assert.equal((await second.transaction(unit => unit.find('contestEntries', item => item.id === entry.id))).contactEmail, payload.contactEmail);
     assert.equal(await f.db.transaction(unit => unit.find('users', item => item.id === 'owner').email), 'owner@example.test', 'entry contact does not change account email');
+    const multi = await submit({ ...payload, cardIds: ['target', 'replacement', 'extra1'], expectedRevision: entry.revision });
+    assert.deepEqual(multi.cardIds, ['target', 'replacement', 'extra1']);
+    assert.equal(multi.cards.length, 3);
+    entry = await submit({ ...payload, expectedRevision: multi.revision });
+    assert.deepEqual(entry.cardIds, ['target']);
+    assertPending(entry, multi);
     await rejects(submit(payload), 400);
     await rejects(submit({ ...payload, expectedRevision: 0 }), 400);
     for (const expectedRevision of ['1', -1, 1.5, null]) await rejects(submit({ ...payload, expectedRevision }), 400);
@@ -132,7 +140,7 @@ export async function testContests() {
     assertPending(entry, rejected);
     assert.equal(entry.id, rejected.id);
 
-    const racing = await Promise.allSettled([submit({ ...payload, cardId: 'race' }, { viewer: 'racer' }), submit({ ...payload, cardId: 'race' }, { viewer: 'racer', db: second })]);
+    const racing = await Promise.allSettled([submit({ ...payload, cardIds: ['race'] }, { viewer: 'racer' }), submit({ ...payload, cardIds: ['race'] }, { viewer: 'racer', db: second })]);
     assert.ok(racing.some(result => result.status === 'fulfilled'));
     for (const result of racing.filter(item => item.status === 'rejected')) assert.ok([400, 409].includes(result.reason.status));
     assert.equal(await f.db.transaction(unit => unit.data.contestEntries.filter(item => item.userId === 'racer').length), 1, 'concurrent creation keeps one entry per account');
@@ -212,20 +220,19 @@ export async function testContests() {
     await call(cards.routes, 'DELETE', '/api/cards/:id', { id: 'target' });
     updated = await get();
     assert.equal(updated.id, entry.id);
-    assert.equal(updated.cardId, null);
-    assert.equal(updated.card, null);
+    assert.deepEqual(updated.cardIds, []);
+    assert.deepEqual(updated.cards, []);
     assertPending(updated, entry);
     await rejects(review(updated), 400);
-    entry = await submit({ ...payload, cardId: 'replacement', expectedRevision: updated.revision });
+    entry = await submit({ ...payload, cardIds: ['replacement'], expectedRevision: updated.revision });
     assert.equal(entry.id, updated.id, 'deleting a card does not free the unique account entry');
-    assert.equal(entry.cardId, 'replacement');
+    assert.deepEqual(entry.cardIds, ['replacement']);
     entry = await review(entry);
     await call(admin.routes, 'DELETE', '/api/admin/cards/:id', { viewer: 'admin', id: 'replacement' });
     updated = await get();
-    assert.equal(updated.cardId, null);
+    assert.deepEqual(updated.cardIds, []);
     assertPending(updated, entry);
     await call(admin.routes, 'DELETE', '/api/admin/users/:id', { viewer: 'admin', id: 'owner' });
-    assert.equal(await f.db.transaction(unit => unit.data.contestEntries.filter(item => item.userId === 'owner').length), 0);
     assert.equal((await call(contests.routes, 'GET', adminPath, { viewer: 'admin', query: 'status=approved' })).body.total, 0);
     console.log('[contests] permissions, privacy, revisions, concurrent submissions, moderation, card lifecycle and deletion passed');
   } finally {

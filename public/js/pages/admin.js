@@ -547,8 +547,9 @@
     QSL.api.get(CONTEST_API + '?status=' + encodeURIComponent(state.status) + '&page=' + state.page + '&limit=8').then(function (res) {
       if (!live()) return;
       list.innerHTML = res.items.length ? res.items.map(function (entry) {
-        return '<article class="a-cardrow"><div class="a-cardrow-thumbs">' + (entry.card ? thumbPair(entry.card) : '<p class="muted">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
-          '</div><div class="a-cardrow-main"><div class="a-cardrow-head"><h3 class="a-cardrow-title">' + esc(entry.card ? entry.card.title : QSL.t("未关联卡片")) +
+        const entryCards = entry.cards || [];
+        return '<article class="a-cardrow"><div class="a-cardrow-thumbs">' + (entryCards.length ? entryCards.map(function (card) { return thumbPair(card); }).join('') : '<p class="muted">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
+          '</div><div class="a-cardrow-main"><div class="a-cardrow-head"><h3 class="a-cardrow-title">' + esc(entryCards.length ? entryCards.map(function (card) { return card.title; }).join('、') : QSL.t("未关联卡片")) +
           '</h3>' + statusBadge(entry.status) + '</div>' + userInline(entry.user) + '<p class="a-contest-excerpt">' + esc(entry.description) +
           '</p><span class="a-time">' + esc(fmtDateTime(entry.updatedAt)) + '</span></div><div class="a-cardrow-actions"><button class="a-act a-act--wide" type="button" data-contest-detail="' +
           escAttr(entry.id) + '">' + ico('eye', 16) + esc(QSL.t("查看报名 / 审核")) + '</button></div></article>';
@@ -597,10 +598,12 @@
     QSL.api.get(CONTEST_API + '/' + encodeURIComponent(id)).then(function (res) {
       if (!live()) return;
       const entry = res.entry;
-      const card = entry.card;
-      const canApprove = !!card && card.status === 'approved';
-      body.innerHTML = '<div class="a-contest-detail">' + (card ? '<h3>' + esc(card.title) + '</h3><div class="a-contest-artwork">' + thumbPair(card, { sizes: '(max-width: 620px) 90vw, 380px' }) + '</div><div>' +
-        esc(QSL.t("广场审核状态")) + ' ' + statusBadge(card.status) + '</div>' : '<p class="a-reject-note">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
+      const cards = entry.cards || [];
+      const canApprove = cards.length > 0 && cards.every(function (item) { return item.status === 'approved'; });
+      body.innerHTML = '<div class="a-contest-detail">' + (cards.length ? cards.map(function (card) {
+        return '<h3>' + esc(card.title) + '</h3><div class="a-contest-artwork">' + thumbPair(card, { sizes: '(max-width: 620px) 90vw, 380px' }) + '</div><div>' +
+          esc(QSL.t("广场审核状态")) + ' ' + statusBadge(card.status) + '</div>';
+      }).join('') : '<p class="a-reject-note">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
         '<div class="a-cardrow-meta">' + userInline(entry.user) + statusBadge(entry.status) + '<span class="a-time">' + esc(fmtDateTime(entry.updatedAt)) + '</span></div>' +
         '<div class="a-info-block"><h4>' + esc(QSL.t("作品说明")) + '</h4><p class="a-quote a-contest-text">' + esc(entry.description) + '</p></div>' +
         '<div class="a-info-block"><h4>' + esc(QSL.t("联系邮箱")) + '</h4><p class="a-contest-text">' + esc(entry.contactEmail) + '</p><small class="muted">' + esc(QSL.t("仅参赛者本人及管理员可见，不修改账号邮箱。")) + '</small></div>' +

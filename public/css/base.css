@@ -281,6 +281,8 @@ html { -webkit-tap-highlight-color: transparent; }
   align-items: center;
   gap: 4px;
   margin-left: 8px;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 .nav-links a {
   position: relative;
@@ -484,7 +486,8 @@ html { -webkit-tap-highlight-color: transparent; }
 
 /* ---------------- 响应式导航 ---------------- */
 .nav-language { flex: 0 0 auto; min-width: 42px; white-space: nowrap; }
-.nav-links a { white-space: nowrap; }
+.nav-links a { white-space: nowrap; min-width: 0; }
+.nav-links a > span:not(.nav-badge) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .nav-menu a.is-active { background: var(--brand-soft); color: var(--brand-deep); }
 .nav-menu .nav-contest span, .nav-mobile .nav-contest span { min-width: 0; overflow-wrap: anywhere; }
 .nav-menu { max-width: calc(100vw - 24px); }
@@ -494,6 +497,13 @@ html { -webkit-tap-highlight-color: transparent; }
   .nav-links { margin-left: 0; gap: 2px; }
   .nav-links a { padding-inline: 9px; font-size: 13px; gap: 5px; }
   .nav-user-name { display: none; }
+  html[lang="en"] .brand-text small { display: none; }
+}
+@media (min-width: 1401px) {
+  html[lang="en"] .nav-shell { gap: 14px; }
+  html[lang="en"] .nav-links { margin-left: 0; gap: 2px; }
+  html[lang="en"] .nav-links a { padding-inline: 9px; font-size: 13px; gap: 5px; }
+  html[lang="en"] .nav-user-name { display: none; }
   html[lang="en"] .brand-text small { display: none; }
 }
 html[lang="en"] .brand-text small { letter-spacing: 0; }

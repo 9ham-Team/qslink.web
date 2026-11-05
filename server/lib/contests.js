@@ -30,22 +30,29 @@ function cardContentChanged(before, card) {
 function invalidateCardEntries(db, before, card) {
   if (!cardContentChanged(before, card) && !(before.status === 'approved' && card.status !== 'approved')) return;
   for (const entry of db.data.contestEntries) {
-    if (entry.cardId === card.id) resetEntry(entry);
+    if ((entry.cardIds || []).includes(card.id)) resetEntry(entry);
   }
+}
+
+function cardView(card) {
+  return Object.fromEntries(['id', 'ownerId', ...CONTENT_FIELDS, 'status'].map((key) => [key, card[key]]));
 }
 
 function entryView(db, entry) {
   if (!entry) return null;
-  const card = db.find('cards', (item) => item.id === entry.cardId);
+  const cards = (entry.cardIds || [])
+    .map((id) => db.find('cards', (item) => item.id === id))
+    .filter(Boolean)
+    .map(cardView);
   const user = db.find('users', (item) => item.id === entry.userId);
   return {
     user: user ? Object.fromEntries(['id', 'uid', 'username', 'displayName', 'callSign', 'avatarColor', 'status'].map((key) => [key, user[key]])) : null,
-    id: entry.id, eventKey: entry.eventKey, userId: entry.userId, cardId: entry.cardId,
+    id: entry.id, eventKey: entry.eventKey, userId: entry.userId,
+    cardIds: entry.cardIds || [], cards,
     description: entry.description, contactEmail: entry.contactEmail,
     status: entry.status, reviewReason: entry.reviewReason, reviewedBy: entry.reviewedBy,
     reviewedAt: entry.reviewedAt, revision: entry.revision,
     createdAt: entry.createdAt, updatedAt: entry.updatedAt,
-    card: card ? Object.fromEntries(['id', 'ownerId', ...CONTENT_FIELDS, 'status'].map((key) => [key, card[key]])) : null,
   };
 }
 

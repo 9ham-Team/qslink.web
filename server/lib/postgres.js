@@ -4,11 +4,11 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
-const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql', '014_qsl_design_contest.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql', '014_qsl_design_contest.sql', '015_contest_entry_cards.sql'];
 const SCHEMA_VERSION = MIGRATIONS.length;
 const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals', 'contactLogs', 'contestEntries'];
 const FIELDS = {
-  contestEntries: ['id', 'eventKey', 'userId', 'cardId', 'description', 'contactEmail', 'status', 'reviewReason', 'reviewedBy', 'reviewedAt', 'revision', 'createdAt', 'updatedAt'],
+  contestEntries: ['id', 'eventKey', 'userId', 'cardIds', 'description', 'contactEmail', 'status', 'reviewReason', 'reviewedBy', 'reviewedAt', 'revision', 'createdAt', 'updatedAt'],
   contactLogs: ['id', 'userId', 'dedupKey', 'qsoAt', 'callSign', 'details', 'createdAt', 'updatedAt'],
   announcements: ['id', 'eventKey', 'title', 'body', 'status', 'displaySeconds', 'publishedAt', 'createdAt', 'updatedAt'],
   announcementDismissals: ['id', 'userId', 'announcementId', 'createdAt'],
@@ -72,6 +72,7 @@ const FIELDS = {
   sessions: ['token', 'userId', 'createdAt', 'expiresAt'],
 };
 const quote = (name) => '"' + name + '"'; // Constants or schema-validated identifiers only.
+const JSON_FIELDS = new Set(['selectedContactLogs', 'cardIds']);
 const keyFor = (name) => (name === 'sessions' ? 'token' : 'id');
 const emptyData = () =>
   Object.fromEntries([
@@ -193,7 +194,7 @@ class UnitOfWork {
             .join(',');
         await this.client.query(
           `INSERT INTO ${quote(name)} (${fields.map(quote).join(',')}) VALUES (${fields.map((_, i) => '$' + (i + 1)).join(',')}) ON CONFLICT(${quote(key)}) DO UPDATE SET ${updates}`,
-          fields.map((field) => field === 'selectedContactLogs' ? JSON.stringify(row[field] || []) : (row[field] === undefined ? null : row[field])),
+          fields.map((field) => JSON_FIELDS.has(field) ? JSON.stringify(row[field] || []) : (row[field] === undefined ? null : row[field])),
         );
       }
     }
@@ -327,8 +328,8 @@ function paginate(items, page, limit) {
 }
 function cascadeDeleteCard(db, cardId) {
   for (const entry of db.data.contestEntries) {
-    if (entry.cardId === cardId) {
-      entry.cardId = null;
+    if ((entry.cardIds || []).includes(cardId)) {
+      entry.cardIds = entry.cardIds.filter((id) => id !== cardId);
       require('./contests').resetEntry(entry);
     }
   }

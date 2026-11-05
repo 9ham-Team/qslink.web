@@ -17,9 +17,18 @@ function eligibleCard(db, cardId, userId) {
   const card = db.find('cards', (item) => item.id === cardId);
   const user = db.find('users', (item) => item.id === userId);
   if (!card || card.ownerId !== userId || card.status !== 'approved' || !user || user.status !== 'active') {
-    throw badRequest({ cardId: '请选择本人已通过广场审核的卡片，且账号须可用' });
+    throw badRequest({ cardIds: '请选择本人已通过广场审核的卡片，且账号须可用' });
   }
   return card;
+}
+
+function parseCardIds(db, value, userId) {
+  const raw = Array.isArray(value) ? value : [];
+  const ids = raw.map((id) => str(id));
+  if (ids.length < 1 || ids.length > 3 || ids.some((id) => !id) || new Set(ids).size !== ids.length) {
+    throw badRequest({ cardIds: '请选择 1–3 张不重复的本人卡片' });
+  }
+  return ids.map((cardId) => eligibleCard(db, cardId, userId));
 }
 
 function ownEntry(ctx) {
@@ -35,12 +44,11 @@ async function saveEntry(ctx) {
   const entry = ctx.db.find('contestEntries', (item) => item.eventKey === ctx.params.eventKey && item.userId === user.id);
   if (entry) checkRevision(body, entry);
   else if (body.expectedRevision !== undefined) throw conflict('REVISION_CONFLICT', '报名不存在，请刷新后重试');
-  const patch = { cardId: str(body.cardId), description: str(body.description), contactEmail: str(body.contactEmail) };
+  const patch = { cardIds: parseCardIds(ctx.db, body.cardIds, user.id).map((card) => card.id), description: str(body.description), contactEmail: str(body.contactEmail) };
   const fields = {};
   if (!patch.description || Array.from(patch.description).length > 2000 || patch.description.includes('\0')) fields.description = '请输入 1–2000 个字符';
   if (patch.contactEmail.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(patch.contactEmail) || patch.contactEmail.includes('\0')) fields.contactEmail = '请输入有效邮箱（最多 120 字符）';
   if (Object.keys(fields).length) throw badRequest(fields);
-  eligibleCard(ctx.db, patch.cardId, user.id);
   const now = new Date().toISOString();
   let saved = entry;
   if (!entry) {
@@ -49,7 +57,7 @@ async function saveEntry(ctx) {
       status: 'pending', reviewReason: null, reviewedBy: null, reviewedAt: null,
       revision: 1, createdAt: now, updatedAt: now,
     });
-  } else if (Object.keys(patch).some((key) => patch[key] !== entry[key])) {
+  } else if (Object.keys(patch).some((key) => JSON.stringify(patch[key]) !== JSON.stringify(entry[key]))) {
     Object.assign(entry, patch);
     resetEntry(entry, now);
   }
@@ -84,7 +92,10 @@ async function reviewEntry(ctx) {
   if (!['approved', 'rejected'].includes(body.status)) throw badRequest({ status: '请选择 approved 或 rejected' });
   const reason = str(body.reviewReason);
   if (Array.from(reason).length > 200 || reason.includes('\0') || (body.status === 'rejected' && !reason)) throw badRequest({ reviewReason: '驳回原因需为 1–200 个字符' });
-  if (body.status === 'approved') eligibleCard(ctx.db, entry.cardId, entry.userId);
+  if (body.status === 'approved') {
+    if (!(entry.cardIds || []).length) throw badRequest({ cardIds: '报名未关联可用卡片，不能批准' });
+    for (const cardId of entry.cardIds) eligibleCard(ctx.db, cardId, entry.userId);
+  }
   const reviewReason = body.status === 'rejected' ? reason : null;
   if (entry.status !== body.status || entry.reviewReason !== reviewReason) {
     Object.assign(entry, {

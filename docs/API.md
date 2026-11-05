@@ -355,7 +355,7 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 本届 `eventKey` 固定为 `qsl-design-2026-11`，其他赛事键返回 404。公开页面为 `/events/qsl-design-2026-11`。本轮仅提供赛事动态、报名及报名审核，不提供投票、评分计算或证照上传接口。未明确的赛期、完整评分和奖品细则在页面标注待公布。
 
-迁移 `014_qsl_design_contest.sql` 新增报名表与公告范围字段，原有公告保留为全站公告。旧版程序不会识别赛事范围，不应直接恢复旧镜像对升级后的数据继续写入；回滚须另行评估数据兼容性，不能以镜像回退代替数据库恢复。
+迁移 `014_qsl_design_contest.sql` 新增报名表与公告范围字段，原有公告保留为全站公告。迁移 `015_contest_entry_cards.sql` 将单卡引用 `cardId` 改为最多 3 张卡片的 `cardIds` 数组（升级时把原引用转换为单元素数组并删除旧列）；旧版程序无法读取升级后的报名表，回滚须另行评估数据兼容性，不能以镜像回退代替数据库恢复。
 
 ### GET /api/contests/:eventKey
 
@@ -363,16 +363,16 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ### GET /api/contests/:eventKey/entry 🔒
 
-仅读取当前用户自己的报名，返回 `{ entry }`，未报名为 `{ entry: null }`。报名包含 `id`、`eventKey`、`userId`、`cardId`、`description`、`contactEmail`、`status`、`reviewReason`、`reviewedBy`、`reviewedAt`、`revision`、`createdAt`、`updatedAt` 及当前关联卡片的展示信息。联系邮箱仅本人及管理员可见，不修改账号邮箱，不在报名时收集领奖证照。
+仅读取当前用户自己的报名，返回 `{ entry }`，未报名为 `{ entry: null }`。报名包含 `id`、`eventKey`、`userId`、`cardIds`、`cards`、`description`、`contactEmail`、`status`、`reviewReason`、`reviewedBy`、`reviewedAt`、`revision`、`createdAt`、`updatedAt`；`cardIds` 为 0–3 个卡片 ID，`cards` 为对应的卡片展示信息（卡片被删除后从数组中移除）。联系邮箱仅本人及管理员可见，不修改账号邮箱，不在报名时收集领奖证照。
 
 ### PUT /api/contests/:eventKey/entry 🔒
 
-body：`{ cardId, description, contactEmail, expectedRevision? }`。首次可省略 `expectedRevision`，更新已有报名必须携带当前版本。服务端检查所选卡片属于当前用户且已通过广场审核，客户端不能指定报名用户、审核状态或审核人。
+body：`{ cardIds, description, contactEmail, expectedRevision? }`，`cardIds` 必须是 1–3 个不重复的卡片 ID。首次可省略 `expectedRevision`，更新已有报名必须携带当前版本。服务端逐张检查所选卡片属于当前用户且已通过广场审核，客户端不能指定报名用户、审核状态或审核人。
 
 - 每账号本届仅保留一份报名，数据库唯一约束保护并发请求；待审核、驳回、通过后修改均更新原记录。
 - 有效修改递增 `revision`、转为 `pending` 并清空旧审核信息；没有实际变化的重复保存不撤销审核结果。
 - 旧版本更新返回 `409`，需重新读取再提交；非法字段为 `400`，未登录为 `401`。
-- 卡片作品内容变化或失去广场通过状态时，关联报名同事务重新待审核；仅库存变化不影响赛事审核。删卡清空引用、保留报名，允许重新选择卡片；删除用户清理报名。
+- 任一卡片作品内容变化或失去广场通过状态时，关联报名同事务重新待审核；仅库存变化不影响赛事审核。删卡从 `cardIds` 移除该卡并保留报名，允许重新选择；删除用户清理报名。
 - 成功返回 `{ entry }`，首次创建为 `201`，更新为 `200`。作品说明为 1–2000 个字符，联系邮箱为有效邮箱且最多 120 个字符。
 
 ### GET /api/admin/contests/:eventKey/entries 🔒👑
@@ -385,7 +385,7 @@ body：`{ cardId, description, contactEmail, expectedRevision? }`。首次可省
 
 ### PUT /api/admin/contests/:eventKey/entries/:id/review 🔒👑
 
-body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。驳回必须填写 1–200 个字符的原因；旧版本返回 `409 REVISION_CONFLICT`。实质审核变化递增 `revision`，相同结果与原因的重复审核保持幂等。通过时再次检查当前卡片存在、属于报名人、广场状态为 approved，且报名用户可用。审核只改变赛事报名，不代替或改变广场审核。返回 `{ entry }`。
+body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。驳回必须填写 1–200 个字符的原因；旧版本返回 `409 REVISION_CONFLICT`。实质审核变化递增 `revision`，相同结果与原因的重复审核保持幂等。通过时再次检查所有关联卡片存在、属于报名人、广场状态为 approved，且报名用户可用；没有可用卡片不能通过。审核只改变赛事报名，不代替或改变广场审核。返回 `{ entry }`。
 
 ### 赛事动态与全站公告隔离
 

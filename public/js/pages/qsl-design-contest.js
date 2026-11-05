@@ -42,6 +42,9 @@
     let newsPage = 0;
     let newsPages = 0;
     let saving = false;
+    let selected = [];
+    let picker = null;
+    let pickerCheck = null;
     const events = new AbortController();
     container.innerHTML = '<div class="f-contest container">' +
       '<header class="f-contest-hero"><div class="f-contest-orbit" aria-hidden="true">' + QSL.icon('trophy', 100) + '</div>' +
@@ -93,10 +96,12 @@
 
     function renderEntry() {
       const status = entry && entry.status;
+      const missing = entry && (entry.cardIds || []).some((id) => !cards.some((card) => card.id === id));
+      selected = entry ? (entry.cardIds || []).filter((id) => cards.some((card) => card.id === id)) : [];
       const statusHtml = entry ? '<div class="f-contest-status"><h3>' + text('我的报名') + '</h3>' +
         (status === 'pending' ? QSL.badge(QSL.t('待审核'), 'amber') : QSL.statusBadge(status)) + '</div>' +
         (status === 'rejected' ? '<p class="f-contest-review" role="status">' + text('驳回原因') + '：' + esc(entry.reviewReason || QSL.t('请修改后重新提交。')) + '</p>' : '') +
-        (!cards.some((card) => card.id === entry.cardId) ? '<p class="f-contest-review">' + text('原报名卡片已不可用或未通过广场审核，请重新选择已通过审核的卡片。') + '</p>' : '') : '';
+        (missing ? '<p class="f-contest-review">' + text('原报名卡片已不可用或未通过广场审核，请重新选择已通过审核的卡片。') + '</p>' : '') : '';
       const links = '<div class="f-contest-actions"><a class="btn btn-soft" href="/dashboard/cards/new" data-link>' + text('上传卡片') +
         '</a><a class="btn btn-ghost" href="/dashboard/cards" data-link>' + text('我的卡片') + '</a></div>';
       if (!cards.length) {
@@ -104,26 +109,120 @@
         return;
       }
       registration.innerHTML = statusHtml + '<p class="f-contest-form-intro">' + text('每个账号一份报名。待审核时可更新；已通过的报名如修改作品或报名资料，将重新审核。') + '</p>' +
-        '<form data-entry-form>' + QSL.field({ label: QSL.t('参赛卡片'), required: true,
-          hint: QSL.t('仅可选择本人已通过广场审核的卡片。'),
-          input: '<select class="select" name="cardId" required><option value="">' + text('请选择参赛卡片') + '</option>' + cards.map((card) =>
-            '<option value="' + esc(card.id) + '"' + (entry && entry.cardId === card.id ? ' selected' : '') + '>' + esc(card.title || QSL.t('未命名卡片')) + '</option>').join('') + '</select>' }) +
-        '<div class="f-contest-preview" data-preview></div>' +
+        '<form data-entry-form><div class="field" role="group" aria-label="' + esc(QSL.t('参赛卡片')) + '">' +
+          '<span class="label">' + text('参赛卡片') + '<i class="req">*</i></span>' +
+          '<div class="f-contest-cards"><div class="f-contest-selected" data-selected-cards></div>' +
+            '<div class="f-contest-cards-foot"><button class="btn btn-soft" type="button" data-action="pick-cards">' + text('选择参赛卡片') + '</button>' +
+            '<span class="hint" data-card-count role="status"></span></div></div>' +
+          '<span class="hint">' + text('最多选择 3 张本人已通过广场审核的卡片。') + '</span></div>' +
         QSL.field({ label: QSL.t('作品说明'), required: true, input: '<textarea class="textarea" name="description" rows="6" maxlength="2000" required>' + esc(entry && entry.description) + '</textarea>' }) +
         QSL.field({ label: QSL.t('联系邮箱'), required: true, hint: QSL.t('邮箱仅供本人及管理员查看，用于赛事联系，不会修改账号邮箱。'),
           input: '<input class="input" type="email" name="contactEmail" autocomplete="email" maxlength="120" required value="' + esc(entry ? entry.contactEmail : QSL.state.user.email || '') + '">' }) +
         '<p class="f-contest-form-error" role="alert" data-entry-error hidden></p>' +
         '<div class="f-contest-actions"><button class="btn btn-primary" type="submit">' + text(entry ? '更新报名' : '提交报名') + '</button>' +
         '<button class="btn btn-ghost" type="button" data-action="entry">' + text('刷新报名状态') + '</button></div></form>';
-      preview();
+      paintSelected();
     }
 
-    function preview() {
-      const select = registration.querySelector('[name="cardId"]');
-      const target = registration.querySelector('[data-preview]');
-      if (!select || !target) return;
-      const card = cards.find((item) => item.id === select.value);
-      target.innerHTML = card ? QSL.cardThumb(card, { height: 92 }) + '<span>' + esc(card.title || QSL.t('未命名卡片')) + '</span>' : '';
+    function paintSelected() {
+      const target = registration.querySelector('[data-selected-cards]');
+      const count = registration.querySelector('[data-card-count]');
+      if (!target) return;
+      const chosen = cards.filter((card) => selected.includes(card.id));
+      target.innerHTML = chosen.map((card) => '<div class="f-contest-selected-card">' +
+        QSL.cardThumb(card, { height: 64 }) +
+        '<div class="f-contest-selected-meta"><span title="' + esc(card.title || QSL.t('未命名卡片')) + '">' + esc(card.title || QSL.t('未命名卡片')) + '</span>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-action="remove-card" data-id="' + esc(card.id) + '">' + text('移除') + '</button></div></div>').join('');
+      if (count) count.textContent = QSL.t('已选择 {n}/3 张', { n: chosen.length });
+    }
+
+    function updateSelected(ids) {
+      const changed = ids.length !== selected.length || ids.some((id) => !selected.includes(id));
+      selected = ids;
+      paintSelected();
+      const form = registration.querySelector('[data-entry-form]');
+      if (changed && form) form.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function choiceHtml(card) {
+      const checked = selected.includes(card.id) ? ' checked' : '';
+      return '<label class="f-ex-choice"><input type="checkbox" name="contest-card" value="' + esc(card.id) + '"' + checked + '>' +
+        '<span class="f-ex-choice__stage">' + (card.frontImage
+          ? '<img alt="' + esc(card.title || QSL.t('未命名卡片')) + '" loading="lazy" decoding="async" ' + QSL.images.attributes(card.frontImage, '(max-width: 620px) calc((100vw - 96px) / 2), 220px') + '>'
+          : QSL.icon('cards', 40)) + '</span><span class="f-ex-choice__name">' + esc(card.title || QSL.t('未命名卡片')) + '</span>' +
+        '<span class="f-ex-choice__check" aria-hidden="true">' + QSL.icon('check', 16) + '</span></label>';
+    }
+
+    function openPicker() {
+      if (!cards.length || picker) return;
+      let pending = selected.filter((id) => cards.some((card) => card.id === id)).slice(0, 3);
+      const options = {
+        title: QSL.t('选择参赛卡片'), size: 'lg',
+        content: '<p class="modal-text">' + text('最多选择 3 张本人已通过广场审核的卡片。') + '</p>' +
+          '<p class="muted" data-picker-status role="status"></p><div class="f-ex-showcase" role="group" aria-label="' + esc(QSL.t('参赛卡片')) + '">' +
+          cards.map(choiceHtml).join('') + '</div><p class="f-modal-error" data-picker-error hidden></p>',
+        onClose: function () {
+          picker = null;
+          if (pickerCheck) pickerCheck.close();
+        },
+        actions: [
+          { label: QSL.t('取消'), type: 'ghost' },
+          { label: QSL.t('确认选择'), type: 'primary', closeOnClick: false, onClick: function (instance) {
+            if (!pending.length) return false;
+            confirmSelection(pending.slice(), instance);
+            return false;
+          } }
+        ]
+      };
+      const modal = QSL.modal(options);
+      picker = modal;
+      const grid = modal.body.querySelector('.f-ex-showcase');
+      const status = modal.body.querySelector('[data-picker-status]');
+      const error = modal.body.querySelector('[data-picker-error]');
+      const confirm = modal.el.querySelector('.modal-actions .btn-primary');
+
+      function paint() {
+        status.textContent = QSL.t('已选择 {n}/3 张', { n: pending.length });
+        confirm.disabled = !pending.length;
+        error.hidden = true;
+      }
+      paint();
+      modal.body.addEventListener('change', function (event) {
+        if (!event.target.matches('input[name="contest-card"]')) return;
+        const ids = Array.from(grid.querySelectorAll('input[name="contest-card"]:checked')).map((input) => input.value);
+        if (ids.length > 3) {
+          event.target.checked = false;
+          error.textContent = QSL.t('最多选择 3 张卡片');
+          error.hidden = false;
+          return;
+        }
+        pending = ids;
+        paint();
+      });
+    }
+
+    function confirmSelection(ids, modal) {
+      const chosen = cards.filter((card) => ids.includes(card.id));
+      if (pickerCheck) return;
+      modal.el.inert = true;
+      const check = QSL.modal({
+        title: QSL.t('确认参赛卡片'), size: 'sm',
+        content: '<p class="modal-text">' + esc(QSL.t('确认选择以下 {n} 张卡片作为参赛作品？确认后仍可修改并重新提交。', { n: chosen.length })) + '</p>' +
+          '<ul class="f-contest-confirm-list">' + chosen.map((card) => '<li>' + esc(card.title || QSL.t('未命名卡片')) + '</li>').join('') + '</ul>',
+        onClose: function () {
+          pickerCheck = null;
+          if (modal.el) modal.el.inert = false;
+        },
+        actions: [
+          { label: QSL.t('返回修改'), type: 'ghost' },
+          { label: QSL.t('确认'), type: 'primary', closeOnClick: false, onClick: function () {
+            updateSelected(ids);
+            check.close();
+            modal.close();
+          } }
+        ]
+      });
+      pickerCheck = check;
     }
 
     async function loadEntry() {
@@ -156,14 +255,20 @@
       if (!form) return;
       event.preventDefault();
       if (saving || !form.reportValidity()) return;
+      const error = form.querySelector('[data-entry-error]');
+      error.hidden = true;
+      if (!selected.length) {
+        error.textContent = QSL.t('请选择 1–3 张参赛卡片');
+        error.hidden = false;
+        return;
+      }
       const user = QSL.state.user;
       const request = entryRequest;
       const payload = QSL.formData(form);
+      payload.cardIds = selected.slice();
       if (entry) payload.expectedRevision = entry.revision;
       const button = form.querySelector('[type="submit"]');
-      const error = form.querySelector('[data-entry-error]');
       QSL.clearFieldErrors(form);
-      error.hidden = true;
       saving = true;
       QSL.setBusy(button, true);
       form.querySelectorAll('input, select, textarea, button').forEach((el) => { el.disabled = true; });
@@ -190,11 +295,14 @@
     }
 
     container.addEventListener('submit', submit, { signal: events.signal });
-    container.addEventListener('change', (event) => { if (event.target.name === 'cardId') preview(); }, { signal: events.signal });
     container.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-action]');
       if (!button || button.disabled) return;
       if (button.dataset.action === 'news') loadNews();
+      if (button.dataset.action === 'pick-cards') openPicker();
+      if (button.dataset.action === 'remove-card') {
+        updateSelected(selected.filter((id) => id !== button.dataset.id));
+      }
       if (button.dataset.action === 'entry') {
         const form = registration.querySelector('form');
         if (form && !await QSL.confirm({ message: QSL.t('刷新会丢弃尚未保存的报名修改，是否继续？') })) return;
@@ -211,6 +319,8 @@
       events.abort();
       offAuth();
       cancelAnimationFrame(frame);
+      if (pickerCheck) pickerCheck.close();
+      if (picker) picker.close();
     };
   }
 

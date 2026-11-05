@@ -2403,7 +2403,6 @@ html[lang="en"] .f-visual-card {
 .f-contest-registration form { max-width: 760px; }
 .f-contest-registration .field { display: flex; flex-direction: column; margin-bottom: 22px; }
 .f-contest-registration .textarea { min-height: 150px; resize: vertical; }
-.f-contest-registration .select { width: 100%; }
 .f-contest-form-intro { margin: 0 0 26px; max-width: 760px; color: var(--ink-2); line-height: 1.8; }
 .f-contest-status { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
 .f-contest-status h3 { margin: 0; }
@@ -2411,10 +2410,16 @@ html[lang="en"] .f-visual-card {
 .f-contest-guest { text-align: center; padding: 24px 0; }
 .f-contest-guest > .icon { color: var(--brand-deep); }
 .f-contest-guest p { color: var(--ink-2); margin: 12px 0 24px; }
-.f-contest-preview { display: flex; align-items: center; gap: 18px; margin-bottom: 24px; min-width: 0; }
-.f-contest-preview:empty { display: none; }
-.f-contest-preview .card-thumb { flex-shrink: 0; max-width: 50%; }
-.f-contest-preview img { width: 100%; height: 100%; object-fit: contain; }
+.f-contest-cards { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.f-contest-selected { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.f-contest-selected:empty { display: none; }
+.f-contest-selected-card { min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-solid); }
+.f-contest-selected-card .card-thumb { display: block; margin: 0 auto 8px; max-width: 100%; }
+.f-contest-selected-card img { width: 100%; height: 100%; object-fit: contain; }
+.f-contest-selected-meta { display: flex; align-items: center; gap: 8px; justify-content: space-between; min-width: 0; }
+.f-contest-selected-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.f-contest-cards-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.f-contest-confirm-list { margin: 12px 0 0; padding-left: 18px; color: var(--ink-2); line-height: 1.8; overflow-wrap: anywhere; }
 .f-contest-notice { padding: 24px; background: var(--brand-soft); border-radius: var(--r-md); color: var(--ink-2); }
 .f-contest-notice p { margin-bottom: 16px; }
 .f-contest-rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
