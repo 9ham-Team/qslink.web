@@ -80,13 +80,13 @@
 
   function controlsHtml() {
     return (
-      '<div class="card3d-controls" role="toolbar" aria-label="3D 卡片视角控制">' +
-      '<button class="card3d-ctrl" type="button" data-c3-act="flip" aria-label="翻转卡片">' +
-      iconHtml('flip', 16) + '<span>翻转</span></button>' +
-      '<button class="card3d-ctrl" type="button" data-c3-act="spin" aria-label="切换自动旋转" aria-pressed="true">' +
-      iconHtml('refresh', 16) + '<span>旋转</span></button>' +
-      '<button class="card3d-ctrl" type="button" data-c3-act="reset" aria-label="重置视角">' +
-      iconHtml('compass', 16) + '<span>复位</span></button>' +
+      ("<div class=\"card3d-controls\" role=\"toolbar\" aria-label=\"" + QSL.escapeHtml(QSL.t("3D 卡片视角控制")) + "\">") +
+      ("<button class=\"card3d-ctrl\" type=\"button\" data-c3-act=\"flip\" aria-label=\"" + QSL.escapeHtml(QSL.t("翻转卡片")) + "\">") +
+      iconHtml('flip', 16) + ("<span>" + QSL.escapeHtml(QSL.t("翻转")) + "</span></button>") +
+      ("<button class=\"card3d-ctrl\" type=\"button\" data-c3-act=\"spin\" aria-label=\"" + QSL.escapeHtml(QSL.t("切换自动旋转")) + "\" aria-pressed=\"true\">") +
+      iconHtml('refresh', 16) + ("<span>" + QSL.escapeHtml(QSL.t("旋转")) + "</span></button>") +
+      ("<button class=\"card3d-ctrl\" type=\"button\" data-c3-act=\"reset\" aria-label=\"" + QSL.escapeHtml(QSL.t("重置视角")) + "\">") +
+      iconHtml('compass', 16) + ("<span>" + QSL.escapeHtml(QSL.t("复位")) + "</span></button>") +
       '</div>'
     );
   }
@@ -94,7 +94,7 @@
   /* ---------------- create ---------------- */
   function create(container, options) {
     if (!container || container.nodeType !== 1) {
-      throw new Error('QSL.card3d.create：container 必须是有效的 DOM 元素');
+      throw new Error(QSL.t("QSL.card3d.create：container 必须是有效的 DOM 元素"));
     }
     const opts = options || {};
 
@@ -162,7 +162,7 @@
     const root = document.createElement('div');
     root.className = 'card3d' + (state.ambient ? ' has-ambient' : '') + (state.showControls ? ' has-controls' : '');
     root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'QSL 卡片 3D 查看器：拖拽旋转，双击翻转');
+    root.setAttribute('aria-label', QSL.t("QSL 卡片 3D 查看器：拖拽旋转，双击翻转"));
     root.style.setProperty('--mx', '50%');
     root.style.setProperty('--my', '50%');
 
@@ -269,7 +269,7 @@
         if (destroyed) return;
         faceEl.classList.add('is-empty');
       };
-      imgEl.alt = label === 'back' ? '卡片背面' : '卡片正面';
+      imgEl.alt = label === 'back' ? QSL.t("卡片背面") : QSL.t("卡片正面");
       QSL.images.apply(imgEl, url, cssWidth || 340);
     }
 
@@ -287,7 +287,7 @@
 
     function announce(side) {
       if (!liveEl) return;
-      liveEl.textContent = '当前展示：卡片' + (side === 'back' ? '背面' : '正面');
+      liveEl.textContent = QSL.t("当前展示：卡片") + (side === 'back' ? QSL.t("背面") : QSL.t("正面"));
     }
 
     /* ---------------- 角度工具 ---------------- */

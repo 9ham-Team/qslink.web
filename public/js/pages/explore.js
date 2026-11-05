@@ -16,9 +16,9 @@
   }
 
   const SORTS = [
-    { key: 'latest', label: '最新' },
-    { key: 'popular', label: '最热' },
-    { key: 'oldest', label: '最早' }
+    { key: 'latest', label: QSL.t("最新") },
+    { key: 'popular', label: QSL.t("最热") },
+    { key: 'oldest', label: QSL.t("最早") }
   ];
 
   function skeletonGrid(count) {
@@ -47,31 +47,31 @@
       '<section class="g-explore__head">' +
       '<div class="container">' +
       '<div class="g-explore__intro" data-reveal>' +
-      '<p class="eyebrow">EXPLORE · 卡片广场</p>' +
-      '<h1 class="g-explore__title">在电波里，<span class="g-explore__title-em">交换一张卡片</span></h1>' +
-      '<p class="g-explore__desc">输入呼号，找到那位火腿的 QSL 卡片；也可以按最新或最热，慢慢逛。</p>' +
+      ("<p class=\"eyebrow\">" + QSL.escapeHtml(QSL.t("EXPLORE · 卡片广场")) + "</p>") +
+      ("<h1 class=\"g-explore__title\">" + QSL.escapeHtml(QSL.t("在电波里，")) + "<span class=\"g-explore__title-em\">" + QSL.escapeHtml(QSL.t("交换一张卡片")) + "</span></h1>") +
+      ("<p class=\"g-explore__desc\">" + QSL.escapeHtml(QSL.t("输入呼号，找到那位火腿的 QSL 卡片；也可以按最新或最热，慢慢逛。")) + "</p>") +
       '</div>' +
       '<div class="g-explore__toolbar g-panel" data-reveal data-reveal-delay="80">' +
       '<div class="g-search">' +
       '<span class="g-search__icon" aria-hidden="true">' + ic('search', 18) + '</span>' +
       '<input class="g-search__input" type="search" inputmode="search" autocomplete="off" ' +
       'autocapitalize="characters" spellcheck="false" ' +
-      'placeholder="输入呼号搜索" aria-label="按呼号搜索卡片" value="' + esc(initial.callSign || '') + '">' +
-      '<button class="g-search__clear" type="button" data-search-clear aria-label="清空搜索"' +
+      ("placeholder=\"" + QSL.t("输入呼号搜索") + "\" aria-label=\"" + QSL.t("按呼号搜索卡片") + "\" value=\"") + esc(initial.callSign || '') + '">' +
+      ("<button class=\"g-search__clear\" type=\"button\" data-search-clear aria-label=\"" + QSL.escapeHtml(QSL.t("清空搜索")) + "\"") +
       (initial.callSign ? '' : ' hidden') + '>' + ic('x', 15) + '</button>' +
       '</div>' +
       '<div class="g-explore__sortbar">' +
-      '<span class="g-filter-label">排序</span>' +
+      ("<span class=\"g-filter-label\">" + QSL.escapeHtml(QSL.t("排序")) + "</span>") +
       '<div class="segmented" data-sort-group>' + sortHtml + '</div>' +
-      '<span class="g-explore__count" data-count-text>正在寻找卡片…</span>' +
-      '<button class="g-reset-filter" type="button" data-reset hidden>' + ic('refresh', 14) + '<span>清空搜索</span></button>' +
+      ("<span class=\"g-explore__count\" data-count-text>" + QSL.escapeHtml(QSL.t("正在寻找卡片…")) + "</span>") +
+      '<button class="g-reset-filter" type="button" data-reset hidden>' + ic('refresh', 14) + ("<span>" + QSL.escapeHtml(QSL.t("清空搜索")) + "</span></button>") +
       '</div>' +
       '</div>' +
       '<div class="g-explore__grid" data-grid aria-live="polite">' + skeletonGrid(8) + '</div>' +
       '<div class="g-explore__more" data-more-wrap hidden>' +
-      '<button class="btn btn-soft btn-lg" type="button" data-more>加载更多' + ic('chevron-down', 16) + '</button>' +
+      ("<button class=\"btn btn-soft btn-lg\" type=\"button\" data-more>" + QSL.escapeHtml(QSL.t("加载更多"))) + ic('chevron-down', 16) + '</button>' +
       '</div>' +
-      '<p class="g-explore__end" data-end hidden>已经看完全部卡片了 · 73!</p>' +
+      ("<p class=\"g-explore__end\" data-end hidden>" + QSL.escapeHtml(QSL.t("已经看完全部卡片了 · 73!")) + "</p>") +
       '</div>' +
       '</section>' +
       '</div>'
@@ -112,15 +112,15 @@
     const el = root.querySelector('[data-count-text]');
     if (!el) return;
     if (state.loading) {
-      el.textContent = '正在寻找卡片…';
+      el.textContent = QSL.t("正在寻找卡片…");
       return;
     }
     if (!state.total) {
-      el.textContent = activeFilterCount(state) ? '没有匹配的呼号' : '广场还没有卡片';
+      el.textContent = activeFilterCount(state) ? QSL.t("没有匹配的呼号") : QSL.t("广场还没有卡片");
       return;
     }
-    const suffix = state.total > PAGE_SIZE ? ' · 已展示 ' + Math.min(state.items.length, state.total) + ' 张' : '';
-    el.textContent = (activeFilterCount(state) ? '找到 ' : '共 ') + QSL.formatNumber(state.total) + ' 张卡片' + suffix;
+    const suffix = state.total > PAGE_SIZE ? (" " + QSL.t("· 已展示") + " ") + Math.min(state.items.length, state.total) + (" " + QSL.t("张")) : '';
+    el.textContent = (activeFilterCount(state) ? (QSL.t("找到") + " ") : (QSL.t("共") + " ")) + QSL.formatNumber(state.total) + (" " + QSL.t("张卡片")) + suffix;
   }
 
   function updateResetBtn(root, state) {
@@ -147,11 +147,11 @@
     if (typeof QSL.emptyState === 'function') {
       wrap.appendChild(QSL.emptyState({
         icon: filtered ? 'search' : 'cards',
-        title: filtered ? '没有找到这个呼号的卡片' : '广场还空着',
+        title: filtered ? QSL.t("没有找到这个呼号的卡片") : QSL.t("广场还空着"),
         desc: filtered
-          ? '检查一下呼号是否填写正确，或者换个呼号试试，也许那位火腿还没上传卡片。'
-          : '还没有已审核通过的卡片，成为第一个分享 QSL 卡片的人吧。',
-        actionLabel: filtered ? '清空搜索' : '上传我的卡片',
+          ? QSL.t("检查一下呼号是否填写正确，或者换个呼号试试，也许那位火腿还没上传卡片。")
+          : QSL.t("还没有已审核通过的卡片，成为第一个分享 QSL 卡片的人吧。"),
+        actionLabel: filtered ? QSL.t("清空搜索") : QSL.t("上传我的卡片"),
         onAction: filtered
           ? function () { resetFilters(root, state); }
           : function () {
@@ -160,9 +160,9 @@
           }
       }));
     } else {
-      wrap.innerHTML = '<div class="g-error-panel"><h3>' + (filtered ? '没有找到这个呼号的卡片' : '广场还空着') +
-        '</h3><p>' + (filtered ? '换个呼号试试。' : '还没有已审核的卡片。') + '</p>' +
-        (filtered ? '<button class="btn btn-primary" type="button" data-empty-reset>清空搜索</button>' : '') +
+      wrap.innerHTML = '<div class="g-error-panel"><h3>' + (filtered ? QSL.t("没有找到这个呼号的卡片") : QSL.t("广场还空着")) +
+        '</h3><p>' + (filtered ? QSL.t("换个呼号试试。") : QSL.t("还没有已审核的卡片。")) + '</p>' +
+        (filtered ? ("<button class=\"btn btn-primary\" type=\"button\" data-empty-reset>" + QSL.escapeHtml(QSL.t("清空搜索")) + "</button>") : '') +
         '</div>';
       const reset = wrap.querySelector('[data-empty-reset]');
       if (reset) reset.addEventListener('click', function () { resetFilters(root, state); });
@@ -179,9 +179,9 @@
     wrap.innerHTML =
       '<div class="g-error-panel">' +
       '<span class="empty-state-icon">' + ic('alert', 30) + '</span>' +
-      '<h3>卡片加载失败</h3>' +
-      '<p>' + esc(message || '电波暂时有点杂音，请稍后重试。') + '</p>' +
-      '<button class="btn btn-primary" type="button" data-retry>重新加载</button>' +
+      ("<h3>" + QSL.escapeHtml(QSL.t("卡片加载失败")) + "</h3>") +
+      '<p>' + esc(message || QSL.t("电波暂时有点杂音，请稍后重试。")) + '</p>' +
+      ("<button class=\"btn btn-primary\" type=\"button\" data-retry>" + QSL.escapeHtml(QSL.t("重新加载")) + "</button>") +
       '</div>';
     grid.appendChild(wrap);
     const btn = wrap.querySelector('[data-retry]');
@@ -218,13 +218,13 @@
     if (state.loading) return;
     const cardsApi = QSL.api && QSL.api.cards;
     if (!cardsApi || typeof cardsApi.list !== 'function') {
-      renderError(root, function () { load(root, state); }, '接口尚未就绪，请稍后再试。');
+      renderError(root, function () { load(root, state); }, QSL.t("接口尚未就绪，请稍后再试。"));
       return;
     }
     const reqId = ++state.reqId;
     state.loading = true;
     const moreBtn = root.querySelector('[data-more]');
-    if (append && moreBtn && QSL.setBusy) QSL.setBusy(moreBtn, true, '加载中…');
+    if (append && moreBtn && QSL.setBusy) QSL.setBusy(moreBtn, true, QSL.t("加载中…"));
     if (!append) {
       const grid = root.querySelector('[data-grid]');
       if (grid) grid.innerHTML = skeletonGrid(8);
@@ -257,12 +257,12 @@
       if (moreWrap) moreWrap.hidden = !hasMore;
       if (endEl) endEl.hidden = !(!hasMore && state.items.length > 0);
       if (append && QSL.toast && items.length) {
-        QSL.toast('又找到 ' + items.length + ' 张卡片', 'info', 1800);
+        QSL.toast((QSL.t("又找到") + " ") + items.length + (" " + QSL.t("张卡片")), 'info', 1800);
       }
     }).catch(function (err) {
       if (state.cancelled || reqId !== state.reqId) return;
       if (append) {
-        if (QSL.toast) QSL.toast((err && err.message) || '加载更多失败，请稍后重试', 'error');
+        if (QSL.toast) QSL.toast((err && err.message) || QSL.t("加载更多失败，请稍后重试"), 'error');
       } else {
         renderError(root, function () { load(root, state); }, err && err.message);
       }
@@ -290,7 +290,7 @@
 
   /* ---------------- 页面注册 ---------------- */
   QSL.registerPage('explore', {
-    title: '卡片广场',
+    title: QSL.t("卡片广场"),
     render: function (container, ctx) {
       const state = readInitial(ctx);
       container.innerHTML = pageHtml(state);

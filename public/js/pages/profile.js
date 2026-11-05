@@ -108,7 +108,7 @@
     return (
       '<div class="f-field' + (o.span ? ' f-span-2' : '') + '" data-field="' + esc(o.name) + '">' +
       '<div class="f-field-row"><label class="label" for="' + esc(o.id) + '">' + esc(o.label) +
-      (o.required ? '<i class="req">*</i>' : '') + (o.optional ? '<span class="f-optional">选填</span>' : '') + '</label>' +
+      (o.required ? '<i class="req">*</i>' : '') + (o.optional ? ("<span class=\"f-optional\">" + QSL.escapeHtml(QSL.t("选填")) + "</span>") : '') + '</label>' +
       (o.counter ? '<span class="f-label-hint" data-counter="' + esc(o.name) + '">0 / ' + o.counter + '</span>' : '') +
       '</div>' +
       (o.multiline
@@ -118,7 +118,7 @@
           ' maxlength="' + (o.maxlength || 100) + '" placeholder="' + esc(o.placeholder || '') + '"' +
           (o.inputmode ? ' inputmode="' + esc(o.inputmode) + '"' : '') + '>') +
       (o.eye && !o.multiline
-        ? '<button type="button" class="f-eye" aria-label="显示密码" aria-pressed="false" data-eye>' + ico('eye', 18) + '</button>'
+        ? ("<button type=\"button\" class=\"f-eye\" aria-label=\"" + QSL.escapeHtml(QSL.t("显示密码")) + "\" aria-pressed=\"false\" data-eye>") + ico('eye', 18) + '</button>'
         : '') +
       '<p class="f-error" data-error="' + esc(o.name) + '" role="alert" hidden></p>' +
       '</div>'
@@ -135,7 +135,7 @@
         const showing = input.type === 'text';
         input.type = showing ? 'password' : 'text';
         this.classList.toggle('is-on', !showing);
-        this.setAttribute('aria-label', showing ? '显示密码' : '隐藏密码');
+        this.setAttribute('aria-label', showing ? QSL.t("显示密码") : QSL.t("隐藏密码"));
         this.setAttribute('aria-pressed', showing ? 'false' : 'true');
         input.focus({ preventScroll: true });
       });
@@ -219,92 +219,92 @@
     const init = defaults();
     const colorSwatches = AVATAR_COLORS.map((color) =>
       '<button class="f-swatch' + (String(color).toLowerCase() === String(init.avatarColor).toLowerCase() ? ' is-active' : '') +
-      '" type="button" data-color="' + esc(color) + '" style="--f-swatch:' + esc(color) + '" aria-label="选择头像颜色 ' + esc(color) + '"></button>'
+      '" type="button" data-color="' + esc(color) + '" style="--f-swatch:' + esc(color) + ("\" aria-label=\"" + QSL.t("选择头像颜色") + " ") + esc(color) + '"></button>'
     ).join('');
 
     container.innerHTML =
       '<div class="f-page f-profile container">' +
       QSL.pageHeader({
         eyebrow: 'MY ACCOUNT',
-        title: '个人资料',
-        desc: '完善你的呼号、简介与寄送地址；地址只会在双方同意换卡后互相可见。'
+        title: QSL.t("个人资料"),
+        desc: QSL.t("完善你的呼号、简介与寄送地址；地址只会在双方同意换卡后互相可见。")
       }) +
       '<div class="f-profile-grid">' +
       '<div class="f-profile-main">' +
 
       /* -------- 基本资料 -------- */
       '<section class="f-form-card f-profile-card" data-reveal>' +
-      '<header class="f-form-card-head"><div><h2 class="f-form-card-title">基本资料</h2>' +
-      '<p class="f-form-card-desc">这些信息会展示在你的卡片与个人主页上。</p></div>' +
+      ("<header class=\"f-form-card-head\"><div><h2 class=\"f-form-card-title\">" + QSL.escapeHtml(QSL.t("基本资料")) + "</h2>") +
+      ("<p class=\"f-form-card-desc\">" + QSL.escapeHtml(QSL.t("这些信息会展示在你的卡片与个人主页上。")) + "</p></div>") +
       '<span class="f-form-step">01</span></header>' +
       '<form id="fProfileForm" novalidate>' +
       '<div class="f-avatar-editor">' +
       '<span class="f-avatar-preview" data-avatar-preview>' + QSL.avatar(init.user, 76) + '</span>' +
       '<div class="f-avatar-editor-main">' +
-      '<span class="label">头像配色</span>' +
+      ("<span class=\"label\">" + QSL.escapeHtml(QSL.t("头像配色")) + "</span>") +
       '<div class="f-swatches" data-swatches>' + colorSwatches + '</div>' +
-      '<p class="f-form-tip">' + ico('info', 14) + ' 头像由呼号缩写与配色自动生成，无需上传图片。</p>' +
+      '<p class="f-form-tip">' + ico('info', 14) + (" " + QSL.escapeHtml(QSL.t("头像由呼号缩写与配色自动生成，无需上传图片。")) + "</p>") +
       '</div>' +
       '</div>' +
       '<div class="f-form-error" data-form-error hidden></div>' +
       '<div class="f-form-grid">' +
-      fieldHtml({ id: 'fProfileDisplayName', name: 'displayName', label: '昵称', value: init.displayName, placeholder: '展示给其他火腿的名字', required: true, maxlength: 40 }) +
-      fieldHtml({ id: 'fProfileCallSign', name: 'callSign', label: '呼号', value: init.callSign, optional: true, maxlength: 20 }) +
-      fieldHtml({ id: 'fProfileBio', name: 'bio', label: '个人简介', value: init.bio, placeholder: '介绍一下你的电台与通联故事', optional: true, multiline: true, rows: 3, maxlength: 200, counter: 200, span: true }) +
+      fieldHtml({ id: 'fProfileDisplayName', name: 'displayName', label: QSL.t("昵称"), value: init.displayName, placeholder: QSL.t("展示给其他火腿的名字"), required: true, maxlength: 40 }) +
+      fieldHtml({ id: 'fProfileCallSign', name: 'callSign', label: QSL.t("呼号"), value: init.callSign, optional: true, maxlength: 20 }) +
+      fieldHtml({ id: 'fProfileBio', name: 'bio', label: QSL.t("个人简介"), value: init.bio, placeholder: QSL.t("介绍一下你的电台与通联故事"), optional: true, multiline: true, rows: 3, maxlength: 200, counter: 200, span: true }) +
       '</div>' +
       '<div class="f-form-actions">' +
-      '<button class="btn btn-primary" type="submit" data-save="profile">' + ico('check', 17) + '<span>保存资料</span></button>' +
-      '<span class="f-form-hint">' + ico('shield', 14) + ' 修改后立即生效</span>' +
+      '<button class="btn btn-primary" type="submit" data-save="profile">' + ico('check', 17) + ("<span>" + QSL.escapeHtml(QSL.t("保存资料")) + "</span></button>") +
+      '<span class="f-form-hint">' + ico('shield', 14) + (" " + QSL.escapeHtml(QSL.t("修改后立即生效")) + "</span>") +
       '</div>' +
       '</form>' +
       '</section>' +
 
       /* -------- 寄送地址 -------- */
       '<section class="f-form-card f-profile-card" data-reveal data-reveal-delay="60">' +
-      '<header class="f-form-card-head"><div><h2 class="f-form-card-title">寄送地址</h2>' +
-      '<p class="f-form-card-desc">换卡申请会自动带入此地址；只有达成交换的双方才能看到它。</p></div>' +
+      ("<header class=\"f-form-card-head\"><div><h2 class=\"f-form-card-title\">" + QSL.escapeHtml(QSL.t("寄送地址")) + "</h2>") +
+      ("<p class=\"f-form-card-desc\">" + QSL.escapeHtml(QSL.t("换卡申请会自动带入此地址；只有达成交换的双方才能看到它。")) + "</p></div>") +
       '<span class="f-form-step">02</span></header>' +
       '<form id="fAddressForm" novalidate>' +
       '<div class="f-form-error" data-form-error hidden></div>' +
       '<div class="f-address-parser">' +
-      '<label class="label" for="fAddressPaste">粘贴完整地址，自动拆分字段</label>' +
-      '<textarea id="fAddressPaste" class="textarea" rows="3" maxlength="1000" autocomplete="off" placeholder="例如：张三 13800138000 广东省深圳市南山区科技南十二路18号"></textarea>' +
-      '<div class="f-address-parser__foot"><span>在本机解析，不会单独上传；确认后再保存。</span>' +
-      '<button class="btn btn-soft" type="button" data-parse-address>解析并填入</button></div>' +
+      ("<label class=\"label\" for=\"fAddressPaste\">" + QSL.escapeHtml(QSL.t("粘贴完整地址，自动拆分字段")) + "</label>") +
+      ("<textarea id=\"fAddressPaste\" class=\"textarea\" rows=\"3\" maxlength=\"1000\" autocomplete=\"off\" placeholder=\"" + QSL.escapeHtml(QSL.t("例如：张三 13800138000 广东省深圳市南山区科技南十二路18号")) + "\"></textarea>") +
+      ("<div class=\"f-address-parser__foot\"><span>" + QSL.escapeHtml(QSL.t("在本机解析，不会单独上传；确认后再保存。")) + "</span>") +
+      ("<button class=\"btn btn-soft\" type=\"button\" data-parse-address>" + QSL.escapeHtml(QSL.t("解析并填入")) + "</button></div>") +
       '<p class="f-address-parser__result" data-parse-result role="status" aria-live="polite"></p>' +
       '</div>' +
       '<div class="f-form-grid">' +
-      fieldHtml({ id: 'fAddrName', name: 'name', label: '收件人姓名', value: init.addrName, placeholder: '真实姓名', required: true, maxlength: 30 }) +
-      fieldHtml({ id: 'fAddrPhone', name: 'phone', label: '联系电话', value: init.addrPhone, placeholder: '方便快递联系', optional: true, maxlength: 30, inputmode: 'tel' }) +
-      fieldHtml({ id: 'fAddrProvince', name: 'province', label: '省 / 自治区', value: init.addrProvince, placeholder: '如：湖南省', optional: true, maxlength: 50 }) +
-      fieldHtml({ id: 'fAddrCity', name: 'city', label: '城市', value: init.addrCity, placeholder: '如：长沙市', required: true, maxlength: 50 }) +
-      fieldHtml({ id: 'fAddrDistrict', name: 'district', label: '区 / 县', value: init.addrDistrict, placeholder: '如：岳麓区', optional: true, maxlength: 50 }) +
-      fieldHtml({ id: 'fAddrPostalCode', name: 'postalCode', label: '邮政编码', value: init.addrPostalCode, placeholder: '如：410000', optional: true, maxlength: 20, inputmode: 'numeric' }) +
-      fieldHtml({ id: 'fAddrLine1', name: 'line1', label: '详细地址', value: init.addrLine1, placeholder: '街道、门牌号、单元楼室', required: true, maxlength: 100, span: true }) +
-      fieldHtml({ id: 'fAddrCountry', name: 'country', label: '国家 / 地区', value: init.addrCountry, placeholder: '中国', optional: true, maxlength: 50 }) +
+      fieldHtml({ id: 'fAddrName', name: 'name', label: QSL.t("收件人姓名"), value: init.addrName, placeholder: QSL.t("真实姓名"), required: true, maxlength: 30 }) +
+      fieldHtml({ id: 'fAddrPhone', name: 'phone', label: QSL.t("联系电话"), value: init.addrPhone, placeholder: QSL.t("方便快递联系"), optional: true, maxlength: 30, inputmode: 'tel' }) +
+      fieldHtml({ id: 'fAddrProvince', name: 'province', label: QSL.t("省 / 自治区"), value: init.addrProvince, placeholder: QSL.t("如：湖南省"), optional: true, maxlength: 50 }) +
+      fieldHtml({ id: 'fAddrCity', name: 'city', label: QSL.t("城市"), value: init.addrCity, placeholder: QSL.t("如：长沙市"), required: true, maxlength: 50 }) +
+      fieldHtml({ id: 'fAddrDistrict', name: 'district', label: QSL.t("区 / 县"), value: init.addrDistrict, placeholder: QSL.t("如：岳麓区"), optional: true, maxlength: 50 }) +
+      fieldHtml({ id: 'fAddrPostalCode', name: 'postalCode', label: QSL.t("邮政编码"), value: init.addrPostalCode, placeholder: QSL.t("如：410000"), optional: true, maxlength: 20, inputmode: 'numeric' }) +
+      fieldHtml({ id: 'fAddrLine1', name: 'line1', label: QSL.t("详细地址"), value: init.addrLine1, placeholder: QSL.t("街道、门牌号、单元楼室"), required: true, maxlength: 100, span: true }) +
+      fieldHtml({ id: 'fAddrCountry', name: 'country', label: QSL.t("国家 / 地区"), value: init.addrCountry, placeholder: '中国', optional: true, maxlength: 50 }) +
       '</div>' +
       '<div class="f-form-actions">' +
-      '<button class="btn btn-primary" type="submit" data-save="address">' + ico('map-pin', 17) + '<span>保存地址</span></button>' +
-      '<span class="f-address-state" data-address-state>' + (init.addrLine1 ? ico('check-circle', 15) + ' 已保存寄送地址' : ico('info', 15) + ' 尚未填写寄送地址') + '</span>' +
+      '<button class="btn btn-primary" type="submit" data-save="address">' + ico('map-pin', 17) + ("<span>" + QSL.escapeHtml(QSL.t("保存地址")) + "</span></button>") +
+      '<span class="f-address-state" data-address-state>' + (init.addrLine1 ? ico('check-circle', 15) + (" " + QSL.t("已保存寄送地址")) : ico('info', 15) + (" " + QSL.t("尚未填写寄送地址"))) + '</span>' +
       '</div>' +
       '</form>' +
       '</section>' +
 
       /* -------- 修改密码 -------- */
       '<section class="f-form-card f-profile-card" data-reveal data-reveal-delay="120">' +
-      '<header class="f-form-card-head"><div><h2 class="f-form-card-title">修改密码</h2>' +
-      '<p class="f-form-card-desc">定期更换密码，保护你的账号与卡片收藏。</p></div>' +
+      ("<header class=\"f-form-card-head\"><div><h2 class=\"f-form-card-title\">" + QSL.escapeHtml(QSL.t("修改密码")) + "</h2>") +
+      ("<p class=\"f-form-card-desc\">" + QSL.escapeHtml(QSL.t("定期更换密码，保护你的账号与卡片收藏。")) + "</p></div>") +
       '<span class="f-form-step">03</span></header>' +
       '<form id="fPasswordForm" novalidate>' +
       '<div class="f-form-error" data-form-error hidden></div>' +
       '<div class="f-form-grid">' +
-      fieldHtml({ id: 'fPwdCurrent', name: 'currentPassword', label: '当前密码', type: 'password', placeholder: '输入当前登录密码', required: true, maxlength: 128, eye: true, span: true }) +
-      fieldHtml({ id: 'fPwdNew', name: 'newPassword', label: '新密码', type: 'password', placeholder: '至少 8 位，含字母与数字', required: true, maxlength: 128, eye: true }) +
-      fieldHtml({ id: 'fPwdConfirm', name: 'confirmPassword', label: '确认新密码', type: 'password', placeholder: '再次输入新密码', required: true, maxlength: 128, eye: true }) +
+      fieldHtml({ id: 'fPwdCurrent', name: 'currentPassword', label: QSL.t("当前密码"), type: 'password', placeholder: QSL.t("输入当前登录密码"), required: true, maxlength: 128, eye: true, span: true }) +
+      fieldHtml({ id: 'fPwdNew', name: 'newPassword', label: QSL.t("新密码"), type: 'password', placeholder: QSL.t("至少 8 位，含字母与数字"), required: true, maxlength: 128, eye: true }) +
+      fieldHtml({ id: 'fPwdConfirm', name: 'confirmPassword', label: QSL.t("确认新密码"), type: 'password', placeholder: QSL.t("再次输入新密码"), required: true, maxlength: 128, eye: true }) +
       '</div>' +
       '<div class="f-form-actions">' +
-      '<button class="btn btn-primary" type="submit" data-save="password">' + ico('lock', 17) + '<span>更新密码</span></button>' +
-      '<span class="f-form-hint">' + ico('key', 14) + ' 修改后当前登录仍然有效</span>' +
+      '<button class="btn btn-primary" type="submit" data-save="password">' + ico('lock', 17) + ("<span>" + QSL.escapeHtml(QSL.t("更新密码")) + "</span></button>") +
+      '<span class="f-form-hint">' + ico('key', 14) + (" " + QSL.escapeHtml(QSL.t("修改后当前登录仍然有效")) + "</span>") +
       '</div>' +
       '</form>' +
       '</section>' +
@@ -316,22 +316,22 @@
       '<div class="f-profile-summary glass" data-reveal data-reveal-delay="60">' +
       '<div class="f-summary-avatar" data-summary-avatar>' + QSL.avatar(init.user, 84) + '</div>' +
       '<h2 class="f-summary-name" data-summary-name>' + esc(init.displayName) + '</h2>' +
-      '<span class="f-summary-call mono" data-summary-call>' + esc(init.callSign || '未填写呼号') + '</span>' +
+      '<span class="f-summary-call mono" data-summary-call>' + esc(init.callSign || QSL.t("未填写呼号")) + '</span>' +
       '<span class="f-summary-username">@' + esc(init.user.username || '') + ' · ' +
-      (init.user.role === 'admin' ? QSL.badge('管理员', 'violet') : QSL.badge('火腿', 'mint')) + '</span>' +
+      (init.user.role === 'admin' ? QSL.badge(QSL.t("管理员"), 'violet') : QSL.badge(QSL.t("火腿"), 'mint')) + '</span>' +
       '<div class="f-summary-stats" data-summary-stats>' +
-      '<span><b data-stat="cards">' + QSL.formatNumber((init.user.stats && init.user.stats.cards) || 0) + '</b><small>卡片</small></span>' +
-      '<span><b data-stat="likes">' + QSL.formatNumber((init.user.stats && init.user.stats.likesReceived) || 0) + '</b><small>获赞</small></span>' +
-      '<span><b data-stat="exchanges">' + QSL.formatNumber((init.user.stats && init.user.stats.exchanges) || 0) + '</b><small>换卡</small></span>' +
+      '<span><b data-stat="cards">' + QSL.formatNumber((init.user.stats && init.user.stats.cards) || 0) + ("</b><small>" + QSL.escapeHtml(QSL.t("卡片")) + "</small></span>") +
+      '<span><b data-stat="likes">' + QSL.formatNumber((init.user.stats && init.user.stats.likesReceived) || 0) + ("</b><small>" + QSL.escapeHtml(QSL.t("获赞")) + "</small></span>") +
+      '<span><b data-stat="exchanges">' + QSL.formatNumber((init.user.stats && init.user.stats.exchanges) || 0) + ("</b><small>" + QSL.escapeHtml(QSL.t("换卡")) + "</small></span>") +
       '</div>' +
       '<div class="f-summary-meta">' +
       '<span>' + ico('mail', 14) + esc(init.user.email || '—') + '</span>' +
-      '<span>' + ico('calendar', 14) + (init.user.joinedAt ? QSL.formatDate(init.user.joinedAt) + ' 加入' : '—') + '</span>' +
+      '<span>' + ico('calendar', 14) + (init.user.joinedAt ? QSL.formatDate(init.user.joinedAt) + (" " + QSL.t("加入")) : '—') + '</span>' +
       '</div>' +
       '<div class="f-summary-links">' +
-      '<a class="f-summary-link" href="/dashboard/cards">' + ico('cards', 16) + '<span>我的卡片</span>' + ico('chevron-right', 14) + '</a>' +
-      '<a class="f-summary-link" href="/dashboard/exchanges">' + ico('inbox', 16) + '<span>换卡申请</span>' + ico('chevron-right', 14) + '</a>' +
-      '<a class="f-summary-link" href="/dashboard/cards/new">' + ico('upload', 16) + '<span>上传新卡片</span>' + ico('chevron-right', 14) + '</a>' +
+      '<a class="f-summary-link" href="/dashboard/cards">' + ico('cards', 16) + ("<span>" + QSL.escapeHtml(QSL.t("我的卡片")) + "</span>") + ico('chevron-right', 14) + '</a>' +
+      '<a class="f-summary-link" href="/dashboard/exchanges">' + ico('inbox', 16) + ("<span>" + QSL.escapeHtml(QSL.t("换卡申请")) + "</span>") + ico('chevron-right', 14) + '</a>' +
+      '<a class="f-summary-link" href="/dashboard/cards/new">' + ico('upload', 16) + ("<span>" + QSL.escapeHtml(QSL.t("上传新卡片")) + "</span>") + ico('chevron-right', 14) + '</a>' +
       '</div>' +
       '</div>' +
       '</aside>' +
@@ -372,7 +372,7 @@
       if (avatarPreview) avatarPreview.innerHTML = QSL.avatar(fake, 76);
       if (summaryAvatar) summaryAvatar.innerHTML = QSL.avatar(fake, 84);
       if (summaryName) summaryName.textContent = fake.displayName;
-      if (summaryCall) summaryCall.textContent = fake.callSign || '未填写呼号';
+      if (summaryCall) summaryCall.textContent = fake.callSign || QSL.t("未填写呼号");
     }
 
     function paintSummary(user, stats) {
@@ -400,10 +400,10 @@
       addressState.classList.toggle('is-ok', saved && !isError);
       addressState.classList.toggle('is-error', !!isError);
       addressState.innerHTML = isError
-        ? ico('alert', 15) + ' 地址保存失败'
+        ? ico('alert', 15) + (" " + QSL.t("地址保存失败"))
         : saved
-          ? ico('check-circle', 15) + ' 已保存寄送地址'
-          : ico('info', 15) + ' 尚未填写寄送地址';
+          ? ico('check-circle', 15) + (" " + QSL.t("已保存寄送地址"))
+          : ico('info', 15) + (" " + QSL.t("尚未填写寄送地址"));
     }
 
     function updateBioCounter() {
@@ -446,20 +446,20 @@
         avatarColor: avatarColor
       };
       if (!values.displayName) {
-        fieldError(profileForm, 'displayName', '请填写昵称');
+        fieldError(profileForm, 'displayName', QSL.t("请填写昵称"));
         profileForm.querySelector('[name="displayName"]').focus();
         return;
       }
       if (values.displayName.length > 40) {
-        fieldError(profileForm, 'displayName', '昵称不能超过 40 个字符');
+        fieldError(profileForm, 'displayName', QSL.t("昵称不能超过 40 个字符"));
         return;
       }
       if (values.callSign.length > 20) {
-        fieldError(profileForm, 'callSign', '呼号不能超过 20 个字符');
+        fieldError(profileForm, 'callSign', QSL.t("呼号不能超过 20 个字符"));
         return;
       }
       const btn = profileForm.querySelector('[data-save="profile"]');
-      QSL.setBusy(btn, true, '保存中…');
+      QSL.setBusy(btn, true, QSL.t("保存中…"));
       try {
         const res = await QSL.api.me.updateProfile(values);
         if (!alive) return;
@@ -468,13 +468,13 @@
           QSL.setUser(res.user);
         }
         touched = false;
-        QSL.toast('个人资料已保存', 'success');
+        QSL.toast(QSL.t("个人资料已保存"), 'success');
         paintAvatar();
         paintSummary(currentUser);
       } catch (err) {
         if (!alive) return;
         const handled = err && err.fields ? showServerFields(profileForm, err.fields) : false;
-        if (!handled) setFormError(profileForm, (err && err.message) || '保存失败，请稍后重试');
+        if (!handled) setFormError(profileForm, (err && err.message) || QSL.t("保存失败，请稍后重试"));
       } finally {
         if (alive) QSL.setBusy(btn, false);
       }
@@ -488,7 +488,7 @@
     addressForm.querySelector('[data-parse-address]').addEventListener('click', () => {
       const parsed = parseShippingAddress(addressPaste.value);
       if (!parsed) {
-        parseResult.textContent = '没有识别到地址信息。可以分行粘贴姓名、手机号和完整地址，或直接填写下方字段。';
+        parseResult.textContent = QSL.t("没有识别到地址信息。可以分行粘贴姓名、手机号和完整地址，或直接填写下方字段。");
         parseResult.classList.add('is-error');
         return;
       }
@@ -496,8 +496,8 @@
       touched = true;
       parseResult.classList.remove('is-error');
       parseResult.textContent = filled
-        ? '已识别 ' + filled + ' 项并填入空字段。请检查后保存。'
-        : '已识别地址，但现有字段均已填写；为避免覆盖，未修改内容。';
+        ? (QSL.t("已识别") + " ") + filled + (" " + QSL.t("项并填入空字段。请检查后保存。"))
+        : QSL.t("已识别地址，但现有字段均已填写；为避免覆盖，未修改内容。");
       addressPaste.value = '';
     });
     addressPaste.addEventListener('input', () => { touched = true; });
@@ -519,30 +519,30 @@
         country: get('country') || '中国'
       };
       if (!values.name) {
-        fieldError(addressForm, 'name', '请填写收件人姓名');
+        fieldError(addressForm, 'name', QSL.t("请填写收件人姓名"));
         addressForm.querySelector('[name="name"]').focus();
         return;
       }
       if (values.name.length > 30) {
-        fieldError(addressForm, 'name', '姓名不能超过 30 个字符');
+        fieldError(addressForm, 'name', QSL.t("姓名不能超过 30 个字符"));
         return;
       }
       if (!values.city) {
-        fieldError(addressForm, 'city', '请填写城市');
+        fieldError(addressForm, 'city', QSL.t("请填写城市"));
         addressForm.querySelector('[name="city"]').focus();
         return;
       }
       if (!values.line1) {
-        fieldError(addressForm, 'line1', '请填写详细地址');
+        fieldError(addressForm, 'line1', QSL.t("请填写详细地址"));
         addressForm.querySelector('[name="line1"]').focus();
         return;
       }
       if (values.line1.length > 100) {
-        fieldError(addressForm, 'line1', '详细地址不能超过 100 个字符');
+        fieldError(addressForm, 'line1', QSL.t("详细地址不能超过 100 个字符"));
         return;
       }
       const btn = addressForm.querySelector('[data-save="address"]');
-      QSL.setBusy(btn, true, '保存中…');
+      QSL.setBusy(btn, true, QSL.t("保存中…"));
       try {
         const res = await QSL.api.me.updateProfile({ address: values });
         if (!alive) return;
@@ -552,11 +552,11 @@
         }
         touched = false;
         updateAddressState(true);
-        QSL.toast('寄送地址已保存', 'success');
+        QSL.toast(QSL.t("寄送地址已保存"), 'success');
       } catch (err) {
         if (!alive) return;
         const handled = err && err.fields ? showServerFields(addressForm, err.fields) : false;
-        if (!handled) setFormError(addressForm, (err && err.message) || '地址保存失败，请稍后重试');
+        if (!handled) setFormError(addressForm, (err && err.message) || QSL.t("地址保存失败，请稍后重试"));
         updateAddressState(false, true);
       } finally {
         if (alive) QSL.setBusy(btn, false);
@@ -581,29 +581,29 @@
         confirmPassword: get('confirmPassword')
       };
       if (!values.currentPassword) {
-        fieldError(passwordForm, 'currentPassword', '请输入当前密码');
+        fieldError(passwordForm, 'currentPassword', QSL.t("请输入当前密码"));
         passwordForm.querySelector('[name="currentPassword"]').focus();
         return;
       }
       if (!values.newPassword) {
-        fieldError(passwordForm, 'newPassword', '请输入新密码');
+        fieldError(passwordForm, 'newPassword', QSL.t("请输入新密码"));
         passwordForm.querySelector('[name="newPassword"]').focus();
         return;
       }
       if (values.newPassword.length < 8) {
-        fieldError(passwordForm, 'newPassword', '密码至少 8 位');
+        fieldError(passwordForm, 'newPassword', QSL.t("密码至少 8 位"));
         return;
       }
       if (!/[A-Za-z]/.test(values.newPassword) || !/[0-9]/.test(values.newPassword)) {
-        fieldError(passwordForm, 'newPassword', '密码需同时包含字母与数字');
+        fieldError(passwordForm, 'newPassword', QSL.t("密码需同时包含字母与数字"));
         return;
       }
       if (values.confirmPassword !== values.newPassword) {
-        fieldError(passwordForm, 'confirmPassword', '两次输入的新密码不一致');
+        fieldError(passwordForm, 'confirmPassword', QSL.t("两次输入的新密码不一致"));
         return;
       }
       const btn = passwordForm.querySelector('[data-save="password"]');
-      QSL.setBusy(btn, true, '更新中…');
+      QSL.setBusy(btn, true, QSL.t("更新中…"));
       try {
         await QSL.api.me.updatePassword({
           currentPassword: values.currentPassword,
@@ -611,14 +611,14 @@
         });
         if (!alive) return;
         passwordForm.reset();
-        QSL.toast('密码已更新，请牢记新密码', 'success');
+        QSL.toast(QSL.t("密码已更新，请牢记新密码"), 'success');
       } catch (err) {
         if (!alive) return;
         if (err && err.code === 'INVALID_CREDENTIALS') {
-          fieldError(passwordForm, 'currentPassword', '当前密码不正确');
+          fieldError(passwordForm, 'currentPassword', QSL.t("当前密码不正确"));
         } else {
           const handled = err && err.fields ? showServerFields(passwordForm, err.fields) : false;
-          if (!handled) setFormError(passwordForm, (err && err.message) || '密码更新失败，请稍后重试');
+          if (!handled) setFormError(passwordForm, (err && err.message) || QSL.t("密码更新失败，请稍后重试"));
         }
       } finally {
         if (alive) QSL.setBusy(btn, false);
@@ -660,9 +660,9 @@
         }
       } catch (err) {
         if (!alive) return;
-        console.error('[profile] 加载最新资料失败', err);
+        console.error(QSL.t("[profile] 加载最新资料失败"), err);
         paintSummary(currentUser);
-        QSL.toast((err && err.message) || '资料加载失败，显示的是本地缓存', 'error');
+        QSL.toast((err && err.message) || QSL.t("资料加载失败，显示的是本地缓存"), 'error');
       }
     }
 
@@ -671,5 +671,5 @@
     return function cleanup() { alive = false; };
   }
 
-  QSL.registerPage('profile', { title: '个人资料', render: render });
+  QSL.registerPage('profile', { title: QSL.t("个人资料"), render: render });
 })();

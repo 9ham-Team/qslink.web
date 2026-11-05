@@ -473,6 +473,14 @@
   transform: rotate(-12deg);
 }
 .f-visual-card-sm { transform: scale(0.86); transform-origin: right bottom; }
+html[lang="en"] .f-visual-card {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  align-self: flex-end;
+  flex: 0 0 120px;
+  margin: 10px 10px 0 0;
+}
 
 /* -------- 右侧表单卡 -------- */
 .f-auth-panel {

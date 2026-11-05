@@ -2,6 +2,8 @@
  * Reed–Solomon parity, scored choice of all eight masks, four-module quiet zone. */
 (function () {
   'use strict';
+  const QSL = window.QSL;
+  const t = QSL.t || (source => source);
   // Version, data bytes per block, error-correction bytes per block.
   const versions = [[1, 19, 7, 1], [2, 34, 10, 1], [3, 55, 15, 1], [4, 80, 20, 1], [5, 108, 26, 1], [6, 68, 18, 2]];
   const masks = [
@@ -47,7 +49,7 @@
   function encode(text) {
     const bytes = new TextEncoder().encode(text);
     const spec = versions.find(([, data, , blocks]) => 12 + bytes.length * 8 <= data * blocks * 8);
-    if (!spec) throw new Error('分享链接过长，无法生成二维码');
+    if (!spec) throw new Error(t("分享链接过长，无法生成二维码"));
     const [version, blockData, parity, blockCount] = spec;
     const dataLength = blockData * blockCount;
     const bits = [];

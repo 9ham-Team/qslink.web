@@ -116,7 +116,7 @@
     el.innerHTML =
       '<span class="toast-icon">' + icon(iconName, 18) + '</span>' +
       '<span class="toast-msg">' + esc(message) + '</span>' +
-      '<button class="toast-close" type="button" aria-label="关闭">' + icon('close', 14) + '</button>';
+      ("<button class=\"toast-close\" type=\"button\" aria-label=\"" + QSL.escapeHtml(QSL.t("关闭")) + "\">") + icon('close', 14) + '</button>';
     root.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-show'));
     let closed = false;
@@ -146,7 +146,7 @@
       '<div class="modal modal-' + esc(size) + '" role="dialog" aria-modal="true">' +
       '<div class="modal-head">' +
       '<h3 class="modal-title">' + esc(opts.title || '') + '</h3>' +
-      '<button class="modal-x" type="button" aria-label="关闭">' + icon('close', 18) + '</button>' +
+      ("<button class=\"modal-x\" type=\"button\" aria-label=\"" + QSL.escapeHtml(QSL.t("关闭")) + "\">") + icon('close', 18) + '</button>' +
       '</div>' +
       '<div class="modal-body"></div>' +
       '<div class="modal-actions"></div>' +
@@ -182,7 +182,7 @@
       const variant = action.type || 'ghost';
       btn.type = 'button';
       btn.className = 'btn btn-' + variant;
-      btn.textContent = action.label || '确定';
+      btn.textContent = action.label || QSL.t("确定");
       if (action.disabled) btn.disabled = true;
       btn.addEventListener('click', async function () {
         if (typeof action.onClick === 'function') {
@@ -226,14 +226,14 @@
         resolve(val);
       };
       const modal = QSL.modal({
-        title: opts.title || '请确认',
+        title: opts.title || QSL.t("请确认"),
         size: 'sm',
         content: '<p class="modal-text">' + esc(opts.message || '') + '</p>',
         onClose: () => done(false),
         actions: [
-          { label: opts.cancelText || '取消', type: 'ghost', onClick: () => { done(false); } },
+          { label: opts.cancelText || QSL.t("取消"), type: 'ghost', onClick: () => { done(false); } },
           {
-            label: opts.confirmText || '确认',
+            label: opts.confirmText || QSL.t("确认"),
             type: opts.danger ? 'danger' : 'primary',
             onClick: () => { done(true); }
           }
@@ -264,29 +264,29 @@
   };
 
   const STATUS_MAP = {
-    pending: { text: '审核中', tone: 'amber' },
-    approved: { text: '已通过', tone: 'mint' },
-    rejected: { text: '已拒绝', tone: 'rose' },
-    draft: { text: '草稿', tone: 'slate' }
+    pending: { text: QSL.t("审核中"), tone: 'amber' },
+    approved: { text: QSL.t("已通过"), tone: 'mint' },
+    rejected: { text: QSL.t("已拒绝"), tone: 'rose' },
+    draft: { text: QSL.t("草稿"), tone: 'slate' }
   };
   QSL.statusBadge = function (status) {
-    const s = STATUS_MAP[status] || { text: status || '未知', tone: 'slate' };
+    const s = STATUS_MAP[status] || { text: status || QSL.t("未知"), tone: 'slate' };
     return QSL.badge(s.text, s.tone);
   };
-  QSL.statusText = (status) => (STATUS_MAP[status] || {}).text || status || '未知';
+  QSL.statusText = (status) => (STATUS_MAP[status] || {}).text || status || QSL.t("未知");
 
   const EXCHANGE_MAP = {
-    pending: { text: '待处理', tone: 'amber' },
-    approved: { text: '已同意', tone: 'mint' },
-    rejected: { text: '已拒绝', tone: 'rose' },
-    completed: { text: '已完成', tone: 'sky' },
-    cancelled: { text: '已取消', tone: 'slate' }
+    pending: { text: QSL.t("待处理"), tone: 'amber' },
+    approved: { text: QSL.t("已同意"), tone: 'mint' },
+    rejected: { text: QSL.t("已拒绝"), tone: 'rose' },
+    completed: { text: QSL.t("已完成"), tone: 'sky' },
+    cancelled: { text: QSL.t("已取消"), tone: 'slate' }
   };
   QSL.exchangeBadge = function (status) {
-    const s = EXCHANGE_MAP[status] || { text: status || '未知', tone: 'slate' };
+    const s = EXCHANGE_MAP[status] || { text: status || QSL.t("未知"), tone: 'slate' };
     return QSL.badge(s.text, s.tone);
   };
-  QSL.exchangeText = (status) => (EXCHANGE_MAP[status] || {}).text || status || '未知';
+  QSL.exchangeText = (status) => (EXCHANGE_MAP[status] || {}).text || status || QSL.t("未知");
 
   /* ---------------- 卡片库存弹窗 ---------------- */
   QSL.openCardStock = function (card, options) {
@@ -295,22 +295,22 @@
     let open = true;
     let busy = false;
     const modal = QSL.modal({
-      title: '调整卡片库存', size: 'sm',
-      content: '<p>' + esc(card.title) + '</p><label class="field"><span class="label">库存（张）</span>' +
-        '<input class="input" type="number" min="0" max="2147483647" step="1" placeholder="未设置" value="' + esc(card.stock == null ? '' : card.stock) + '" data-stock></label>' +
-        '<p class="hint">留空不限制换卡；填 0 暂停换卡。同意申请时自动扣减 1 张。此处保存为新的剩余库存，不影响审核状态。</p>' +
+      title: QSL.t("调整卡片库存"), size: 'sm',
+      content: '<p>' + esc(card.title) + ("</p><label class=\"field\"><span class=\"label\">" + QSL.escapeHtml(QSL.t("库存（张）")) + "</span>") +
+        ("<input class=\"input\" type=\"number\" min=\"0\" max=\"2147483647\" step=\"1\" placeholder=\"" + QSL.escapeHtml(QSL.t("未设置")) + "\" value=\"") + esc(card.stock == null ? '' : card.stock) + '" data-stock></label>' +
+        ("<p class=\"hint\">" + QSL.escapeHtml(QSL.t("留空不限制换卡；填 0 暂停换卡。同意申请时自动扣减 1 张。此处保存为新的剩余库存，不影响审核状态。")) + "</p>") +
         '<p class="f-error" role="alert" data-stock-error hidden></p>',
       onClose: () => { open = false; if (opts.onClose) opts.onClose(); },
       actions: [
-        { label: '取消', type: 'ghost' },
-        { label: '保存库存', type: 'primary', closeOnClick: false, onClick: async () => {
+        { label: QSL.t("取消"), type: 'ghost' },
+        { label: QSL.t("保存库存"), type: 'primary', closeOnClick: false, onClick: async () => {
           if (busy) return false;
           const input = modal.body.querySelector('[data-stock]');
           const error = modal.body.querySelector('[data-stock-error]');
           const stock = input.value.trim() === '' ? null : Number(input.value);
           error.hidden = true;
           if (!input.checkValidity() || (stock !== null && !Number.isInteger(stock))) {
-            error.textContent = '请输入 0–2147483647 的整数，或留空'; error.hidden = false; return false;
+            error.textContent = QSL.t("请输入 0–2147483647 的整数，或留空"); error.hidden = false; return false;
           }
           busy = true;
           modal.el.querySelectorAll('.modal-actions button, input').forEach(el => { el.disabled = true; });
@@ -320,10 +320,10 @@
             Object.assign(card, result.card);
             modal.close();
             if (opts.onSaved) opts.onSaved(card);
-            QSL.toast('库存已更新', 'success');
+            QSL.toast(QSL.t("库存已更新"), 'success');
           } catch (err) {
             if (!isActive() || !open) return false;
-            error.textContent = (err.fields && err.fields.stock) || err.message || '保存失败，请重试';
+            error.textContent = (err.fields && err.fields.stock) || err.message || QSL.t("保存失败，请重试");
             error.hidden = false;
           } finally {
             busy = false;
@@ -358,7 +358,7 @@
       if (!btn.dataset.origHtml) btn.dataset.origHtml = btn.innerHTML;
       btn.disabled = true;
       btn.classList.add('is-busy');
-      btn.innerHTML = '<span class="spinner"></span><span>' + esc(busyText || '处理中…') + '</span>';
+      btn.innerHTML = '<span class="spinner"></span><span>' + esc(busyText || QSL.t("处理中…")) + '</span>';
     } else {
       btn.disabled = false;
       btn.classList.remove('is-busy');
@@ -388,8 +388,8 @@
       try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
       ta.remove();
     }
-    if (ok) QSL.toast(successMsg || '已复制到剪贴板', 'success');
-    else QSL.toast('复制失败，请手动选择复制', 'error');
+    if (ok) QSL.toast(successMsg || QSL.t("已复制到剪贴板"), 'success');
+    else QSL.toast(QSL.t("复制失败，请手动选择复制"), 'error');
     return ok;
   };
 
@@ -408,7 +408,7 @@
   };
 
   QSL.shareCard = async function (card) {
-    return QSL.copyText(await QSL.cardShareUrl(card), '分享链接已复制，快发给朋友吧');
+    return QSL.copyText(await QSL.cardShareUrl(card), QSL.t("分享链接已复制，快发给朋友吧"));
   };
 
   /* ---------------- 页面结构 ---------------- */
@@ -463,7 +463,7 @@
       : '<div class="empty-state-icon">' + icon(opts.icon || 'cards', 32) + '</div>';
     el.innerHTML =
       media +
-      '<h3>' + esc(opts.title || '暂无内容') + '</h3>' +
+      '<h3>' + esc(opts.title || QSL.t("暂无内容")) + '</h3>' +
       (opts.desc ? '<p>' + esc(opts.desc) + '</p>' : '') +
       (opts.actionLabel ? '<button class="btn btn-primary" type="button" data-empty-action>' + esc(opts.actionLabel) + '</button>' : '') +
       (opts.extraHtml || '');
@@ -477,7 +477,7 @@
   QSL.loading = function (container, text) {
     if (!container) return;
     container.innerHTML =
-      '<div class="loading-block"><span class="spinner spinner-lg"></span><p>' + esc(text || '正在加载…') + '</p></div>';
+      '<div class="loading-block"><span class="spinner spinner-lg"></span><p>' + esc(text || QSL.t("正在加载…")) + '</p></div>';
   };
   QSL.skeletonCards = function (count) {
     const n = count || 6;
@@ -573,7 +573,7 @@
     const src = c.frontImage || QSL.PLACEHOLDER_IMAGE;
     return (
       '<span class="card-thumb" style="height:' + height + 'px;aspect-ratio:' + esc(QSL.ratioCss(ratio)) + '">' +
-      '<img ' + QSL.images.attributes(src, Math.ceil(height * ratio.w / ratio.h) + 'px') + ' alt="' + esc(c.title || '卡片') + '" loading="lazy">' +
+      '<img ' + QSL.images.attributes(src, Math.ceil(height * ratio.w / ratio.h) + 'px') + ' alt="' + esc(c.title || QSL.t("卡片")) + '" loading="lazy">' +
       '</span>'
     );
   };
@@ -582,7 +582,7 @@
     const u = user || {};
     return (
       '<span class="owner-line">' + QSL.avatar(u, 26) +
-      '<span class="owner-name">' + esc(u.displayName || u.username || '未知用户') + '</span>' +
+      '<span class="owner-name">' + esc(u.displayName || u.username || QSL.t("未知用户")) + '</span>' +
       (u.callSign ? '<b class="owner-call">' + esc(u.callSign) + '</b>' : '') +
       '</span>'
     );
@@ -601,23 +601,23 @@
     const statusHtml = opts.showStatus && c.status && c.status !== 'approved' ? '<span class="qsl-tile-status">' + QSL.statusBadge(c.status) + '</span>' : '';
     tile.innerHTML =
       '<div class="qsl-tile-frame">' +
-      '<a class="qsl-tile-media" href="' + esc(href) + '" data-link aria-label="' + esc(c.title || '查看卡片') + '">' +
+      '<a class="qsl-tile-media" href="' + esc(href) + '" data-link aria-label="' + esc(c.title || QSL.t("查看卡片")) + '">' +
       '<span class="qsl-tile-img" style="aspect-ratio:' + esc(QSL.ratioCss(ratio)) + '">' +
       '<img ' + QSL.images.attributes(c.frontImage || QSL.PLACEHOLDER_IMAGE) + ' alt="' + esc(c.title || '') + '" loading="lazy" decoding="async">' +
       '</span>' +
       '<span class="qsl-tile-sheen"></span>' +
-      '<span class="qsl-tile-3d">' + icon('3d', 15) + '<span>3D 预览</span></span>' +
+      '<span class="qsl-tile-3d">' + icon('3d', 15) + ("<span>" + QSL.escapeHtml(QSL.t("3D 预览")) + "</span></span>") +
       statusHtml +
       '</a>' +
-      '<button class="qsl-like' + (liked ? ' is-liked' : '') + '" type="button" aria-label="点赞" title="点赞">' +
+      '<button class="qsl-like' + (liked ? ' is-liked' : '') + ("\" type=\"button\" aria-label=\"" + QSL.escapeHtml(QSL.t("点赞")) + "\" title=\"" + QSL.escapeHtml(QSL.t("点赞")) + "\">") +
       icon('heart', 18) + '<span class="qsl-like-count">' + QSL.formatNumber(c.likeCount || 0) + '</span></button>' +
       '</div>' +
       '<div class="qsl-tile-info">' +
-      '<a class="qsl-tile-title" href="' + esc(href) + '" data-link>' + esc(c.title || '未命名卡片') + '</a>' +
+      '<a class="qsl-tile-title" href="' + esc(href) + '" data-link>' + esc(c.title || QSL.t("未命名卡片")) + '</a>' +
       '<div class="qsl-tile-meta">' +
       QSL.ownerLine(c.owner) +
       '</div>' +
-      '<p class="hint">' + (c.stock == null ? '库存未设置' : c.stock === 0 ? '暂无库存' : '剩余 ' + esc(c.stock) + ' 张') + '</p>' +
+      '<p class="hint">' + (c.stock == null ? QSL.t("库存未设置") : c.stock === 0 ? QSL.t("暂无库存") : (QSL.t("剩余") + " ") + esc(c.stock) + (" " + QSL.t("张"))) + '</p>' +
       (opts.footerHtml || '') +
       '</div>';
 
@@ -630,7 +630,7 @@
         return;
       }
       if (!QSL.state.user) {
-        QSL.toast('登录后即可点赞收藏', 'info');
+        QSL.toast(QSL.t("登录后即可点赞收藏"), 'info');
         QSL.navigate('/login?next=' + encodeURIComponent(location.pathname + location.search));
         return;
       }
@@ -647,7 +647,7 @@
           if (QSL.fx && QSL.fx.confetti) QSL.fx.confetti(e.clientX, e.clientY);
         }
       } catch (err) {
-        QSL.toast(err.message || '点赞失败', 'error');
+        QSL.toast(err.message || QSL.t("点赞失败"), 'error');
       } finally {
         likeBtn.disabled = false;
       }
@@ -661,9 +661,9 @@
     container.innerHTML = '';
     const el = QSL.emptyState({
       icon: 'alert',
-      title: '加载失败',
-      desc: (err && err.message) || '网络异常，请稍后重试',
-      actionLabel: retry ? '重试' : '',
+      title: QSL.t("加载失败"),
+      desc: (err && err.message) || QSL.t("网络异常，请稍后重试"),
+      actionLabel: retry ? QSL.t("重试") : '',
       onAction: retry || undefined
     });
     container.appendChild(el);

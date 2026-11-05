@@ -15,7 +15,7 @@
     btn.disabled = !!busy;
     btn.classList.toggle('f-loading', !!busy);
     const label = btn.querySelector('.f-btn-label');
-    if (label) label.textContent = busy ? busyText || '请稍候…' : btn.dataset.label || '登录';
+    if (label) label.textContent = busy ? busyText || QSL.t("请稍候…") : btn.dataset.label || QSL.t("登录");
   }
 
   function setAlert(box, message, tone) {
@@ -117,23 +117,23 @@
       '</div>' +
       wavesSvg('Login') +
       '<div class="f-auth-visual-inner">' +
-      '<a class="f-brand" href="/" aria-label="QSLink 首页">' +
+      ("<a class=\"f-brand\" href=\"/\" aria-label=\"" + QSL.escapeHtml(QSL.t("QSLink 首页")) + "\">") +
       '<span class="f-brand-mark">' + brandMark() + '</span>' +
       '<span class="f-brand-name">QS<em>Link</em></span>' +
       '</a>' +
       '<span class="f-eyebrow f-eyebrow-light">' + ico('radio', 15) + ' QSL CARD EXCHANGE</span>' +
-      '<h1 class="f-visual-title">让每一次通联，<br>都留下<span class="f-grad-text">可触摸</span>的回响。</h1>' +
-      '<p class="f-visual-desc">上传你的双面 QSL 卡片，以 3D 视角欣赏它；与全球火腿申请换卡，把电波里的相遇寄到彼此手中。</p>' +
+      ("<h1 class=\"f-visual-title\">" + QSL.escapeHtml(QSL.t("让每一次通联，")) + "<br>" + QSL.escapeHtml(QSL.t("都留下")) + "<span class=\"f-grad-text\">" + QSL.escapeHtml(QSL.t("可触摸")) + "</span>" + QSL.escapeHtml(QSL.t("的回响。")) + "</h1>") +
+      ("<p class=\"f-visual-desc\">" + QSL.escapeHtml(QSL.t("上传你的双面 QSL 卡片，以 3D 视角欣赏它；与全球火腿申请换卡，把电波里的相遇寄到彼此手中。")) + "</p>") +
       '<ul class="f-visual-points">' +
-      '<li>' + ico('cards', 18) + '<span><b>双面卡片</b> · 正面背面，3D 立体展示</span></li>' +
-      '<li>' + ico('globe', 18) + '<span><b>真实交换</b> · 地址仅对达成交换的双方可见</span></li>' +
-      '<li>' + ico('shield', 18) + '<span><b>人工审核</b> · 让每一张卡片都值得收藏</span></li>' +
+      '<li>' + ico('cards', 18) + ("<span><b>" + QSL.escapeHtml(QSL.t("双面卡片")) + "</b> " + QSL.escapeHtml(QSL.t("· 正面背面，3D 立体展示")) + "</span></li>") +
+      '<li>' + ico('globe', 18) + ("<span><b>" + QSL.escapeHtml(QSL.t("真实交换")) + "</b> " + QSL.escapeHtml(QSL.t("· 地址仅对达成交换的双方可见")) + "</span></li>") +
+      '<li>' + ico('shield', 18) + ("<span><b>" + QSL.escapeHtml(QSL.t("人工审核")) + "</b> " + QSL.escapeHtml(QSL.t("· 让每一张卡片都值得收藏")) + "</span></li>") +
       '</ul>' +
       '<div class="f-visual-card" aria-hidden="true">' +
       '<div class="f-mini-card f-mini-front"><span class="f-mini-sign">QSL</span><span class="f-mini-line"></span></div>' +
       '<div class="f-mini-card f-mini-back"><span class="f-mini-back-line"></span><span class="f-mini-back-line short"></span><span class="f-mini-stamp">QSL</span></div>' +
       '</div>' +
-      '<p class="f-visual-foot">' + ico('antenna', 15) + ' 73 · 电波永不消逝，卡片永远抵达。</p>' +
+      '<p class="f-visual-foot">' + ico('antenna', 15) + (" " + QSL.escapeHtml(QSL.t("73 · 电波永不消逝，卡片永远抵达。")) + "</p>") +
       '</div>' +
       '</aside>'
     );
@@ -156,7 +156,7 @@
       (o.maxlength ? ' maxlength="' + esc(o.maxlength) + '"' : '') +
       (o.required ? ' required' : '') + '>' +
       (o.eye
-        ? '<button type="button" class="f-eye" aria-label="显示密码" aria-pressed="false" data-eye>' + ico('eye', 18) + '</button>'
+        ? ("<button type=\"button\" class=\"f-eye\" aria-label=\"" + QSL.escapeHtml(QSL.t("显示密码")) + "\" aria-pressed=\"false\" data-eye>") + ico('eye', 18) + '</button>'
         : '') +
       '</div>' +
       '<p class="f-error" data-error="' + esc(o.name) + '" role="alert" hidden></p>' +
@@ -173,13 +173,13 @@
         '<button type="button" class="f-demo-item" data-demo-user="' + esc(acc.id) + '" data-demo-pass="' + esc(acc.pass) + '">' +
         '<span class="f-demo-ava" style="--f-ava:#0eaf8f">' + esc(acc.callSign.slice(0, 2)) + '</span>' +
         '<span class="f-demo-info"><b>' + esc(acc.id) + '</b><span>' + esc(acc.name) + ' · ' + esc(acc.role) + '</span></span>' +
-        '<span class="f-demo-fill">填入' + ico('arrow-right', 14) + '</span>' +
+        ("<span class=\"f-demo-fill\">" + QSL.escapeHtml(QSL.t("填入"))) + ico('arrow-right', 14) + '</span>' +
         '</button>'
       );
     }).join('');
     return (
       '<div class="f-demo">' +
-      '<div class="f-demo-head"><span class="f-demo-tag">演示账号</span><span class="f-demo-tip">点击一键填入，无需注册</span></div>' +
+      ("<div class=\"f-demo-head\"><span class=\"f-demo-tag\">" + QSL.escapeHtml(QSL.t("演示账号")) + "</span><span class=\"f-demo-tip\">" + QSL.escapeHtml(QSL.t("点击一键填入，无需注册")) + "</span></div>") +
       '<div class="f-demo-list">' + items + '</div>' +
       '</div>'
     );
@@ -200,19 +200,19 @@
       '<form class="f-auth-card glass" id="fLoginForm" novalidate>' +
       '<div class="f-auth-card-head">' +
       '<span class="f-auth-chip">' + ico('radio', 15) + ' MEMBER LOGIN</span>' +
-      '<h2 id="fLoginTitle">欢迎回来</h2>' +
-      '<p>登录后即可管理卡片、处理换卡申请。</p>' +
+      ("<h2 id=\"fLoginTitle\">" + QSL.escapeHtml(QSL.t("欢迎回来")) + "</h2>") +
+      ("<p>" + QSL.escapeHtml(QSL.t("登录后即可管理卡片、处理换卡申请。")) + "</p>") +
       '</div>' +
       '<div class="f-form-alert" role="alert" hidden></div>' +
-      textField({ id: 'fLoginIdentifier', name: 'identifier', label: '用户名或邮箱', icon: 'user', placeholder: '用户名或 you@example.com', autocomplete: 'username', required: true, maxlength: 120 }) +
-      textField({ id: 'fLoginPassword', name: 'password', label: '密码', icon: 'lock', type: 'password', placeholder: '输入登录密码', autocomplete: 'current-password', required: true, eye: true, hint: '区分大小写' }) +
-      '<button class="btn btn-primary btn-lg f-submit" type="submit" data-label="登录">' +
-      '<span class="f-btn-label">登录</span>' + ico('arrow-right', 18) +
+      textField({ id: 'fLoginIdentifier', name: 'identifier', label: QSL.t("用户名或邮箱"), icon: 'user', placeholder: QSL.t("用户名或 you@example.com"), autocomplete: 'username', required: true, maxlength: 120 }) +
+      textField({ id: 'fLoginPassword', name: 'password', label: QSL.t("密码"), icon: 'lock', type: 'password', placeholder: QSL.t("输入登录密码"), autocomplete: 'current-password', required: true, eye: true, hint: QSL.t("区分大小写") }) +
+      ("<button class=\"btn btn-primary btn-lg f-submit\" type=\"submit\" data-label=\"" + QSL.escapeHtml(QSL.t("登录")) + "\">") +
+      ("<span class=\"f-btn-label\">" + QSL.escapeHtml(QSL.t("登录")) + "</span>") + ico('arrow-right', 18) +
       '</button>' +
       demoBlock() +
-      '<p class="f-auth-alt">还没有账号？<a class="f-link" href="' + esc(registerHref) + '">立即注册</a></p>' +
+      ("<p class=\"f-auth-alt\">" + QSL.escapeHtml(QSL.t("还没有账号？")) + "<a class=\"f-link\" href=\"") + esc(registerHref) + ("\">" + QSL.escapeHtml(QSL.t("立即注册")) + "</a></p>") +
       '</form>' +
-      '<p class="f-auth-legal">' + ico('shield', 14) + ' 登录即代表你同意以真实身份参与卡片交换</p>' +
+      '<p class="f-auth-legal">' + ico('shield', 14) + (" " + QSL.escapeHtml(QSL.t("登录即代表你同意以真实身份参与卡片交换")) + "</p>") +
       '</div>' +
       '</div>' +
       '</section>';
@@ -229,7 +229,7 @@
       const showing = passwordInput.type === 'text';
       passwordInput.type = showing ? 'password' : 'text';
       this.classList.toggle('is-on', !showing);
-      this.setAttribute('aria-label', showing ? '显示密码' : '隐藏密码');
+      this.setAttribute('aria-label', showing ? QSL.t("显示密码") : QSL.t("隐藏密码"));
       this.setAttribute('aria-pressed', showing ? 'false' : 'true');
       passwordInput.focus({ preventScroll: true });
     });
@@ -246,7 +246,7 @@
         identifierInput.classList.add('f-pulse-once');
         setTimeout(() => identifierInput.classList.remove('f-pulse-once'), 700);
         submitBtn.focus({ preventScroll: true });
-        if (QSL.toast) QSL.toast('已填入演示账号「' + btn.dataset.demoUser + '」，点击登录即可', 'info');
+        if (QSL.toast) QSL.toast(QSL.t("已填入演示账号「") + btn.dataset.demoUser + QSL.t("」，点击登录即可"), 'info');
       });
     });
 
@@ -259,10 +259,10 @@
 
     function validate(values) {
       const errors = {};
-      if (!values.identifier) errors.identifier = '请输入用户名或邮箱';
-      else if (values.identifier.length > 120) errors.identifier = '用户名或邮箱过长';
-      if (!values.password) errors.password = '请输入密码';
-      else if (values.password.length > 128) errors.password = '密码过长';
+      if (!values.identifier) errors.identifier = QSL.t("请输入用户名或邮箱");
+      else if (values.identifier.length > 120) errors.identifier = QSL.t("用户名或邮箱过长");
+      if (!values.password) errors.password = QSL.t("请输入密码");
+      else if (values.password.length > 128) errors.password = QSL.t("密码过长");
       return errors;
     }
 
@@ -293,7 +293,7 @@
         return;
       }
       busy = true;
-      setBusy(submitBtn, true, '登录中…');
+      setBusy(submitBtn, true, QSL.t("登录中…"));
       try {
         const res = await QSL.api.auth.login({ identifier: values.identifier, password: values.password });
         if (res && res.token) QSL.api.setToken(res.token);
@@ -301,17 +301,17 @@
         else await QSL.refreshUser();
         const user = res && res.user;
         const name = user ? (user.displayName || user.username) : values.identifier;
-        if (QSL.toast) QSL.toast('欢迎回来，' + name + '！', 'success');
+        if (QSL.toast) QSL.toast(QSL.t("欢迎回来，") + name + '！', 'success');
         QSL.navigate(safeNext || '/');
       } catch (err) {
         busy = false;
         setBusy(submitBtn, false);
         if (err && err.fields) applyFieldErrors(form, err.fields);
         let message = '';
-        if (err && err.code === 'INVALID_CREDENTIALS') message = '用户名/邮箱或密码不正确，请检查后重试';
-        else if (err && err.code === 'BANNED') message = '该账号已被禁用，请联系站点管理员';
-        else if (err && err.isNetwork) message = '无法连接服务器，请确认服务已启动后重试';
-        else if (!err || !err.fields || !Object.keys(err.fields).length) message = (err && err.message) || '登录失败，请稍后重试';
+        if (err && err.code === 'INVALID_CREDENTIALS') message = QSL.t("用户名/邮箱或密码不正确，请检查后重试");
+        else if (err && err.code === 'BANNED') message = QSL.t("该账号已被禁用，请联系站点管理员");
+        else if (err && err.isNetwork) message = QSL.t("无法连接服务器，请确认服务已启动后重试");
+        else if (!err || !err.fields || !Object.keys(err.fields).length) message = (err && err.message) || QSL.t("登录失败，请稍后重试");
         setAlert(alertBox, message, 'error');
         if (err && err.status !== 401) console.error('[login]', err);
       }
@@ -328,5 +328,5 @@
     return function cleanup() { /* 无全局监听，无需清理 */ };
   }
 
-  QSL.registerPage('login', { title: '登录', render: render });
+  QSL.registerPage('login', { title: QSL.t("登录"), render: render });
 })();

@@ -12,10 +12,10 @@
   const MAX_SIZE = 8 * 1024 * 1024;
   const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
   const RATIO_PRESETS = [
-    { w: 3, h: 2, label: '3 : 2', desc: '横版标准' },
-    { w: 2, h: 3, label: '2 : 3', desc: '竖版标准' },
-    { w: 4, h: 3, label: '4 : 3', desc: '横版方寸' },
-    { w: 16, h: 9, label: '16 : 9', desc: '宽幅风景' }
+    { w: 3, h: 2, label: '3 : 2', desc: QSL.t("横版标准") },
+    { w: 2, h: 3, label: '2 : 3', desc: QSL.t("竖版标准") },
+    { w: 4, h: 3, label: '4 : 3', desc: QSL.t("横版方寸") },
+    { w: 16, h: 9, label: '16 : 9', desc: QSL.t("宽幅风景") }
   ];
 
   function formatSize(bytes) {
@@ -26,9 +26,9 @@
   }
 
   function ratioDescription(ratio) {
-    if (ratio.w > ratio.h) return '横版';
-    if (ratio.w < ratio.h) return '竖版';
-    return '方形';
+    if (ratio.w > ratio.h) return QSL.t("横版");
+    if (ratio.w < ratio.h) return QSL.t("竖版");
+    return QSL.t("方形");
   }
 
   function isPreset(ratio) {
@@ -36,30 +36,30 @@
   }
 
   function validateFile(file) {
-    if (!file) return '没有读取到文件';
+    if (!file) return QSL.t("没有读取到文件");
     const typeOk = ALLOWED_TYPES.indexOf(file.type) >= 0 || /\.(png|jpe?g|webp)$/i.test(file.name || '');
-    if (!typeOk) return '仅支持 PNG / JPG / WebP 格式的图片';
-    if (file.size > MAX_SIZE) return '图片超过 8MB，请压缩后重新上传（当前 ' + formatSize(file.size) + '）';
-    if (file.size === 0) return '图片文件为空，请重新选择';
+    if (!typeOk) return QSL.t("仅支持 PNG / JPG / WebP 格式的图片");
+    if (file.size > MAX_SIZE) return (QSL.t("图片超过 8MB，请压缩后重新上传（当前") + " ") + formatSize(file.size) + '）';
+    if (file.size === 0) return QSL.t("图片文件为空，请重新选择");
     return '';
   }
 
   function uploadZoneHtml(side, title, desc) {
     return (
-      '<div class="f-upload" data-upload-side="' + side + '" tabindex="0" role="button" aria-label="' + esc(title) + '，点击或拖拽上传">' +
+      '<div class="f-upload" data-upload-side="' + side + '" tabindex="0" role="button" aria-label="' + esc(title) + (QSL.escapeHtml(QSL.t("，点击或拖拽上传")) + "\">") +
       '<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-file>' +
       '<div class="f-upload-empty">' +
       '<span class="f-upload-ico">' + ico('image', 26) + '</span>' +
       '<b>' + esc(title) + '</b>' +
       '<span class="f-upload-desc">' + esc(desc) + '</span>' +
-      '<span class="f-upload-hint">点击选择 · 或拖拽图片到这里 · ≤ 8MB</span>' +
+      ("<span class=\"f-upload-hint\">" + QSL.escapeHtml(QSL.t("点击选择 · 或拖拽图片到这里 · ≤ 8MB")) + "</span>") +
       '</div>' +
       '<div class="f-upload-preview" hidden>' +
-      '<img alt="' + esc(title) + '预览" data-preview-img>' +
-      '<span class="f-upload-meta"><b data-preview-name>已上传</b><span data-preview-size></span></span>' +
-      '<span class="f-upload-replace">' + ico('refresh', 14) + ' 点击替换</span>' +
+      '<img alt="' + esc(title) + (QSL.escapeHtml(QSL.t("预览")) + "\" data-preview-img>") +
+      ("<span class=\"f-upload-meta\"><b data-preview-name>" + QSL.escapeHtml(QSL.t("已上传")) + "</b><span data-preview-size></span></span>") +
+      '<span class="f-upload-replace">' + ico('refresh', 14) + (" " + QSL.escapeHtml(QSL.t("点击替换")) + "</span>") +
       '</div>' +
-      '<span class="f-upload-loading">' + '<span class="spinner"></span><span>正在上传…</span></span>' +
+      '<span class="f-upload-loading">' + ("<span class=\"spinner\"></span><span>" + QSL.escapeHtml(QSL.t("正在上传…")) + "</span></span>") +
       '</div>'
     );
   }
@@ -99,99 +99,99 @@
       '<div class="f-page f-editor-page container">' +
       QSL.pageHeader({
         eyebrow: isEdit ? 'EDIT QSL CARD' : 'UPLOAD QSL CARD',
-        title: isEdit ? '编辑卡片' : '上传新卡片',
+        title: isEdit ? QSL.t("编辑卡片") : QSL.t("上传新卡片"),
         desc: isEdit
-          ? '修改卡片信息后需要重新提交审核，审核期间不会出现在卡片广场。'
-          : '上传卡片的正反面图片，填写卡片信息；提交后由管理员审核，通过后展示在卡片广场。',
+          ? QSL.t("修改卡片信息后需要重新提交审核，审核期间不会出现在卡片广场。")
+          : QSL.t("上传卡片的正反面图片，填写卡片信息；提交后由管理员审核，通过后展示在卡片广场。"),
         actions:
-          '<a class="btn btn-ghost" href="/dashboard/cards">' + ico('arrow-left', 16) + '<span>返回我的卡片</span></a>' +
-          '<button class="btn btn-primary" type="button" data-submit>' + ico('check', 17) + '<span>提交审核</span></button>'
+          '<a class="btn btn-ghost" href="/dashboard/cards">' + ico('arrow-left', 16) + ("<span>" + QSL.escapeHtml(QSL.t("返回我的卡片")) + "</span></a>") +
+          '<button class="btn btn-primary" type="button" data-submit>' + ico('check', 17) + ("<span>" + QSL.escapeHtml(QSL.t("提交审核")) + "</span></button>")
       }) +
       '<div class="f-editor-notice" id="fEditorNotice" hidden></div>' +
       '<div class="f-editor">' +
       '<div class="f-editor-form" id="fEditorForm">' +
 
       '<section class="f-form-card" data-reveal>' +
-      '<header class="f-form-card-head"><div><h2 class="f-form-card-title">卡片图片</h2>' +
-      '<p class="f-form-card-desc">正面作为卡片封面，背面用于 3D 翻面展示；支持 PNG / JPG / WebP，单张 ≤ 8MB。选择后立即转为 WebP，最长边不超过 3840 像素，不放大小图；预览和提交均使用处理后的图片，参数显示原始分辨率。</p></div>' +
+      ("<header class=\"f-form-card-head\"><div><h2 class=\"f-form-card-title\">" + QSL.escapeHtml(QSL.t("卡片图片")) + "</h2>") +
+      ("<p class=\"f-form-card-desc\">" + QSL.escapeHtml(QSL.t("正面作为卡片封面，背面用于 3D 翻面展示；支持 PNG / JPG / WebP，单张 ≤ 8MB。选择后立即转为 WebP，最长边不超过 3840 像素，不放大小图；预览和提交均使用处理后的图片，参数显示原始分辨率。")) + "</p></div>") +
       '<span class="f-form-step">01</span></header>' +
       '<div class="f-upload-grid">' +
-      uploadZoneHtml('front', '上传卡片正面', '建议清晰、满幅的扫描或拍摄图') +
-      uploadZoneHtml('back', '上传卡片背面', '可留空，3D 预览将显示精美占位') +
+      uploadZoneHtml('front', QSL.t("上传卡片正面"), QSL.t("建议清晰、满幅的扫描或拍摄图")) +
+      uploadZoneHtml('back', QSL.t("上传卡片背面"), QSL.t("可留空，3D 预览将显示精美占位")) +
       '</div>' +
       '</section>' +
 
       '<section class="f-form-card" data-reveal data-reveal-delay="60">' +
-      '<header class="f-form-card-head"><div><h2 class="f-form-card-title">卡片信息</h2>' +
-      '<p class="f-form-card-desc">为卡片取一个名字、署上呼号，再写一段背后的故事。</p></div>' +
+      ("<header class=\"f-form-card-head\"><div><h2 class=\"f-form-card-title\">" + QSL.escapeHtml(QSL.t("卡片信息")) + "</h2>") +
+      ("<p class=\"f-form-card-desc\">" + QSL.escapeHtml(QSL.t("为卡片取一个名字、署上呼号，再写一段背后的故事。")) + "</p></div>") +
       '<span class="f-form-step">02</span></header>' +
       '<div class="f-form-grid">' +
       '<div class="f-field f-span-2" data-field="title">' +
-      '<div class="f-field-row"><label class="label" for="fCardTitle">卡片标题<i class="req">*</i></label>' +
+      ("<div class=\"f-field-row\"><label class=\"label\" for=\"fCardTitle\">" + QSL.escapeHtml(QSL.t("卡片标题")) + "<i class=\"req\">*</i></label>") +
       '<span class="f-label-hint" data-counter="title">0 / 80</span></div>' +
-      '<input id="fCardTitle" class="input" name="title" type="text" maxlength="80" placeholder="例如：雪线之上的守候" autocomplete="off">' +
+      ("<input id=\"fCardTitle\" class=\"input\" name=\"title\" type=\"text\" maxlength=\"80\" placeholder=\"" + QSL.escapeHtml(QSL.t("例如：雪线之上的守候")) + "\" autocomplete=\"off\">") +
       '<p class="f-error" data-error="title" role="alert" hidden></p>' +
       '</div>' +
       '<div class="f-field f-span-2" data-field="callSign">' +
-      '<label class="label" for="fCardCallSign">呼号</label>' +
+      ("<label class=\"label\" for=\"fCardCallSign\">" + QSL.escapeHtml(QSL.t("呼号")) + "</label>") +
       '<input id="fCardCallSign" class="input" name="callSign" type="text" maxlength="20" autocomplete="off">' +
       '<p class="f-error" data-error="callSign" role="alert" hidden></p>' +
       '</div>' +
       '<div class="f-field f-span-2" data-field="notes">' +
-      '<div class="f-field-row"><label class="label" for="fCardNotes">卡片简介<span class="f-optional">选填</span></label>' +
+      ("<div class=\"f-field-row\"><label class=\"label\" for=\"fCardNotes\">" + QSL.escapeHtml(QSL.t("卡片简介")) + "<span class=\"f-optional\">" + QSL.escapeHtml(QSL.t("选填")) + "</span></label>") +
       '<span class="f-label-hint" data-counter="notes">0 / 500</span></div>' +
-      '<textarea id="fCardNotes" class="textarea" name="notes" maxlength="500" rows="4" placeholder="记录这张卡片背后的通联故事，例如：海拔 4500 米的通联纪念。"></textarea>' +
+      ("<textarea id=\"fCardNotes\" class=\"textarea\" name=\"notes\" maxlength=\"500\" rows=\"4\" placeholder=\"" + QSL.escapeHtml(QSL.t("记录这张卡片背后的通联故事，例如：海拔 4500 米的通联纪念。")) + "\"></textarea>") +
       '<p class="f-error" data-error="notes" role="alert" hidden></p>' +
       '</div>' +
       '<div class="f-field f-span-2" data-field="stock">' +
-      '<label class="label" for="fCardStock">卡片库存<span class="f-optional">选填</span></label>' +
+      ("<label class=\"label\" for=\"fCardStock\">" + QSL.escapeHtml(QSL.t("卡片库存")) + "<span class=\"f-optional\">" + QSL.escapeHtml(QSL.t("选填")) + "</span></label>") +
       (isEdit
-        ? '<button id="fCardStock" class="input f-stock-trigger" type="button" aria-haspopup="dialog" aria-label="调整卡片库存" disabled>加载中…</button>'
-        : '<input id="fCardStock" class="input" name="stock" type="number" min="0" max="2147483647" step="1" placeholder="未设置">') +
-      '<p class="hint">' + (isEdit ? '点击库存框打开调整弹窗，单独保存，无需重新审核。' : '留空不限制换卡；填 0 暂停换卡。同意一笔申请自动扣减 1 张。') + '</p>' +
+        ? ("<button id=\"fCardStock\" class=\"input f-stock-trigger\" type=\"button\" aria-haspopup=\"dialog\" aria-label=\"" + QSL.escapeHtml(QSL.t("调整卡片库存")) + "\" disabled>" + QSL.escapeHtml(QSL.t("加载中…")) + "</button>")
+        : ("<input id=\"fCardStock\" class=\"input\" name=\"stock\" type=\"number\" min=\"0\" max=\"2147483647\" step=\"1\" placeholder=\"" + QSL.escapeHtml(QSL.t("未设置")) + "\">")) +
+      '<p class="hint">' + (isEdit ? QSL.t("点击库存框打开调整弹窗，单独保存，无需重新审核。") : QSL.t("留空不限制换卡；填 0 暂停换卡。同意一笔申请自动扣减 1 张。")) + '</p>' +
       '<p class="f-error" data-error="stock" role="alert" hidden></p></div>' +
       '</div>' +
       '</section>' +
 
       '<section class="f-form-card" data-reveal data-reveal-delay="120">' +
-      '<header class="f-form-card-head"><div><h2 class="f-form-card-title">卡片比例</h2>' +
-      '<p class="f-form-card-desc">决定 3D 预览与卡片广场中的展示比例，可选预设或自定义宽高整数。</p></div>' +
+      ("<header class=\"f-form-card-head\"><div><h2 class=\"f-form-card-title\">" + QSL.escapeHtml(QSL.t("卡片比例")) + "</h2>") +
+      ("<p class=\"f-form-card-desc\">" + QSL.escapeHtml(QSL.t("决定 3D 预览与卡片广场中的展示比例，可选预设或自定义宽高整数。")) + "</p></div>") +
       '<span class="f-form-step">03</span></header>' +
       '<div class="f-ratio-chips" data-ratio-chips>' + ratioChips + '</div>' +
       '<div class="f-ratio-custom">' +
-      '<label class="f-ratio-input"><span class="label">宽</span><input class="input" type="number" min="1" max="1000" step="1" inputmode="numeric" id="fRatioW" name="ratioW" value="' + defaultRatio.w + '"></label>' +
+      ("<label class=\"f-ratio-input\"><span class=\"label\">" + QSL.escapeHtml(QSL.t("宽")) + "</span><input class=\"input\" type=\"number\" min=\"1\" max=\"1000\" step=\"1\" inputmode=\"numeric\" id=\"fRatioW\" name=\"ratioW\" value=\"") + defaultRatio.w + '"></label>' +
       '<span class="f-ratio-colon">:</span>' +
-      '<label class="f-ratio-input"><span class="label">高</span><input class="input" type="number" min="1" max="1000" step="1" inputmode="numeric" id="fRatioH" name="ratioH" value="' + defaultRatio.h + '"></label>' +
-      '<span class="f-ratio-preview-label" data-ratio-label>3 : 2 · 横版</span>' +
+      ("<label class=\"f-ratio-input\"><span class=\"label\">" + QSL.escapeHtml(QSL.t("高")) + "</span><input class=\"input\" type=\"number\" min=\"1\" max=\"1000\" step=\"1\" inputmode=\"numeric\" id=\"fRatioH\" name=\"ratioH\" value=\"") + defaultRatio.h + '"></label>' +
+      ("<span class=\"f-ratio-preview-label\" data-ratio-label>" + QSL.escapeHtml(QSL.t("3 : 2 · 横版")) + "</span>") +
       '</div>' +
       '<p class="f-error" data-error="ratio" role="alert" hidden></p>' +
-      '<p class="f-form-tip">' + ico('info', 14) + ' 宽高取值 1 - 1000 的整数；横版卡片推荐 3:2，竖版推荐 2:3。</p>' +
+      '<p class="f-form-tip">' + ico('info', 14) + (" " + QSL.escapeHtml(QSL.t("宽高取值 1 - 1000 的整数；横版卡片推荐 3:2，竖版推荐 2:3。")) + "</p>") +
       '</section>' +
 
-      '<div class="f-form-card"><label class="f-consent"><input type="checkbox" name="contentConsent"><span>我确认拥有本次卡片内容的必要权利，同意<a href="/legal/terms.html" target="_blank" rel="noopener">用户条款及其中的内容授权</a>，并已阅读<a href="/legal/privacy.html" target="_blank" rel="noopener">隐私说明</a>。审核通过后卡片将公开展示，图片通过公开链接提供，请勿包含私人收件地址或电话。</span></label><p class="f-error" data-consent-error role="alert" hidden></p></div>' +
+      ("<div class=\"f-form-card\"><label class=\"f-consent\"><input type=\"checkbox\" name=\"contentConsent\"><span>" + QSL.escapeHtml(QSL.t("我确认拥有本次卡片内容的必要权利，同意")) + "<a href=\"/legal/terms.html\" target=\"_blank\" rel=\"noopener\">" + QSL.escapeHtml(QSL.t("用户条款及其中的内容授权")) + "</a>" + QSL.escapeHtml(QSL.t("，并已阅读")) + "<a href=\"/legal/privacy.html\" target=\"_blank\" rel=\"noopener\">" + QSL.escapeHtml(QSL.t("隐私说明")) + "</a>" + QSL.escapeHtml(QSL.t("。审核通过后卡片将公开展示，图片通过公开链接提供，请勿包含私人收件地址或电话。")) + "</span></label><p class=\"f-error\" data-consent-error role=\"alert\" hidden></p></div>") +
       '<div class="f-editor-actions">' +
-      '<a class="btn btn-ghost" href="/dashboard/cards">取消</a>' +
-      '<span class="f-unsaved" data-unsaved hidden>' + ico('alert', 14) + ' 有未保存的修改</span>' +
-      '<button class="btn btn-primary btn-lg" type="button" data-submit>' + ico('check', 18) + '<span>提交审核</span></button>' +
+      ("<a class=\"btn btn-ghost\" href=\"/dashboard/cards\">" + QSL.escapeHtml(QSL.t("取消")) + "</a>") +
+      '<span class="f-unsaved" data-unsaved hidden>' + ico('alert', 14) + (" " + QSL.escapeHtml(QSL.t("有未保存的修改")) + "</span>") +
+      '<button class="btn btn-primary btn-lg" type="button" data-submit>' + ico('check', 18) + ("<span>" + QSL.escapeHtml(QSL.t("提交审核")) + "</span></button>") +
       '</div>' +
       '</div>' +
 
       '<aside class="f-editor-preview">' +
       '<div class="f-preview-panel glass" data-reveal data-reveal-delay="90">' +
       '<header class="f-preview-head">' +
-      '<div><h2 class="f-preview-title">实时预览</h2><p class="f-preview-sub">拖动旋转 · 双击翻面</p></div>' +
+      ("<div><h2 class=\"f-preview-title\">" + QSL.escapeHtml(QSL.t("实时预览")) + "</h2><p class=\"f-preview-sub\">" + QSL.escapeHtml(QSL.t("拖动旋转 · 双击翻面")) + "</p></div>") +
       '<span class="f-preview-live">' + '<i></i> LIVE</span>' +
       '</header>' +
       '<div class="f-preview-stage" id="fPreviewStage"></div>' +
       '<div class="f-preview-meta">' +
-      '<span class="f-preview-ratio" data-preview-ratio>比例 3 : 2</span>' +
-      '<span class="f-preview-sides" data-preview-sides>正面待上传</span>' +
+      ("<span class=\"f-preview-ratio\" data-preview-ratio>" + QSL.escapeHtml(QSL.t("比例 3 : 2")) + "</span>") +
+      ("<span class=\"f-preview-sides\" data-preview-sides>" + QSL.escapeHtml(QSL.t("正面待上传")) + "</span>") +
       '</div>' +
-      '<button class="btn btn-primary btn-block f-preview-submit" type="button" data-submit>' + ico('upload', 17) + '<span>提交审核</span></button>' +
+      '<button class="btn btn-primary btn-block f-preview-submit" type="button" data-submit>' + ico('upload', 17) + ("<span>" + QSL.escapeHtml(QSL.t("提交审核")) + "</span></button>") +
       '<ul class="f-preview-tips">' +
-      '<li>' + ico('check', 14) + ' 图片与比例变化会实时同步到 3D 预览</li>' +
-      '<li>' + ico('check', 14) + ' 提交后进入人工审核，通过后展示在广场</li>' +
-      '<li>' + ico('check', 14) + ' 背面留空时，3D 卡片背面显示占位图案</li>' +
+      '<li>' + ico('check', 14) + (" " + QSL.escapeHtml(QSL.t("图片与比例变化会实时同步到 3D 预览")) + "</li>") +
+      '<li>' + ico('check', 14) + (" " + QSL.escapeHtml(QSL.t("提交后进入人工审核，通过后展示在广场")) + "</li>") +
+      '<li>' + ico('check', 14) + (" " + QSL.escapeHtml(QSL.t("背面留空时，3D 卡片背面显示占位图案")) + "</li>") +
       '</ul>' +
       '</div>' +
       '</aside>' +
@@ -215,7 +215,7 @@
     const submitButtons = Array.from(container.querySelectorAll('[data-submit]'));
 
     function paintStock() {
-      stockInput.innerHTML = '<span>' + (editorCard.stock == null ? '未设置（不限制换卡）' : esc(editorCard.stock) + ' 张') + '</span>' + ico('edit', 16);
+      stockInput.innerHTML = '<span>' + (editorCard.stock == null ? QSL.t("未设置（不限制换卡）") : esc(editorCard.stock) + (" " + QSL.t("张"))) + '</span>' + ico('edit', 16);
     }
 
     if (isEdit) stockInput.addEventListener('click', () => {
@@ -241,11 +241,11 @@
         '<div class="f-preview-fallback">' +
         '<div class="f-preview-fallback-card" style="aspect-ratio:' + ratio.w + ' / ' + ratio.h + '">' +
         (front
-          ? '<img src="' + esc(front) + '" alt="卡片正面预览">'
-          : '<span class="f-preview-fallback-empty">' + ico('3d', 30) + '<b>3D 预览</b><span>上传正面图片后显示</span></span>') +
-        '<span class="f-preview-fallback-badge">' + ico('3d', 13) + ' 预览占位</span>' +
+          ? '<img src="' + esc(front) + ("\" alt=\"" + QSL.escapeHtml(QSL.t("卡片正面预览")) + "\">")
+          : '<span class="f-preview-fallback-empty">' + ico('3d', 30) + ("<b>" + QSL.escapeHtml(QSL.t("3D 预览")) + "</b><span>" + QSL.escapeHtml(QSL.t("上传正面图片后显示")) + "</span></span>")) +
+        '<span class="f-preview-fallback-badge">' + ico('3d', 13) + (" " + QSL.escapeHtml(QSL.t("预览占位")) + "</span>") +
         '</div>' +
-        '<p class="f-preview-fallback-tip">' + ico('info', 14) + ' 3D 预览模块准备中，上传的图片仍会正常保存。</p>' +
+        '<p class="f-preview-fallback-tip">' + ico('info', 14) + (" " + QSL.escapeHtml(QSL.t("3D 预览模块准备中，上传的图片仍会正常保存。")) + "</p>") +
         '</div>'
       );
     }
@@ -276,7 +276,7 @@
         });
         stageEl.classList.add('is-3d');
       } catch (err) {
-        console.error('[card-editor] 3D 预览初始化失败', err);
+        console.error(QSL.t("[card-editor] 3D 预览初始化失败"), err);
         viewer = null;
         renderFallback();
       }
@@ -289,7 +289,7 @@
           if (typeof viewer.setRatio === 'function') viewer.setRatio({ w: state.ratio.w, h: state.ratio.h });
           return;
         } catch (err) {
-          console.error('[card-editor] 3D 预览更新失败', err);
+          console.error(QSL.t("[card-editor] 3D 预览更新失败"), err);
         }
       }
       renderFallback();
@@ -297,13 +297,13 @@
 
     function paintPreviewMeta() {
       const ratio = state.ratio;
-      const text = '比例 ' + ratio.w + ' : ' + ratio.h + ' · ' + ratioDescription(ratio);
+      const text = (QSL.t("比例") + " ") + ratio.w + ' : ' + ratio.h + ' · ' + ratioDescription(ratio);
       if (ratioLabelEl) ratioLabelEl.textContent = text;
       if (previewRatioEl) previewRatioEl.textContent = text;
       if (previewSidesEl) {
         const parts = [];
-        parts.push(state.images.front ? '正面已就绪' : '正面待上传');
-        parts.push(state.images.back ? '背面已就绪' : '背面留空');
+        parts.push(state.images.front ? QSL.t("正面已就绪") : QSL.t("正面待上传"));
+        parts.push(state.images.back ? QSL.t("背面已就绪") : QSL.t("背面留空"));
         previewSidesEl.textContent = parts.join(' · ');
         previewSidesEl.classList.toggle('is-ready', !!state.images.front);
       }
@@ -357,7 +357,7 @@
         if (zone.classList.contains('is-reading')) return;
         const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
         if (file) handleFile(side, file);
-        else QSL.toast('没有检测到图片文件，请重试', 'error');
+        else QSL.toast(QSL.t("没有检测到图片文件，请重试"), 'error');
       });
     });
 
@@ -375,7 +375,7 @@
       zoneState.emptyWrap.hidden = true;
       zoneState.previewWrap.hidden = false;
       zoneState.previewImg.src = image.src;
-      zoneState.nameEl.textContent = image.isNew ? (image.name || '已选择的图片') : '已保存的图片';
+      zoneState.nameEl.textContent = image.isNew ? (image.name || QSL.t("已选择的图片")) : QSL.t("已保存的图片");
       const dimension = image.width && image.height ? image.width + ' × ' + image.height : '';
       const sizeText = image.size ? formatSize(image.size) : '';
       zoneState.sizeEl.textContent = [dimension, sizeText].filter(Boolean).join(' · ');
@@ -412,11 +412,11 @@
         paintPreviewMeta();
         updateViewer();
         markDirty();
-        QSL.toast((side === 'front' ? '卡片正面' : '卡片背面') + '已选择，记得提交审核', 'success');
+        QSL.toast((side === 'front' ? QSL.t("卡片正面") : QSL.t("卡片背面")) + QSL.t("已选择，记得提交审核"), 'success');
       } catch (err) {
         if (!state.alive) return;
-        console.error('[card-editor] 图片读取失败', err);
-        QSL.toast((err && err.message) || '图片处理失败，请重新选择', 'error');
+        console.error(QSL.t("[card-editor] 图片读取失败"), err);
+        QSL.toast((err && err.message) || QSL.t("图片处理失败，请重新选择"), 'error');
       } finally {
         state.processing--;
         if (state.alive) {
@@ -567,24 +567,24 @@
       const errors = [];
       if (!isEdit && (stockInput.validity.badInput || (values.stock !== null &&
           (!Number.isInteger(values.stock) || values.stock < 0 || values.stock > 2147483647)))) {
-        showFieldError('stock', '库存需为 0–2147483647 的整数，或留空');
+        showFieldError('stock', QSL.t("库存需为 0–2147483647 的整数，或留空"));
         errors.push('stock');
       }
       if (!values.title) {
-        showFieldError('title', '请填写卡片标题');
+        showFieldError('title', QSL.t("请填写卡片标题"));
         errors.push('title');
       } else if (values.title.length > 80) {
-        showFieldError('title', '标题不能超过 80 个字符');
+        showFieldError('title', QSL.t("标题不能超过 80 个字符"));
         errors.push('title');
       }
       const ratioOk = Number.isInteger(values.ratio.w) && Number.isInteger(values.ratio.h) &&
         values.ratio.w >= 1 && values.ratio.h >= 1 && values.ratio.w <= 1000 && values.ratio.h <= 1000;
       if (!ratioOk) {
-        showFieldError('ratio', '宽高需为 1 - 1000 的整数');
+        showFieldError('ratio', QSL.t("宽高需为 1 - 1000 的整数"));
         errors.push('ratio');
       }
       if (!values.frontImage) {
-        QSL.toast('请先上传卡片正面图片', 'error');
+        QSL.toast(QSL.t("请先上传卡片正面图片"), 'error');
         errors.push('frontImage');
       }
       return errors;
@@ -594,7 +594,7 @@
       state.submitting = busy;
       if (isEdit) stockInput.disabled = busy || !editorCard;
       submitButtons.forEach((btn) => QSL.setBusy(btn, busy || state.processing > 0,
-        busy ? '提交中…' : state.processing > 0 ? '图片处理中…' : ''));
+        busy ? QSL.t("提交中…") : state.processing > 0 ? QSL.t("图片处理中…") : ''));
     }
 
     function showNotice(html, tone) {
@@ -610,7 +610,7 @@
       const consentError = container.querySelector('[data-consent-error]');
       consentError.hidden = consent.checked;
       if (!consent.checked) {
-        consentError.textContent = '请确认内容权利及授权后再提交';
+        consentError.textContent = QSL.t("请确认内容权利及授权后再提交");
         consent.focus();
         return;
       }
@@ -653,7 +653,7 @@
         if (result && result.card && result.card.status) {
           // 新建默认 pending；编辑后同样回到待审核
         }
-        QSL.toast(isEdit ? '修改已提交，需重新审核' : '已提交审核，通过后将出现在卡片广场', 'success');
+        QSL.toast(isEdit ? QSL.t("修改已提交，需重新审核") : QSL.t("已提交审核，通过后将出现在卡片广场"), 'success');
         if (QSL.fx && typeof QSL.fx.confetti === 'function') {
           try { QSL.fx.confetti(); } catch (e) { /* ignore */ }
         }
@@ -663,9 +663,9 @@
         setSubmitting(false);
         if (err && err.fields) mapServerFields(err.fields);
         if (err && err.isNetwork) {
-          showNotice(ico('alert', 16) + ' 网络连接失败，请确认服务已启动后重试。', 'danger');
+          showNotice(ico('alert', 16) + (" " + QSL.t("网络连接失败，请确认服务已启动后重试。")), 'danger');
         }
-        QSL.toast((err && err.message) || '提交失败，请稍后重试', 'error');
+        QSL.toast((err && err.message) || QSL.t("提交失败，请稍后重试"), 'error');
       }
     }
 
@@ -713,15 +713,15 @@
 
       if (card.status === 'rejected') {
         showNotice(
-          ico('alert', 16) + ' <b>审核未通过</b>' +
+          ico('alert', 16) + (" <b>" + QSL.escapeHtml(QSL.t("审核未通过")) + "</b>") +
           (card.rejectReason ? '：' + esc(card.rejectReason) : '。') +
-          ' 请根据提示修改后重新提交审核。',
+          (" " + QSL.t("请根据提示修改后重新提交审核。")),
           'danger'
         );
       } else if (card.status === 'pending') {
-        showNotice(ico('clock', 16) + ' <b>这张卡片正在审核中</b>，修改并提交后会重新进入审核队列。', 'warn');
+        showNotice(ico('clock', 16) + (" <b>" + QSL.escapeHtml(QSL.t("这张卡片正在审核中")) + "</b>" + QSL.escapeHtml(QSL.t("，修改并提交后会重新进入审核队列。"))), 'warn');
       } else {
-        showNotice(ico('info', 16) + ' <b>修改已通过的卡片后需要重新审核</b>，审核期间不会出现在卡片广场。', 'warn');
+        showNotice(ico('info', 16) + (" <b>" + QSL.escapeHtml(QSL.t("修改已通过的卡片后需要重新审核")) + "</b>" + QSL.escapeHtml(QSL.t("，审核期间不会出现在卡片广场。"))), 'warn');
       }
       if (card.id) {
         state.cardStatus = card.status;
@@ -733,17 +733,17 @@
         const res = await QSL.api.cards.get(cardId);
         if (!state.alive) return;
         const card = res && res.card;
-        if (!card) throw new Error('卡片不存在');
+        if (!card) throw new Error(QSL.t("卡片不存在"));
         if (res.owner && QSL.state.user && res.owner.id && QSL.state.user.id && res.owner.id !== QSL.state.user.id) {
-          QSL.toast('只能编辑自己的卡片', 'error');
+          QSL.toast(QSL.t("只能编辑自己的卡片"), 'error');
           QSL.navigate('/dashboard/cards');
           return;
         }
         fillForm(card);
       } catch (err) {
         if (!state.alive) return;
-        console.error('[card-editor] 加载卡片失败', err);
-        QSL.toast((err && err.message) || '卡片加载失败', 'error');
+        console.error(QSL.t("[card-editor] 加载卡片失败"), err);
+        QSL.toast((err && err.message) || QSL.t("卡片加载失败"), 'error');
         QSL.navigate('/dashboard/cards');
       }
     }
@@ -763,6 +763,7 @@
 
     /* ---------------- 未保存内容守卫 ---------------- */
     function onBeforeUnload(event) {
+      if (QSL.i18n && QSL.i18n.switching) return undefined;
       if (!state.dirty || state.submitting) return undefined;
       event.preventDefault();
       event.returnValue = '';
@@ -777,10 +778,10 @@
       }
       state.leaving = true;
       QSL.confirm({
-        title: '离开此页面？',
-        message: '你还有未保存的卡片内容，离开后本次修改将丢失。',
-        confirmText: '放弃修改并离开',
-        cancelText: '继续编辑',
+        title: QSL.t("离开此页面？"),
+        message: QSL.t("你还有未保存的卡片内容，离开后本次修改将丢失。"),
+        confirmText: QSL.t("放弃修改并离开"),
+        cancelText: QSL.t("继续编辑"),
         danger: true
       }).then((ok) => {
         state.leaving = false;
@@ -807,5 +808,5 @@
     };
   }
 
-  QSL.registerPage('card-editor', { title: '上传卡片', render: render });
+  QSL.registerPage('card-editor', { title: QSL.t("上传卡片"), render: render });
 })();

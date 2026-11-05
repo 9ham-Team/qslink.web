@@ -9,10 +9,10 @@
   const ico = (name, size) => (typeof QSL.icon === 'function' ? QSL.icon(name, size || 18) : '');
 
   const FILTERS = [
-    { key: 'all', label: '全部' },
-    { key: 'approved', label: '已通过' },
-    { key: 'pending', label: '审核中' },
-    { key: 'rejected', label: '已拒绝' }
+    { key: 'all', label: QSL.t("全部") },
+    { key: 'approved', label: QSL.t("已通过") },
+    { key: 'pending', label: QSL.t("审核中") },
+    { key: 'rejected', label: QSL.t("已拒绝") }
   ];
 
   function countBy(items, status) {
@@ -24,12 +24,12 @@
       return (
         '<div class="f-card-reject">' +
         '<span class="f-card-reject-ico">' + ico('alert', 15) + '</span>' +
-        '<span><b>审核未通过</b>' + (card.rejectReason ? '：' + esc(card.rejectReason) : '，请修改后重新提交。') + '</span>' +
+        ("<span><b>" + QSL.escapeHtml(QSL.t("审核未通过")) + "</b>") + (card.rejectReason ? '：' + esc(card.rejectReason) : QSL.t("，请修改后重新提交。")) + '</span>' +
         '</div>'
       );
     }
     if (card.status === 'pending') {
-      return '<p class="f-card-pending-hint">' + ico('clock', 14) + ' 正在审核中，通过后将出现在卡片广场</p>';
+      return '<p class="f-card-pending-hint">' + ico('clock', 14) + (" " + QSL.escapeHtml(QSL.t("正在审核中，通过后将出现在卡片广场")) + "</p>");
     }
     return '';
   }
@@ -58,7 +58,7 @@
         '<span class="qsl-tile-img" style="aspect-ratio:' + esc(QSL.ratioCss(card.ratio)) + '">' +
         '<img ' + QSL.images.attributes(card.frontImage || QSL.PLACEHOLDER_IMAGE) + ' alt="' + esc(card.title || '') + '" loading="lazy">' +
         '</span></a></div>' +
-        '<div class="qsl-tile-info"><span class="qsl-tile-title">' + esc(card.title || '未命名卡片') + '</span></div>';
+        '<div class="qsl-tile-info"><span class="qsl-tile-title">' + esc(card.title || QSL.t("未命名卡片")) + '</span></div>';
     }
     cell.appendChild(tile);
 
@@ -67,14 +67,14 @@
     foot.innerHTML =
       '<div class="f-card-meta">' +
       '<span class="f-card-status">' + QSL.statusBadge(card.status) + '</span>' +
-      '<span class="f-card-time">更新于 ' + esc(QSL.timeAgo(card.updatedAt || card.createdAt)) + '</span>' +
+      ("<span class=\"f-card-time\">" + QSL.escapeHtml(QSL.t("更新于")) + " ") + esc(QSL.timeAgo(card.updatedAt || card.createdAt)) + '</span>' +
       '</div>' +
       '<div class="f-card-actions">' +
-      '<a class="f-card-act" href="/card/' + esc(card.id || '') + '">' + ico('external', 15) + '<span>查看</span></a>' +
-      '<a class="f-card-act" href="/dashboard/cards/' + esc(card.id || '') + '/edit">' + ico('edit', 15) + '<span>编辑</span></a>' +
-      '<button class="f-card-act" type="button" data-act="share">' + ico('share', 15) + '<span>分享</span></button>' +
-      '<button class="f-card-act" type="button" data-act="stock">' + ico('cards', 15) + '<span>库存</span></button>' +
-      '<button class="f-card-act is-danger" type="button" data-act="delete">' + ico('trash', 15) + '<span>删除</span></button>' +
+      '<a class="f-card-act" href="/card/' + esc(card.id || '') + '">' + ico('external', 15) + ("<span>" + QSL.escapeHtml(QSL.t("查看")) + "</span></a>") +
+      '<a class="f-card-act" href="/dashboard/cards/' + esc(card.id || '') + '/edit">' + ico('edit', 15) + ("<span>" + QSL.escapeHtml(QSL.t("编辑")) + "</span></a>") +
+      '<button class="f-card-act" type="button" data-act="share">' + ico('share', 15) + ("<span>" + QSL.escapeHtml(QSL.t("分享")) + "</span></button>") +
+      '<button class="f-card-act" type="button" data-act="stock">' + ico('cards', 15) + ("<span>" + QSL.escapeHtml(QSL.t("库存")) + "</span></button>") +
+      '<button class="f-card-act is-danger" type="button" data-act="delete">' + ico('trash', 15) + ("<span>" + QSL.escapeHtml(QSL.t("删除")) + "</span></button>") +
       '</div>' +
       statusNote(card);
     cell.appendChild(foot);
@@ -88,7 +88,7 @@
         try {
           await QSL.shareCard(card);
         } catch (err) {
-          QSL.toast((err && err.message) || '分享失败', 'error');
+          QSL.toast((err && err.message) || QSL.t("分享失败"), 'error');
         } finally {
           shareBtn.disabled = false;
         }
@@ -99,10 +99,10 @@
     if (delBtn) {
       delBtn.addEventListener('click', async () => {
         const ok = await QSL.confirm({
-          title: '删除卡片',
-          message: '确定要删除「' + (card.title || '未命名卡片') + '」吗？删除后不可恢复，相关点赞与换卡申请也会一并移除。',
-          confirmText: '删除卡片',
-          cancelText: '保留',
+          title: QSL.t("删除卡片"),
+          message: QSL.t("确定要删除「") + (card.title || QSL.t("未命名卡片")) + QSL.t("」吗？删除后不可恢复，相关点赞与换卡申请也会一并移除。"),
+          confirmText: QSL.t("删除卡片"),
+          cancelText: QSL.t("保留"),
           danger: true
         });
         if (!ok) return;
@@ -110,12 +110,12 @@
         foot.querySelectorAll('button, a').forEach((el) => { el.style.pointerEvents = 'none'; el.setAttribute('aria-disabled', 'true'); });
         try {
           await QSL.api.cards.remove(card.id);
-          QSL.toast('卡片已删除', 'success');
+          QSL.toast(QSL.t("卡片已删除"), 'success');
           if (handlers && handlers.onDeleted) handlers.onDeleted(card);
         } catch (err) {
           cell.classList.remove('is-busy');
           foot.querySelectorAll('button, a').forEach((el) => { el.style.pointerEvents = ''; el.removeAttribute('aria-disabled'); });
-          QSL.toast((err && err.message) || '删除失败，请稍后重试', 'error');
+          QSL.toast((err && err.message) || QSL.t("删除失败，请稍后重试"), 'error');
         }
       });
     }
@@ -136,19 +136,19 @@
       '<div class="f-page f-my-cards container">' +
       QSL.pageHeader({
         eyebrow: 'MY COLLECTION',
-        title: '我的卡片',
-        desc: '管理你上传的双面 QSL 卡片：编辑、分享，或查看审核状态。',
-        actions: '<a class="btn btn-primary" href="/dashboard/cards/new">' + ico('upload', 17) + '<span>上传新卡片</span></a>'
+        title: QSL.t("我的卡片"),
+        desc: QSL.t("管理你上传的双面 QSL 卡片：编辑、分享，或查看审核状态。"),
+        actions: '<a class="btn btn-primary" href="/dashboard/cards/new">' + ico('upload', 17) + ("<span>" + QSL.escapeHtml(QSL.t("上传新卡片")) + "</span></a>")
       }) +
       '<div class="f-cards-toolbar" data-reveal>' +
-      '<div class="f-filters" role="tablist" aria-label="卡片状态筛选">' +
+      ("<div class=\"f-filters\" role=\"tablist\" aria-label=\"" + QSL.escapeHtml(QSL.t("卡片状态筛选")) + "\">") +
       FILTERS.map((f) =>
         '<button class="f-filter' + (f.key === filter ? ' is-active' : '') + '" type="button" role="tab" aria-selected="' +
         (f.key === filter ? 'true' : 'false') + '" data-filter="' + f.key + '">' + esc(f.label) +
         '<b class="f-filter-count" data-count-for="' + f.key + '">0</b></button>'
       ).join('') +
       '</div>' +
-      '<span class="f-cards-total" data-cards-total>加载中…</span>' +
+      ("<span class=\"f-cards-total\" data-cards-total>" + QSL.escapeHtml(QSL.t("加载中…")) + "</span>") +
       '</div>' +
       '<div class="f-cards-grid-wrap" id="fMyCardsGrid">' + QSL.skeletonCards(4) + '</div>' +
       '</div>';
@@ -188,7 +188,7 @@
         btn.classList.toggle('is-active', active);
         btn.setAttribute('aria-selected', active ? 'true' : 'false');
       });
-      totalEl.textContent = '共 ' + items.length + ' 张卡片';
+      totalEl.textContent = (QSL.t("共") + " ") + items.length + (" " + QSL.t("张卡片"));
     }
 
     function visibleItems() {
@@ -204,17 +204,17 @@
       if (!items.length) {
         empty = QSL.emptyState({
           icon: 'cards',
-          title: '还没有 QSL 卡片',
-          desc: '上传你的第一张双面卡片（正面 + 背面），审核通过后就能在卡片广场被同好发现。',
-          actionLabel: '上传第一张卡片',
+          title: QSL.t("还没有 QSL 卡片"),
+          desc: QSL.t("上传你的第一张双面卡片（正面 + 背面），审核通过后就能在卡片广场被同好发现。"),
+          actionLabel: QSL.t("上传第一张卡片"),
           onAction: () => QSL.navigate('/dashboard/cards/new')
         });
       } else {
         empty = QSL.emptyState({
           icon: 'search',
-          title: '没有符合条件的卡片',
-          desc: '试试切换上方的状态筛选，查看其它卡片。',
-          actionLabel: '查看全部卡片',
+          title: QSL.t("没有符合条件的卡片"),
+          desc: QSL.t("试试切换上方的状态筛选，查看其它卡片。"),
+          actionLabel: QSL.t("查看全部卡片"),
           onAction: () => {
             filter = 'all';
             QSL.setQuery({ status: null });
@@ -269,20 +269,20 @@
       } catch (err) {
         if (!alive) return;
         deleted = true;
-        console.error('[my-cards] 加载失败', err);
+        console.error(QSL.t("[my-cards] 加载失败"), err);
         gridWrap.innerHTML = '';
         const empty = QSL.emptyState({
           icon: 'alert',
-          title: '卡片加载失败',
-          desc: (err && err.message) || '网络异常，请稍后重试',
-          actionLabel: '重新加载',
+          title: QSL.t("卡片加载失败"),
+          desc: (err && err.message) || QSL.t("网络异常，请稍后重试"),
+          actionLabel: QSL.t("重新加载"),
           onAction: () => {
             gridWrap.innerHTML = QSL.skeletonCards(4);
             load();
           }
         });
         gridWrap.appendChild(empty);
-        totalEl.textContent = '加载失败';
+        totalEl.textContent = QSL.t("加载失败");
       }
     }
 
@@ -291,5 +291,5 @@
     return function cleanup() { alive = false; if (stockModal) stockModal.close(); };
   }
 
-  QSL.registerPage('my-cards', { title: '我的卡片', render: render });
+  QSL.registerPage('my-cards', { title: QSL.t("我的卡片"), render: render });
 })();

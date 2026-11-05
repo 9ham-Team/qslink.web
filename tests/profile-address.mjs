@@ -7,7 +7,7 @@ const source = await fs.readFile(new URL('../public/js/pages/profile.js', import
 const marker = "  QSL.registerPage('profile',";
 assert.ok(source.includes(marker));
 // Inspect the actual page helpers without adding a production-only test API.
-const window = { QSL: { registerPage() {} } };
+const window = { QSL: { t: source => source, registerPage() {} } };
 vm.runInNewContext(source.replace(marker,
   '  window.addressHelpers = { parseShippingAddress, fillParsedAddress, addressCity };\n' + marker), { window });
 const { parseShippingAddress: parse, fillParsedAddress: fill, addressCity } = window.addressHelpers;

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import './profile-address.mjs';
+import './i18n.mjs';
 import './review-webhook.mjs';
 import { testExchangeCardChoice } from './exchange-card-choice.mjs';
 test('exchange card choice: privacy, validation, empty confirmation and persistence', testExchangeCardChoice);
@@ -796,7 +797,7 @@ test('production frontend ignores devToken and does not render demo login UI', a
   assert.equal(tokenWasSet, false);
   const loginSource = await fs.readFile(path.join(ROOT, 'public/js/pages/login.js'), 'utf8');
   const loginContext = { window: { QSL: { state: { config: { demo: false } }, registerPage: (name, page) => { loginContext.page = page; },
-    safeNext: () => null, escapeHtml: text => String(text ?? ''), icon: () => '' } } };
+    t: source => source, safeNext: () => null, escapeHtml: text => String(text ?? ''), icon: () => '' } } };
   vm.createContext(loginContext);
   vm.runInContext(loginSource, loginContext);
   const container = { innerHTML: '', querySelector() { throw new Error('render captured'); } };

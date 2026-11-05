@@ -450,7 +450,7 @@
     if (info.format === 'compact' && typeof QSL.formatNumber === 'function') {
       try { body = QSL.formatNumber(Math.round(value)); } catch (e) { body = String(Math.round(value)); }
     } else if (info.format === 'comma') {
-      body = Math.round(value).toLocaleString('zh-CN');
+      body = Math.round(value).toLocaleString(QSL.i18n.language);
     } else if (info.decimals > 0) {
       body = Number(value).toFixed(info.decimals);
     } else {

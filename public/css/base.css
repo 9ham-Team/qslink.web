@@ -483,6 +483,21 @@ html { -webkit-tap-highlight-color: transparent; }
 }
 
 /* ---------------- 响应式导航 ---------------- */
+.nav-language { flex: 0 0 auto; min-width: 42px; white-space: nowrap; }
+html[lang="en"] .brand-text small { letter-spacing: 0; }
+@media (min-width: 901px) and (max-width: 1180px) {
+  html[lang="en"] .nav-links a { padding-inline: 8px; gap: 5px; font-size: 12px; }
+  html[lang="en"] .nav-user-name { display: none; }
+  html[lang="en"] .brand-text small { display: none; }
+}
+@media (max-width: 380px) {
+  .nav-actions, .nav-guest { gap: 4px; }
+  .nav-shell { gap: 6px; }
+  .site-header .brand-text { display: none; }
+  .nav-language { padding-inline: 8px; }
+  .nav-guest .btn-primary { padding-inline: 10px; }
+}
+
 @media (max-width: 900px) {
   .nav-links { display: none; }
   .nav-toggle {

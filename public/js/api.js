@@ -24,14 +24,14 @@
   try { token = localStorage.getItem(TOKEN_KEY) || null; } catch (e) { token = null; }
 
   const STATUS_MESSAGE = {
-    400: '请求参数有误',
-    401: '请先登录后再操作',
-    403: '没有权限执行此操作',
-    404: '内容不存在或已被删除',
-    409: '操作发生冲突，请刷新后重试',
-    413: '文件或数据过大',
-    429: '操作太频繁，请稍后再试',
-    500: '服务器开小差了，请稍后再试'
+    400: QSL.t("请求参数有误"),
+    401: QSL.t("请先登录后再操作"),
+    403: QSL.t("没有权限执行此操作"),
+    404: QSL.t("内容不存在或已被删除"),
+    409: QSL.t("操作发生冲突，请刷新后重试"),
+    413: QSL.t("文件或数据过大"),
+    429: QSL.t("操作太频繁，请稍后再试"),
+    500: QSL.t("服务器开小差了，请稍后再试")
   };
 
   function buildQuery(params) {
@@ -60,7 +60,7 @@
         body: body === undefined || body === null ? undefined : JSON.stringify(body)
       });
     } catch (err) {
-      throw new ApiError('网络连接失败，请确认服务已启动', { isNetwork: true });
+      throw new ApiError(QSL.t("网络连接失败，请确认服务已启动"), { isNetwork: true });
     }
 
     let data = null;
@@ -72,8 +72,8 @@
     if (!res.ok) {
       const info = (data && data.error) || {};
       const apiErr = new ApiError(
-        info.message || STATUS_MESSAGE[res.status] || ('请求失败（' + res.status + '）'),
-        { status: res.status, code: info.code || 'HTTP_' + res.status, fields: info.fields || null }
+        (info.message ? QSL.i18n.error(info.message) : null) || STATUS_MESSAGE[res.status] || (QSL.t("请求失败（") + res.status + (QSL.i18n.language === 'en' ? ')' : '）')),
+        { status: res.status, code: info.code || 'HTTP_' + res.status, fields: info.fields ? Object.fromEntries(Object.entries(info.fields).map(([field, message]) => [field, QSL.i18n.error(message)])) : null }
       );
       // 登录态失效统一处理（登录/注册接口除外，避免误清）
       const isAuthCall = path.startsWith('/api/auth/login') || path.startsWith('/api/auth/register');
@@ -81,7 +81,7 @@
         setToken(null);
         QSL.state.user = null;
         QSL.emit('auth', null);
-        if (QSL.toast) QSL.toast('登录已过期，请重新登录', 'error');
+        if (QSL.toast) QSL.toast(QSL.t("登录已过期，请重新登录"), 'error');
       }
       throw apiErr;
     }
