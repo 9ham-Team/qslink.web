@@ -15,7 +15,7 @@ async function testContestMigration() {
       unit.insert('announcements', { id: 'legacy_contest_notice', title: '旧全站公告', body: '升级前正文', status: 'published', eventKey: null, displaySeconds: 30, publishedAt: now, createdAt: now, updatedAt: now });
     }, { write: true });
     // DDL stays outside UnitOfWork: its current collection loader requires the new table.
-    await legacy.db.pool.query(`DROP TABLE ${schema}."contestEntries"; ALTER TABLE ${schema}.announcements DROP COLUMN "eventKey"; DELETE FROM ${schema}.schema_migrations WHERE version >= 14`);
+    await legacy.db.pool.query(`DROP TABLE ${schema}."contestWorks"; DROP TRIGGER contest_works_card_delete ON ${schema}.cards; DROP TABLE ${schema}."contestEntries"; DROP FUNCTION ${schema}.scrub_contest_works(); ALTER TABLE ${schema}.announcements DROP COLUMN "eventKey"; DELETE FROM ${schema}.schema_migrations WHERE version >= 14`);
     assert.equal((await legacy.db.pool.query(`SELECT max(version) AS version FROM ${schema}.schema_migrations`)).rows[0].version, 13);
     await legacy.db.migrate();
     await legacy.db.migrate();
@@ -53,7 +53,11 @@ export async function testContests() {
     const result = await call(contests.routes, 'GET', publicPath, { viewer: null });
     assert.deepEqual(result.body, { contest: { key: eventKey, title: '第一届QSLink QSL 卡片设计大赛', approvedRegistrationCount: count } }, 'public contest exposes only its key, title and approved registration count');
   };
-  const payload = { cardIds: ['target'], description: '<script>alert(1)</script> 作品说明', contactEmail: 'contest-private@example.test' };
+  const description = '<script>alert(1)</script> 作品说明';
+  const selected = (ids, text = description) => ids.map(cardId => ({ cardId, description: text }));
+  const payload = { works: selected(['target']), contactEmail: 'contest-private@example.test' };
+  const worksPath = publicPath + '/works';
+  const publicWorks = (query = '') => call(contests.routes, 'GET', worksPath, { viewer: null, query }).then(result => result.body);
   const submit = (body = payload, options = {}) => call(contests.routes, 'PUT', entryPath, { ...options, body }).then(result => result.body.entry);
   const review = (entry, status = 'approved', options = {}) => call(contests.routes, 'PUT', reviewPath, { viewer: 'admin', id: entry.id, body: { status, reviewReason: status === 'rejected' ? '请完善作品说明' : '', expectedRevision: entry.revision }, ...options }).then(result => result.body.entry);
   const rejects = (promise, status, message) => assert.rejects(promise, err => err.status === status, message);
@@ -68,9 +72,37 @@ export async function testContests() {
     await f.db.transaction(unit => {
       ['owner', 'other', 'racer'].forEach(id => unit.insert('users', user(id)));
       unit.insert('users', user('admin', 'admin'));
-      [card('target'), card('replacement'), card('extra1'), card('extra2'), card('foreign', 'other'), card('race', 'racer'), card('pending', 'owner', 'pending'), card('rejected', 'owner', 'rejected')].forEach(item => unit.insert('cards', item));
+      [card('target'), card('replacement'), card('extra1'), card('extra2'), card('foreign', 'other'), card('race', 'racer'), card('race2', 'racer'), card('pending', 'owner', 'pending'), card('rejected', 'owner', 'rejected')].forEach(item => unit.insert('cards', item));
     }, { write: true });
     await testContestMigration();
+    const migration = await fixture();
+    try {
+      await f.db.transaction(async unit => {
+        await migration.db.transaction(target => { target.data.users = structuredClone(unit.data.users); target.data.cards = structuredClone(unit.data.cards); }, { write: true });
+      });
+      const client = await migration.db.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(`SET LOCAL search_path TO "${migration.databaseSchema}"`);
+        await client.query('DROP TABLE "contestWorks"; DROP TRIGGER contest_works_card_delete ON cards; DROP TRIGGER contest_works_entry_delete ON "contestEntries"; DROP FUNCTION scrub_contest_works(); ALTER TABLE "contestEntries" ADD COLUMN "cardIds" jsonb, ADD COLUMN description text; DELETE FROM schema_migrations WHERE version = 16');
+        await client.query(`INSERT INTO "contestEntries" (id,"eventKey","userId","cardIds",description,"contactEmail",status,revision,"createdAt","updatedAt") VALUES
+          ('older',$1,'owner','["replacement","target"]','旧多卡说明','old@example.test','pending',1,'2026-01-01','2026-01-01'),
+          ('newer',$1,'other','["foreign"]','旧单卡说明','old@example.test','pending',1,'2026-02-01','2026-02-01')`, [eventKey]);
+        await client.query('COMMIT');
+      } finally { client.release(); }
+      await migration.db.migrate();
+      await migration.db.migrate();
+      await migration.db.transaction(unit => {
+        assert.deepEqual(unit.data.contestWorks.sort((a, b) => a.number - b.number).map(work => [work.cardId, work.number, work.description]),
+          [['replacement', 1, '旧多卡说明'], ['target', 2, '旧多卡说明'], ['foreign', 3, '旧单卡说明']]);
+        assert.equal(unit.data.contestEntries[0].description, undefined);
+      });
+      await migration.db.pool.query(`DELETE FROM "${migration.databaseSchema}".users WHERE id = 'owner'`);
+      await migration.db.transaction(unit => {
+        const tombstones = unit.data.contestWorks.filter(work => work.number <= 2);
+        assert.ok(tombstones.every(work => work.cardId === null && work.entryId === null && work.description === '' && !work.active));
+      });
+    } finally { await migration.cleanup(); }
     const publicContest = (await call(contests.routes, 'GET', publicPath, { viewer: null })).body;
     assert.ok(publicContest.contest);
     assert.equal(publicContest.entry, undefined);
@@ -85,13 +117,13 @@ export async function testContests() {
       await rejects(call(contests.routes, method, pattern, { viewer: null, id: 'missing' }), 401);
       await rejects(call(contests.routes, method, pattern, { viewer: 'other', id: 'missing' }), 403);
     }
-    for (const body of [null, [], {}, { ...payload, description: '' }, { ...payload, description: 'x\0' }, { ...payload, description: 'x'.repeat(2001) }, { ...payload, contactEmail: 'invalid' }, { ...payload, contactEmail: 'x'.repeat(121) + '@example.test' }, { ...payload, contactEmail: 'a@example.test\nBcc:x@example.test' }]) {
+    for (const body of [null, [], {}, { ...payload, works: selected(['target'], '') }, { ...payload, works: selected(['target'], 'x\0') }, { ...payload, works: selected(['target'], 'x'.repeat(2001)) }, { ...payload, contactEmail: 'invalid' }, { ...payload, contactEmail: 'x'.repeat(121) + '@example.test' }, { ...payload, contactEmail: 'a@example.test\nBcc:x@example.test' }]) {
       await rejects(submit(body), 400);
     }
-    await rejects(submit({ ...payload, cardIds: ['missing'] }), 400);
-    await rejects(submit({ ...payload, cardIds: ['foreign'] }), 400);
-    for (const cardId of ['pending', 'rejected']) await rejects(submit({ ...payload, cardIds: [cardId] }), 400);
-    for (const cardIds of [[], ['target', 'target'], ['target', 'replacement', 'extra1', 'extra2'], ['target', 7]]) await rejects(submit({ ...payload, cardIds }), 400);
+    await rejects(submit({ ...payload, works: selected(['missing']) }), 400);
+    await rejects(submit({ ...payload, works: selected(['foreign']) }), 400);
+    for (const cardId of ['pending', 'rejected']) await rejects(submit({ ...payload, works: selected([cardId]) }), 400);
+    for (const cardIds of [[], ['target', 'target'], ['target', 'replacement', 'extra1', 'extra2'], ['target', 7]]) await rejects(submit({ ...payload, works: selected(cardIds) }), 400);
     let entry = await submit({ ...payload, userId: 'other', status: 'approved', revision: 99, reviewReason: 'forged' });
     assert.equal(entry.userId, 'owner');
     assert.deepEqual(entry.cardIds, ['target']);
@@ -99,7 +131,11 @@ export async function testContests() {
     await assertApprovedCount(0);
     assert.equal(entry.revision, 1);
     assert.equal(entry.contactEmail, payload.contactEmail);
-    assert.equal(entry.description, payload.description, 'API stores plain text; rendering is responsible for escaping');
+    assert.equal(entry.description, undefined);
+    assert.equal(entry.works[0].description, description, 'API stores plain text; rendering is responsible for escaping');
+    assert.equal(entry.works[0].number, 1);
+    const originalWork = entry.works[0];
+    assert.equal((await publicWorks()).total, 0);
     assert.equal(entry.cards.length, 1);
     assert.equal(entry.cards[0].id, 'target');
     assert.equal(entry.user.id, 'owner');
@@ -110,15 +146,49 @@ export async function testContests() {
     assert.equal((await get()).id, entry.id);
     assert.equal((await second.transaction(unit => unit.find('contestEntries', item => item.id === entry.id))).contactEmail, payload.contactEmail);
     assert.equal(await f.db.transaction(unit => unit.find('users', item => item.id === 'owner').email), 'owner@example.test', 'entry contact does not change account email');
-    const multi = await submit({ ...payload, cardIds: ['target', 'replacement', 'extra1'], expectedRevision: entry.revision });
+    const multi = await submit({ ...payload, works: selected(['target', 'replacement', 'extra1']), expectedRevision: entry.revision });
     assert.deepEqual(multi.cardIds, ['target', 'replacement', 'extra1']);
     assert.equal(multi.cards.length, 3);
     const approvedMulti = await review(multi);
+    assert.equal(multi.works[0].submittedAt, originalWork.submittedAt);
+    assert.deepEqual(approvedMulti.works.map(work => work.number), [1, 2, 3]);
+    await f.db.transaction(unit => {
+      unit.find('cards', item => item.id === 'target').callSign = 'BH1AbC';
+      unit.find('cards', item => item.id === 'replacement').callSign = 'BH2XYZ';
+    }, { write: true });
+    await f.db.transaction(unit => { unit.find('users', item => item.id === 'owner').status = 'banned'; }, { write: true });
+    assert.equal((await publicWorks()).total, 0);
+    await f.db.transaction(unit => {
+      unit.find('users', item => item.id === 'owner').status = 'active';
+      unit.find('cards', item => item.id === 'target').status = 'pending';
+    }, { write: true });
+    assert.equal((await publicWorks()).total, 2);
+    await f.db.transaction(unit => { unit.find('cards', item => item.id === 'target').status = 'approved'; }, { write: true });
+    const firstPage = await publicWorks('limit=1');
+    assert.equal(firstPage.total, 3);
+    assert.equal(firstPage.pages, 3);
+    assert.deepEqual(Object.keys(firstPage.items[0]).sort(), ['card', 'description', 'number', 'submittedAt']);
+    assert.equal(firstPage.items[0].card.owner.id, 'owner');
+    assert.ok(firstPage.items[0].card.frontImage);
+    assert.equal(firstPage.items[0].card.owner.email, undefined);
+    assert.ok(!JSON.stringify(firstPage).includes('contactEmail'));
+    assert.ok(!JSON.stringify(firstPage).includes('reviewReason'));
+    assert.equal((await publicWorks('page=2&limit=1')).items[0].number, 2);
+    assert.equal((await publicWorks('q=bh1a')).items[0].number, 1);
+    assert.equal((await publicWorks('q=001')).items[0].number, 1);
+    assert.equal((await publicWorks('q=1')).items[0].number, 1);
+    assert.equal((await publicWorks('q=not-found')).total, 0);
+    assert.equal((await publicWorks('page=4&limit=1')).items.length, 0);
     await assertApprovedCount(1);
     entry = await submit({ ...payload, expectedRevision: approvedMulti.revision });
     assert.deepEqual(entry.cardIds, ['target']);
     assertPending(entry, approvedMulti);
     await assertApprovedCount(0);
+    assert.equal((await publicWorks()).total, 0);
+    const readded = await submit({ ...payload, works: selected(['target', 'replacement']), expectedRevision: entry.revision });
+    assert.equal(readded.works[1].number, multi.works[1].number);
+    assert.equal(readded.works[1].submittedAt, multi.works[1].submittedAt);
+    entry = await submit({ ...payload, expectedRevision: readded.revision });
     await rejects(submit(payload), 400);
     await rejects(submit({ ...payload, expectedRevision: 0 }), 400);
     for (const expectedRevision of ['1', -1, 1.5, null]) await rejects(submit({ ...payload, expectedRevision }), 400);
@@ -135,7 +205,7 @@ export async function testContests() {
     assert.equal(saved.revision, approved.revision);
     assert.equal(saved.updatedAt, approved.updatedAt, 'idempotent save preserves review and timestamps');
     await assertApprovedCount(1);
-    entry = await submit({ ...payload, description: '修改后的作品说明', expectedRevision: entry.revision });
+    entry = await submit({ ...payload, works: selected(['target'], '修改后的作品说明'), expectedRevision: entry.revision });
     assertPending(entry, approved);
     await assertApprovedCount(0);
     await rejects(review(approved), 409);
@@ -149,24 +219,40 @@ export async function testContests() {
     await assertApprovedCount(0);
     assert.equal(entry.reviewReason, '请完善作品说明');
     const rejected = entry;
-    entry = await submit({ ...payload, description: '完善作品说明后重提', expectedRevision: entry.revision });
+    entry = await submit({ ...payload, works: selected(['target'], '完善作品说明后重提'), expectedRevision: entry.revision });
     assertPending(entry, rejected);
     assert.equal(entry.id, rejected.id);
+    const beforeEmail = entry;
+    entry = await submit({ ...payload, works: selected(['target'], '完善作品说明后重提'), contactEmail: 'changed@example.test', expectedRevision: entry.revision });
+    assertPending(entry, beforeEmail);
+    const unicode = await submit({ ...payload, works: selected(['target'], String.fromCodePoint(0x1f600).repeat(2000)), expectedRevision: entry.revision });
+    assert.equal(Array.from(unicode.works[0].description).length, 2000);
+    await rejects(submit({ ...payload, works: [{ cardId: 'target' }], expectedRevision: unicode.revision }), 400);
+    await rejects(submit({ ...payload, works: selected(['target', 'replacement'], ' '), expectedRevision: unicode.revision }), 400);
+    entry = await submit({ ...payload, expectedRevision: unicode.revision });
 
-    const racing = await Promise.allSettled([submit({ ...payload, cardIds: ['race'] }, { viewer: 'racer' }), submit({ ...payload, cardIds: ['race'] }, { viewer: 'racer', db: second })]);
+    const racing = await Promise.allSettled([submit({ ...payload, works: selected(['race']) }, { viewer: 'racer' }), submit({ ...payload, works: selected(['race']) }, { viewer: 'racer', db: second })]);
     assert.ok(racing.some(result => result.status === 'fulfilled'));
     for (const result of racing.filter(item => item.status === 'rejected')) assert.ok([400, 409].includes(result.reason.status));
     assert.equal(await f.db.transaction(unit => unit.data.contestEntries.filter(item => item.userId === 'racer').length), 1, 'concurrent creation keeps one entry per account');
+    await Promise.all([
+      submit({ ...payload, works: selected(['foreign']) }, { viewer: 'other' }),
+      submit({ ...payload, works: selected(['race', 'race2']), expectedRevision: (await get({ viewer: 'racer' })).revision }, { viewer: 'racer', db: second }),
+    ]);
+    await f.db.transaction(unit => {
+      const numbers = unit.data.contestWorks.map(work => work.number);
+      assert.equal(new Set(numbers).size, numbers.length);
+    });
     const concurrent = await Promise.allSettled([
-      submit({ ...payload, description: '并发更新 A', expectedRevision: entry.revision }),
-      submit({ ...payload, description: '并发更新 B', expectedRevision: entry.revision }, { db: second }),
+      submit({ ...payload, works: selected(['target'], '并发更新 A'), expectedRevision: entry.revision }),
+      submit({ ...payload, works: selected(['target'], '并发更新 B'), expectedRevision: entry.revision }, { db: second }),
     ]);
     assert.equal(concurrent.filter(result => result.status === 'fulfilled').length, 1);
     assert.equal(concurrent.find(result => result.status === 'rejected').reason.status, 409);
     entry = await get();
     const list = (await call(contests.routes, 'GET', adminPath, { viewer: 'admin', query: 'status=pending&limit=1' })).body;
-    assert.equal(list.total, 2);
-    assert.equal(list.pages, 2);
+    assert.equal(list.total, 3);
+    assert.equal(list.pages, 3);
     assert.equal(list.items.length, 1);
     const page2 = (await call(contests.routes, 'GET', adminPath, { viewer: 'admin', query: 'status=pending&limit=1&page=2' })).body;
     assert.notEqual(page2.items[0].id, list.items[0].id);
@@ -214,6 +300,7 @@ export async function testContests() {
     await call(admin.routes, 'PUT', '/api/admin/cards/:id', { viewer: 'admin', id: 'target', body: { status: 'approved' } });
     entry = await get();
     await call(admin.routes, 'PUT', '/api/admin/users/:id', { viewer: 'admin', id: 'owner', body: { status: 'banned' } });
+    assert.equal((await publicWorks()).items.some(item => item.card.id === 'target'), false);
     await rejects(review(entry), 400, 'admin approval rechecks user availability');
     await call(admin.routes, 'PUT', '/api/admin/users/:id', { viewer: 'admin', id: 'owner', body: { status: 'active' } });
     await f.db.transaction(unit => { unit.find('cards', item => item.id === 'target').ownerId = 'other'; }, { write: true });
@@ -237,9 +324,16 @@ export async function testContests() {
     assert.equal(updated.id, entry.id);
     assert.deepEqual(updated.cardIds, []);
     assert.deepEqual(updated.cards, []);
+    await f.db.transaction(unit => {
+      const tombstone = unit.find('contestWorks', work => work.number === originalWork.number);
+      assert.equal(tombstone.cardId, null);
+      assert.equal(tombstone.entryId, null);
+      assert.equal(tombstone.description, '');
+      assert.equal(tombstone.active, false);
+    });
     assertPending(updated, entry);
     await rejects(review(updated), 400);
-    entry = await submit({ ...payload, cardIds: ['replacement'], expectedRevision: updated.revision });
+    entry = await submit({ ...payload, works: selected(['replacement']), expectedRevision: updated.revision });
     assert.equal(entry.id, updated.id, 'deleting a card does not free the unique account entry');
     assert.deepEqual(entry.cardIds, ['replacement']);
     entry = await review(entry);
@@ -251,7 +345,15 @@ export async function testContests() {
     assertPending(updated, entry);
     await call(admin.routes, 'DELETE', '/api/admin/users/:id', { viewer: 'admin', id: 'owner' });
     assert.equal((await call(contests.routes, 'GET', adminPath, { viewer: 'admin', query: 'status=approved' })).body.total, 0);
-    console.log('[contests] permissions, privacy, revisions, concurrent submissions, moderation, card lifecycle and deletion passed');
+    const maxNumber = await f.db.transaction(unit => Math.max(...unit.data.contestWorks.map(work => work.number)));
+    let otherEntry = await get({ viewer: 'other' });
+    await f.db.transaction(unit => { unit.insert('cards', card('after_tombstone', 'other')); }, { write: true });
+    otherEntry = await submit({ ...payload, works: selected(['after_tombstone']), expectedRevision: otherEntry.revision }, { viewer: 'other' });
+    assert.equal(otherEntry.works[0].number, maxNumber + 1);
+    await f.db.transaction(unit => {
+      assert.ok(unit.data.contestWorks.filter(work => [1, 2, 3].includes(work.number)).every(work => work.cardId === null && work.entryId === null && work.description === ''));
+    });
+    console.log('[contests] migration, numbered works, permissions, privacy, search, pagination, revisions, moderation and tombstones passed');
   } finally {
     await second.close();
     await f.cleanup();

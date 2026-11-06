@@ -224,7 +224,7 @@ html { -webkit-tap-highlight-color: transparent; }
   position: sticky;
   top: 0;
   z-index: 50;
-  height: var(--nav-h);
+  min-height: var(--nav-h);
   background: rgba(249, 254, 252, 0.66);
   border-bottom: 1px solid transparent;
   /* 毛玻璃保持在吸顶导航自身上。曾改为 isolation + 负 z-index 伪元素承载 backdrop-filter（e226425），
@@ -240,11 +240,57 @@ html { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 12px 40px -30px rgba(9, 60, 50, 0.4);
 }
 .nav-shell {
+  display: grid;
+  gap: 0;
+  column-gap: 30px;
+  transition: width var(--t-base) var(--ease);
+}
+.site-header .nav-shell { row-gap: 0; }
+.site-header.is-contest-open .nav-shell {
+  width: min(100% - 44px, calc(var(--container) + 160px));
+}
+.nav-main-row {
   display: flex;
   align-items: center;
-  gap: 30px;
-  height: var(--nav-h);
+  gap: inherit;
+  min-width: 0;
+  min-height: var(--nav-h);
 }
+.nav-contest-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  opacity: 0;
+  transition: grid-template-rows var(--t-base) var(--ease), opacity var(--t-base) var(--ease),
+    visibility 0s linear var(--t-base);
+}
+.is-contest-open .nav-contest-panel {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0s;
+}
+.nav-contest-clip { min-height: 0; overflow: hidden; }
+.nav-contest-links {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 0 14px;
+}
+.nav-contest-links a {
+  padding: 9px 20px;
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.nav-contest-links a:hover,
+.nav-contest-links a.is-active { color: var(--brand-deep); background: var(--brand-soft); }
+.nav-contest-toggle { text-align: left; }
+.nav-contest-toggle > .icon:last-child { transition: transform var(--t-base) var(--ease); }
+.nav-contest-toggle[aria-expanded="true"] > .icon:last-child { transform: rotate(180deg); }
 .brand {
   display: flex;
   align-items: center;
@@ -284,7 +330,7 @@ html { -webkit-tap-highlight-color: transparent; }
   min-width: 0;
   flex: 0 1 auto;
 }
-.nav-links a {
+.nav-links :is(a, .nav-contest-toggle) {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -296,8 +342,8 @@ html { -webkit-tap-highlight-color: transparent; }
   color: var(--ink-2);
   transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
 }
-.nav-links a:hover { color: var(--brand-deep); background: rgba(255, 255, 255, 0.6); }
-.nav-links a.is-active { color: var(--brand-deep); background: rgba(14, 175, 143, 0.1); }
+.nav-links :is(a, .nav-contest-toggle):hover { color: var(--brand-deep); background: rgba(255, 255, 255, 0.6); }
+.nav-links :is(a, .nav-contest-toggle).is-active { color: var(--brand-deep); background: rgba(14, 175, 143, 0.1); }
 .nav-badge {
   min-width: 17px;
   height: 17px;
@@ -486,8 +532,8 @@ html { -webkit-tap-highlight-color: transparent; }
 
 /* ---------------- 响应式导航 ---------------- */
 .nav-language { flex: 0 0 auto; min-width: 42px; white-space: nowrap; }
-.nav-links a { white-space: nowrap; min-width: 0; }
-.nav-links a > span:not(.nav-badge) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav-links :is(a, .nav-contest-toggle) { white-space: nowrap; min-width: 0; }
+.nav-links :is(a, .nav-contest-toggle) > span:not(.nav-badge) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .nav-menu a.is-active { background: var(--brand-soft); color: var(--brand-deep); }
 .nav-menu .nav-contest span, .nav-mobile .nav-contest span { min-width: 0; overflow-wrap: anywhere; }
 .nav-menu { max-width: calc(100vw - 24px); }
@@ -495,20 +541,20 @@ html { -webkit-tap-highlight-color: transparent; }
 @media (min-width: 1181px) and (max-width: 1400px) {
   .nav-shell { gap: 14px; }
   .nav-links { margin-left: 0; gap: 2px; }
-  .nav-links a { padding-inline: 9px; font-size: 13px; gap: 5px; }
+  .nav-links :is(a, .nav-contest-toggle) { padding-inline: 9px; font-size: 13px; gap: 5px; }
   .nav-user-name { display: none; }
   html[lang="en"] .brand-text small { display: none; }
 }
 @media (min-width: 1401px) {
   html[lang="en"] .nav-shell { gap: 14px; }
   html[lang="en"] .nav-links { margin-left: 0; gap: 2px; }
-  html[lang="en"] .nav-links a { padding-inline: 9px; font-size: 13px; gap: 5px; }
+  html[lang="en"] .nav-links :is(a, .nav-contest-toggle) { padding-inline: 9px; font-size: 13px; gap: 5px; }
   html[lang="en"] .nav-user-name { display: none; }
   html[lang="en"] .brand-text small { display: none; }
 }
 html[lang="en"] .brand-text small { letter-spacing: 0; }
 @media (min-width: 901px) and (max-width: 1180px) {
-  html[lang="en"] .nav-links a { padding-inline: 8px; gap: 5px; font-size: 12px; }
+  html[lang="en"] .nav-links :is(a, .nav-contest-toggle) { padding-inline: 8px; gap: 5px; font-size: 12px; }
   html[lang="en"] .nav-user-name { display: none; }
   html[lang="en"] .brand-text small { display: none; }
 }
@@ -577,7 +623,8 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
       clip-path 0.32s cubic-bezier(0.22, 1, 0.36, 1),
       visibility 0s;
   }
-  .nav-mobile a {
+  .nav-mobile a,
+  .nav-mobile .nav-contest-toggle {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -589,6 +636,17 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   .nav-mobile a:hover,
   .nav-mobile a.is-active { background: var(--brand-soft); color: var(--brand-deep); }
   .nav-mobile .btn { margin-top: 8px; }
+  .nav-shell > .nav-contest-panel { display: none; }
+  .nav-contest-group { min-width: 0; }
+  .nav-mobile .nav-contest-toggle { width: 100%; }
+  .nav-mobile .nav-contest-toggle > span { min-width: 0; overflow-wrap: anywhere; }
+  .nav-mobile .nav-contest-toggle > .icon:last-child { margin-left: auto; }
+  .nav-mobile .nav-contest-toggle:hover,
+  .nav-mobile .nav-contest-toggle.is-active { color: var(--brand-deep); background: var(--brand-soft); }
+  .nav-mobile .nav-contest-links { flex-direction: column; gap: 4px; padding: 4px 0 8px 22px; }
+  .nav-mobile .nav-contest-links a { min-width: 0; padding: 10px 14px; }
+  .nav-shell,
+  .site-header.is-contest-open .nav-shell { width: calc(100% - 44px); }
 }
 @media (max-width: 900px) {
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; }
@@ -603,6 +661,8 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   :root { --nav-h: 66px; }
   body { font-size: 14.5px; }
   .container { width: min(100% - 32px, var(--container)); }
+  .nav-shell,
+  .site-header.is-contest-open .nav-shell { width: calc(100% - 32px); }
   .container-narrow { width: min(100% - 32px, 920px); }
   .section { padding: 46px 0; }
   .brand-text small { display: none; }
@@ -625,6 +685,9 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  .nav-shell,
+  .nav-contest-panel,
+  .nav-contest-toggle > .icon:last-child { transition: none; }
   *,
   *::before,
   *::after {

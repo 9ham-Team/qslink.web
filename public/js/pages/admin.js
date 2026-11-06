@@ -550,7 +550,7 @@
         const entryCards = entry.cards || [];
         return '<article class="a-cardrow"><div class="a-cardrow-thumbs">' + (entryCards.length ? entryCards.map(function (card) { return thumbPair(card); }).join('') : '<p class="muted">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
           '</div><div class="a-cardrow-main"><div class="a-cardrow-head"><h3 class="a-cardrow-title">' + esc(entryCards.length ? entryCards.map(function (card) { return card.title; }).join('、') : QSL.t("未关联卡片")) +
-          '</h3>' + statusBadge(entry.status) + '</div>' + userInline(entry.user) + '<p class="a-contest-excerpt">' + esc(entry.description) +
+          '</h3>' + statusBadge(entry.status) + '</div>' + userInline(entry.user) + '<p class="a-contest-excerpt">' + esc((entry.works || []).map(function (work) { return '#' + String(work.number).padStart(3, '0') + ' ' + work.description; }).join(' / ')) +
           '</p><span class="a-time">' + esc(fmtDateTime(entry.updatedAt)) + '</span></div><div class="a-cardrow-actions"><button class="a-act a-act--wide" type="button" data-contest-detail="' +
           escAttr(entry.id) + '">' + ico('eye', 16) + esc(QSL.t("查看报名 / 审核")) + '</button></div></article>';
       }).join('') : '<p class="a-inline-empty">' + esc(QSL.t("暂无符合条件的报名。")) + '</p>';
@@ -600,12 +600,13 @@
       const entry = res.entry;
       const cards = entry.cards || [];
       const canApprove = cards.length > 0 && cards.every(function (item) { return item.status === 'approved'; });
-      body.innerHTML = '<div class="a-contest-detail">' + (cards.length ? cards.map(function (card) {
-        return '<h3>' + esc(card.title) + '</h3><div class="a-contest-artwork">' + thumbPair(card, { sizes: '(max-width: 620px) 90vw, 380px' }) + '</div><div>' +
-          esc(QSL.t("广场审核状态")) + ' ' + statusBadge(card.status) + '</div>';
+      body.innerHTML = '<div class="a-contest-detail">' + (cards.length ? (entry.works || []).map(function (work) {
+        const card = work.card;
+        if (!card) return '';
+        return '<h3>#' + esc(String(work.number).padStart(3, '0')) + ' · ' + esc(card.title) + '</h3><div class="a-contest-artwork">' + thumbPair(card, { sizes: '(max-width: 620px) 90vw, 380px' }) + '</div><div>' +
+          esc(QSL.t("广场审核状态")) + ' ' + statusBadge(card.status) + '</div><div class="a-info-block"><h4>' + esc(QSL.t("作品说明")) + '</h4><p class="a-quote a-contest-text">' + esc(work.description) + '</p></div>';
       }).join('') : '<p class="a-reject-note">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
         '<div class="a-cardrow-meta">' + userInline(entry.user) + statusBadge(entry.status) + '<span class="a-time">' + esc(fmtDateTime(entry.updatedAt)) + '</span></div>' +
-        '<div class="a-info-block"><h4>' + esc(QSL.t("作品说明")) + '</h4><p class="a-quote a-contest-text">' + esc(entry.description) + '</p></div>' +
         '<div class="a-info-block"><h4>' + esc(QSL.t("联系邮箱")) + '</h4><p class="a-contest-text">' + esc(entry.contactEmail) + '</p><small class="muted">' + esc(QSL.t("仅参赛者本人及管理员可见，不修改账号邮箱。")) + '</small></div>' +
         (entry.reviewReason ? '<div class="a-info-block"><h4>' + esc(QSL.t("审核原因")) + '</h4><p class="a-quote a-contest-text">' + esc(entry.reviewReason) + '</p></div>' : '') +
         '<form class="a-announcement-form" novalidate><label>' + esc(QSL.t("审核原因（驳回必填）")) + '<textarea class="textarea" name="reviewReason" maxlength="200"></textarea></label>' +

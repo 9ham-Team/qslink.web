@@ -4,6 +4,11 @@
  * 命名空间：.g-*（页面）  .card3d-*（3D 查看器）
  * ============================================================ */
 
+.g-contest-work { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.g-contest-work > strong { display: block; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.g-contest-work summary { cursor: pointer; color: var(--muted); }
+.g-contest-work p { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 /* ============================================================
  * 一、3D 双面卡片查看器（QSL.card3d）
  * ============================================================ */

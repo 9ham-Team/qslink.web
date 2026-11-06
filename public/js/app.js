@@ -19,6 +19,62 @@
   const footerEl = document.getElementById('site-footer');
 
   const contestPath = '/events/qsl-design-2026-11';
+  function isContestRoute() {
+    return location.pathname === contestPath || location.pathname === contestPath + '/registration' ||
+      location.pathname === contestPath + '/works';
+  }
+  let contestOpen = isContestRoute();
+  let lastContestRoute = location.pathname;
+
+  function contestToggle(size, mobile) {
+    return '<button type="button" class="nav-contest-toggle" data-contest-toggle aria-expanded="' +
+      contestOpen + '" aria-controls="nav-contest-' + (mobile ? 'mobile' : 'desktop') + '">' +
+      QSL.icon('trophy', size) + '<span>' + QSL.escapeHtml(QSL.t('QSL设计大赛-2026.11')) +
+      '</span>' + QSL.icon('chevron-down', 14) + '</button>';
+  }
+
+  function contestPanel(mobile) {
+    const links = [
+      { href: contestPath, label: '比赛信息' },
+      { href: contestPath + '/registration', label: '比赛报名' },
+      { href: contestPath + '/works', label: '参赛作品' }
+    ];
+    return '<div class="nav-contest-panel" data-contest-panel id="nav-contest-' +
+      (mobile ? 'mobile' : 'desktop') + '"><div class="nav-contest-clip"><nav class="nav-contest-links" aria-label="' +
+      QSL.escapeHtml(QSL.t('QSL设计大赛-2026.11')) + '">' + links.map(function (link) {
+        const active = location.pathname === link.href;
+        return '<a href="' + link.href + '" data-link class="' + (active ? 'is-active' : '') + '"' +
+          (active ? ' aria-current="page"' : '') + '>' + QSL.escapeHtml(QSL.t(link.label)) + '</a>';
+      }).join('') + '</nav></div></div>';
+  }
+
+  function mobileContestMenu() {
+    return '<div class="nav-contest-group">' + contestToggle(18, true) + contestPanel(true) + '</div>';
+  }
+
+  function setContestOpen(open) {
+    contestOpen = open;
+    if (!headerEl) return;
+    headerEl.classList.toggle('is-contest-open', open);
+    headerEl.querySelectorAll('[data-contest-toggle]').forEach(function (button) {
+      button.setAttribute('aria-expanded', String(open));
+      button.classList.toggle('is-active', isContestRoute());
+    });
+    headerEl.querySelectorAll('[data-contest-panel]').forEach(function (panel) {
+      if (!open && panel.contains(document.activeElement)) {
+        headerEl.querySelector('[aria-controls="' + panel.id + '"]').focus();
+      }
+      panel.inert = !open;
+      panel.setAttribute('aria-hidden', String(!open));
+      panel.querySelectorAll('a').forEach(function (link) {
+        const active = location.pathname === link.getAttribute('href');
+        link.classList.toggle('is-active', active);
+        if (active) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      });
+    });
+  }
+
   function contestMenuLink(size) {
     return '<a href="' + contestPath + '" data-link class="nav-contest' +
       (location.pathname === contestPath ? ' is-active' : '') + '">' + QSL.icon('trophy', size) +
@@ -37,7 +93,6 @@
     ];
     if (user) links.push({ href: '/dashboard/exchanges', label: QSL.t("换卡申请"), icon: 'send', match: '/dashboard/exchanges' });
     if (user) links.push({ href: '/dashboard/logbook', label: QSL.t("通联日志"), icon: 'list', match: '/dashboard/logbook' });
-    links.push({ href: contestPath, label: QSL.t('QSL设计大赛-2026.11'), icon: 'trophy', match: contestPath });
     return links
       .map(function (link) {
         const active = path === link.match || (link.match === '/explore' && path.startsWith('/explore'));
@@ -46,7 +101,7 @@
           QSL.icon(link.icon, 17) + '<span>' + link.label + '</span></a>'
         );
       })
-      .join('');
+      .join('') + contestToggle(17, false);
   }
 
   function pendingBadge(user) {
@@ -104,27 +159,41 @@
         ? '<a href="/dashboard" data-link>' + QSL.icon('layout', 18) + (QSL.escapeHtml(QSL.t("个人中心")) + "</a>") +
           '<a href="/dashboard/cards" data-link>' + QSL.icon('cards', 18) + (QSL.escapeHtml(QSL.t("我的卡片")) + "</a>") +
           '<a href="/dashboard/exchanges" data-link>' + QSL.icon('send', 18) + QSL.t("换卡申请") + pendingBadge(user) + '</a>' +
-          logbookMenuLink(18) + contestMenuLink(18) +
+          logbookMenuLink(18) + mobileContestMenu() +
           '<a href="/dashboard/profile" data-link>' + QSL.icon('user', 18) + (QSL.escapeHtml(QSL.t("个人资料")) + "</a>") +
           (isAdmin ? '<a href="/admin" data-link>' + QSL.icon('shield', 18) + (QSL.escapeHtml(QSL.t("管理后台")) + "</a>") : '') +
           '<button type="button" class="btn btn-ghost btn-block" data-logout>' + QSL.icon('logout', 18) + (QSL.escapeHtml(QSL.t("退出登录")) + "</button>")
-        : contestMenuLink(18) + '<a href="/login" data-link>' + QSL.icon('log-in', 18) + (QSL.escapeHtml(QSL.t("登录")) + "</a>"));
+        : mobileContestMenu() + '<a href="/login" data-link>' + QSL.icon('log-in', 18) + (QSL.escapeHtml(QSL.t("登录")) + "</a>"));
 
     headerEl.innerHTML =
-      '<div class="nav-shell container">' +
+      '<div class="nav-shell container"><div class="nav-main-row">' +
       ("<a class=\"brand\" href=\"/\" data-link aria-label=\"" + QSL.escapeHtml(QSL.t("QSLink 首页")) + "\">") +
       '<img class="brand-mark" src="/assets/logo-mark.svg" alt="" width="38" height="38">' +
       ("<span class=\"brand-text\"><b>QSLink</b><small>" + QSL.escapeHtml(QSL.t("QSL 卡片交换站")) + "</small></span></a>") +
       ("<nav class=\"nav-links\" aria-label=\"" + QSL.escapeHtml(QSL.t("主导航")) + "\">") + navLinks(user) + '</nav>' +
       '<div class="nav-actions">' + languageButton() + actionHtml + '</div>' +
       ("<button class=\"nav-toggle\" type=\"button\" aria-label=\"" + QSL.escapeHtml(QSL.t("打开菜单")) + "\" aria-expanded=\"false\">") + QSL.icon('menu', 21) + '</button>' +
-      '</div>' +
+      '</div>' + contestPanel(false) + '</div>' +
       '<div class="nav-mobile" id="nav-mobile">' + mobileLinks + '</div>';
 
+    setContestOpen(contestOpen);
     bindHeader();
   }
 
   function bindHeader() {
+    headerEl.querySelectorAll('[data-contest-toggle]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        const open = !contestOpen;
+        setContestOpen(open);
+        if (open) QSL.navigate(contestPath);
+      });
+      button.addEventListener('keydown', function (event) {
+        if (event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        setContestOpen(true);
+        document.getElementById(button.getAttribute('aria-controls')).querySelector('a').focus();
+      });
+    });
     headerEl.querySelector('[data-language]').addEventListener('click', function () {
       QSL.i18n.switchLanguage();
     });
@@ -192,10 +261,20 @@
       const btn = userEl.querySelector('.nav-avatar-btn');
       if (btn) btn.setAttribute('aria-expanded', 'false');
     }
+    if (!e.target.closest('[data-contest-toggle], [data-contest-panel], .nav-toggle')) setContestOpen(false);
     if (!e.target.closest('.site-header')) closeNav();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeNav();
+    if (e.key === 'Escape') {
+      const panel = document.activeElement && document.activeElement.closest('[data-contest-panel]');
+      if (panel) headerEl.querySelector('[aria-controls="' + panel.id + '"]').focus();
+      setContestOpen(false);
+      const mobile = document.getElementById('nav-mobile');
+      if (mobile && mobile.contains(document.activeElement)) {
+        headerEl.querySelector('.nav-toggle').focus();
+      }
+      closeNav();
+    }
   });
 
   /* ---------------- 页脚 ---------------- */
@@ -239,7 +318,11 @@
 
   /* ---------------- 路由联动 ---------------- */
   function syncRouteState() {
-    closeNav();
+    const changed = lastContestRoute !== location.pathname;
+    lastContestRoute = location.pathname;
+    if (changed) setContestOpen(isContestRoute());
+    else setContestOpen(contestOpen);
+    if (!isContestRoute()) closeNav();
     renderFooter(); // 登录态可能变化导致「我的」列变化
     // 更新导航激活态
     const user = QSL.state.user;
@@ -311,7 +394,7 @@
       renderFooter();
     });
     QSL.on('route', function () {
-      closeNav();
+      if (!isContestRoute()) closeNav();
     });
     QSL.on('route:before', QSL.i18n.resetEdits);
     QSL.on('route:rendered', syncRouteState);

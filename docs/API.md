@@ -353,9 +353,11 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ## QSL 设计大赛（2026.11）
 
-本届 `eventKey` 固定为 `qsl-design-2026-11`，其他赛事键返回 404。公开页面为 `/events/qsl-design-2026-11`。本轮仅提供赛事动态、报名及报名审核，不提供投票、评分计算或证照上传接口。未明确的赛期、完整评分和奖品细则在页面标注待公布。
+本届 `eventKey` 固定为 `qsl-design-2026-11`，其他赛事键返回 404。公开页面为 `/events/qsl-design-2026-11`。本轮提供赛事动态、逐作品报名、报名审核及公开参赛作品列表，不提供投票、评分计算或证照上传接口。未明确的赛期、完整评分和奖品细则在页面标注待公布。
 
 迁移 `014_qsl_design_contest.sql` 新增报名表与公告范围字段，原有公告保留为全站公告。迁移 `015_contest_entry_cards.sql` 将单卡引用 `cardId` 改为最多 3 张卡片的 `cardIds` 数组（升级时把原引用转换为单元素数组并删除旧列）；旧版程序无法读取升级后的报名表，回滚须另行评估数据兼容性，不能以镜像回退代替数据库恢复。
+
+迁移 `016_contest_works.sql` 新增独立 `contestWorks`，按旧报名 `createdAt`、ID、原选卡顺序分配编号，将总说明复制到每张作品，首次时间沿用报名创建时间（无法恢复历史逐卡加选时间）。删除报名级 `cardIds/description` 列，以作品为唯一来源。新编号在现有写事务锁内按含停用与墓碑的最大编号加一分配，赛事内编号与卡片关联均有唯一约束；SQL 删除与应用删除均清除关联说明并留墓碑。发布前须备份数据库，恢复旧镜像不构成数据回滚。
 
 ### GET /api/contests/:eventKey
 
@@ -363,17 +365,21 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ### GET /api/contests/:eventKey/entry 🔒
 
-仅读取当前用户自己的报名，返回 `{ entry }`，未报名为 `{ entry: null }`。报名包含 `id`、`eventKey`、`userId`、`cardIds`、`cards`、`description`、`contactEmail`、`status`、`reviewReason`、`reviewedBy`、`reviewedAt`、`revision`、`createdAt`、`updatedAt`；`cardIds` 为 0–3 个卡片 ID，`cards` 为对应的卡片展示信息（卡片被删除后从数组中移除）。联系邮箱仅本人及管理员可见，不修改账号邮箱，不在报名时收集领奖证照。
+仅读取当前用户自己的报名，返回 `{ entry }`，未报名为 `{ entry: null }`。报名包含 `id`、`eventKey`、`userId`、`cardIds`、`cards`、`works`、`contactEmail`、`status`、`reviewReason`、`reviewedBy`、`reviewedAt`、`revision`、`createdAt`、`updatedAt`；`cardIds` 为 0–3 个卡片 ID，`cards` 为对应的卡片展示信息（卡片被删除后从数组中移除）。`works` 为 `[{ id, cardId, number, description, submittedAt, card }]`，按首次提交时间、编号正序；`cardIds/cards` 从当前作品派生，总 `description` 不再返回，审核相关字段保持不变。每届每卡编号固定，移除后重加恢复原编号及 `submittedAt`；`number` 为整数，客户端可补零显示。联系邮箱仅本人及管理员可见，不修改账号邮箱，不在报名时收集领奖证照。
 
 ### PUT /api/contests/:eventKey/entry 🔒
 
-body：`{ cardIds, description, contactEmail, expectedRevision? }`，`cardIds` 必须是 1–3 个不重复的卡片 ID。首次可省略 `expectedRevision`，更新已有报名必须携带当前版本。服务端逐张检查所选卡片属于当前用户且已通过广场审核，客户端不能指定报名用户、审核状态或审核人。
+body：`{ works: [{ cardId, description }], contactEmail, expectedRevision? }`，`works` 必须包含 1–3 张不重复的卡片，每张作品的 `description` 必填，去除首尾空白后为 1–2000 个 Unicode 字符，禁止 NUL。不再接收报名总说明或以 `cardIds` 选择作品。首次可省略 `expectedRevision`，更新已有报名必须携带当前版本。服务端逐张检查所选卡片属于当前用户且已通过广场审核，客户端不能指定报名用户、审核状态或审核人。
 
 - 每账号本届仅保留一份报名，数据库唯一约束保护并发请求；待审核、驳回、通过后修改均更新原记录。
 - 有效修改递增 `revision`、转为 `pending` 并清空旧审核信息；没有实际变化的重复保存不撤销审核结果。
 - 旧版本更新返回 `409`，需重新读取再提交；非法字段为 `400`，未登录为 `401`。
-- 任一卡片作品内容变化或失去广场通过状态时，关联报名同事务重新待审核；仅库存变化不影响赛事审核。删卡从 `cardIds` 移除该卡并保留报名，允许重新选择；删除用户清理报名。
+- 修改作品选择、逐作品说明或联系邮箱，整份报名重新待审核；任一当前作品卡片内容变化或失去广场通过状态时同样重新待审核，仅库存变化不影响赛事审核。删卡清除作品的卡片/报名关联及说明并保留编号墓碑，报名保留；删除用户清理报名及所有作品个人内容，编号不回收。
 - 成功返回 `{ entry }`，首次创建为 `201`，更新为 `200`。作品说明为 1–2000 个字符，联系邮箱为有效邮箱且最多 120 个字符。
+
+### GET /api/contests/:eventKey/works
+
+匿名可读取，支持 `q`、`page`、`limit`（通用分页规则），返回 `{ items: [{ number, description, submittedAt, card }], page, pages, total, limit }`。`card` 使用现有 `CardPublic` 序列化，含作者公开摘要、双面图片及比例等展示字段，兼容卡片网格。只公开当前参与、整份报名 approved、卡片 approved 且所有者账号 active 的作品；不返回作品内部 ID、报名对象、联系邮箱、审核原因或审核人。按 `submittedAt`、`number` 正序，先筛选再分页。`q` 去除首尾空白后按卡片呼号大小写不敏感包含匹配；纯数字还精确匹配作品编号（`001` 与 `1` 均匹配编号 1），与呼号匹配取并集。
 
 ### GET /api/admin/contests/:eventKey/entries 🔒👑
 

@@ -4,7 +4,8 @@ const auth = require('../auth');
 const { badRequest, conflict, notFound } = require('../errors');
 const { isObj, str, parsePagination, parseEnum } = require('../validate');
 const { createId, paginate } = require('../db');
-const { requireContest, resetEntry, entryView } = require('../contests');
+const { requireContest, resetEntry, entryWorks, entryView } = require('../contests');
+const { cardPublic } = require('../serialize');
 
 function checkRevision(body, entry) {
   if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 1) {
@@ -17,18 +18,23 @@ function eligibleCard(db, cardId, userId) {
   const card = db.find('cards', (item) => item.id === cardId);
   const user = db.find('users', (item) => item.id === userId);
   if (!card || card.ownerId !== userId || card.status !== 'approved' || !user || user.status !== 'active') {
-    throw badRequest({ cardIds: '请选择本人已通过广场审核的卡片，且账号须可用' });
+    throw badRequest({ works: '请选择本人已通过广场审核的卡片，且账号须可用' });
   }
   return card;
 }
 
-function parseCardIds(db, value, userId) {
-  const raw = Array.isArray(value) ? value : [];
-  const ids = raw.map((id) => str(id));
-  if (ids.length < 1 || ids.length > 3 || ids.some((id) => !id) || new Set(ids).size !== ids.length) {
-    throw badRequest({ cardIds: '请选择 1–3 张不重复的本人卡片' });
-  }
-  return ids.map((cardId) => eligibleCard(db, cardId, userId));
+function parseWorks(db, value, userId) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 3) throw badRequest({ works: '请选择 1–3 张不重复的本人卡片' });
+  const works = value.map((work, index) => {
+    if (!isObj(work) || !str(work.cardId)) throw badRequest({ works: '请选择有效卡片' });
+    const description = str(work.description);
+    if (!description || Array.from(description).length > 2000 || description.includes('\0')) {
+      throw badRequest({ [`works.${index}.description`]: '请输入 1–2000 个字符' });
+    }
+    return { cardId: eligibleCard(db, str(work.cardId), userId).id, description };
+  });
+  if (new Set(works.map((work) => work.cardId)).size !== works.length) throw badRequest({ works: '请选择 1–3 张不重复的本人卡片' });
+  return works;
 }
 
 function ownEntry(ctx) {
@@ -44,9 +50,9 @@ async function saveEntry(ctx) {
   const entry = ctx.db.find('contestEntries', (item) => item.eventKey === ctx.params.eventKey && item.userId === user.id);
   if (entry) checkRevision(body, entry);
   else if (body.expectedRevision !== undefined) throw conflict('REVISION_CONFLICT', '报名不存在，请刷新后重试');
-  const patch = { cardIds: parseCardIds(ctx.db, body.cardIds, user.id).map((card) => card.id), description: str(body.description), contactEmail: str(body.contactEmail) };
+  const works = parseWorks(ctx.db, body.works, user.id);
+  const patch = { contactEmail: str(body.contactEmail) };
   const fields = {};
-  if (!patch.description || Array.from(patch.description).length > 2000 || patch.description.includes('\0')) fields.description = '请输入 1–2000 个字符';
   if (patch.contactEmail.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(patch.contactEmail) || patch.contactEmail.includes('\0')) fields.contactEmail = '请输入有效邮箱（最多 120 字符）';
   if (Object.keys(fields).length) throw badRequest(fields);
   const now = new Date().toISOString();
@@ -57,12 +63,46 @@ async function saveEntry(ctx) {
       status: 'pending', reviewReason: null, reviewedBy: null, reviewedAt: null,
       revision: 1, createdAt: now, updatedAt: now,
     });
-  } else if (Object.keys(patch).some((key) => JSON.stringify(patch[key]) !== JSON.stringify(entry[key]))) {
-    Object.assign(entry, patch);
-    resetEntry(entry, now);
+  } else {
+    const current = entryWorks(ctx.db, entry);
+    if (patch.contactEmail !== entry.contactEmail || current.length !== works.length ||
+      works.some((work) => !current.some((item) => item.cardId === work.cardId && item.description === work.description))) {
+      Object.assign(entry, patch);
+      resetEntry(entry, now);
+    }
+  }
+  for (const work of ctx.db.data.contestWorks) {
+    if (work.entryId === saved.id) work.active = false;
+  }
+  let number = ctx.db.data.contestWorks.reduce((max, work) => work.eventKey === saved.eventKey ? Math.max(max, work.number) : max, 0);
+  for (const selected of works) {
+    const existing = ctx.db.find('contestWorks', (work) => work.eventKey === saved.eventKey && work.cardId === selected.cardId);
+    if (existing) Object.assign(existing, { entryId: saved.id, description: selected.description, active: true });
+    else ctx.db.insert('contestWorks', { id: createId('cw'), eventKey: saved.eventKey, entryId: saved.id,
+      ...selected, number: ++number, submittedAt: now, active: true });
   }
   await ctx.db.save();
   return { status: entry ? 200 : 201, body: { entry: entryView(ctx.db, saved) } };
+}
+
+function publicWorks(ctx) {
+  requireContest(ctx.params.eventKey);
+  const { page, limit } = parsePagination(ctx.query);
+  const q = str(ctx.query.get('q')).toLowerCase();
+  const numeric = /^\d+$/.test(q) ? Number(q) : null;
+  const items = [];
+  for (const work of ctx.db.data.contestWorks) {
+    if (work.eventKey !== ctx.params.eventKey || !work.active) continue;
+    const entry = ctx.db.find('contestEntries', (item) => item.id === work.entryId);
+    const card = ctx.db.find('cards', (item) => item.id === work.cardId);
+    const user = entry && ctx.db.find('users', (item) => item.id === entry.userId);
+    if (!entry || entry.status !== 'approved' || !card || card.status !== 'approved' || !user || user.status !== 'active' || card.ownerId !== user.id) continue;
+    if (q && !(card.callSign || '').toLowerCase().includes(q) && work.number !== numeric) continue;
+    items.push({ number: work.number, description: work.description, submittedAt: work.submittedAt,
+      card: cardPublic(ctx.db, card, ctx.user) });
+  }
+  items.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt) || a.number - b.number);
+  return { body: paginate(items, page, limit) };
 }
 
 function adminEntry(ctx) {
@@ -93,8 +133,9 @@ async function reviewEntry(ctx) {
   const reason = str(body.reviewReason);
   if (Array.from(reason).length > 200 || reason.includes('\0') || (body.status === 'rejected' && !reason)) throw badRequest({ reviewReason: '驳回原因需为 1–200 个字符' });
   if (body.status === 'approved') {
-    if (!(entry.cardIds || []).length) throw badRequest({ cardIds: '报名未关联可用卡片，不能批准' });
-    for (const cardId of entry.cardIds) eligibleCard(ctx.db, cardId, entry.userId);
+    const works = entryWorks(ctx.db, entry);
+    if (!works.length) throw badRequest({ works: '报名未关联可用卡片，不能批准' });
+    for (const work of works) eligibleCard(ctx.db, work.cardId, entry.userId);
   }
   const reviewReason = body.status === 'rejected' ? reason : null;
   if (entry.status !== body.status || entry.reviewReason !== reviewReason) {
@@ -113,6 +154,7 @@ module.exports = {
       ...requireContest(ctx.params.eventKey),
       approvedRegistrationCount: ctx.db.data.contestEntries.filter((item) => item.eventKey === ctx.params.eventKey && item.status === 'approved').length,
     } } }) },
+    { method: 'GET', pattern: '/api/contests/:eventKey/works', handler: publicWorks },
     { method: 'GET', pattern: '/api/contests/:eventKey/entry', handler: ownEntry },
     { method: 'PUT', pattern: '/api/contests/:eventKey/entry', handler: saveEntry },
     { method: 'GET', pattern: '/api/admin/contests/:eventKey/entries', handler: listEntries },

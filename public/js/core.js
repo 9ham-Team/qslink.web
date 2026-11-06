@@ -62,6 +62,8 @@
     { path: '/', page: 'home' },
     { path: '/explore', page: 'explore' },
     { path: '/events/qsl-design-2026-11', page: 'qsl-design-contest' },
+    { path: '/events/qsl-design-2026-11/registration', page: 'qsl-design-registration' },
+    { path: '/events/qsl-design-2026-11/works', page: 'qsl-design-works' },
     { path: '/space/:uid', page: 'space' },
     { path: '/card/:id', page: 'card-detail' },
     { path: '/share/:token', page: 'share' },

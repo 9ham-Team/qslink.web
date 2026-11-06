@@ -2461,6 +2461,22 @@ html[lang="en"] .f-visual-card {
 .f-contest-selected-card img { width: 100%; height: 100%; object-fit: contain; }
 .f-contest-selected-meta { display: flex; align-items: center; gap: 8px; justify-content: space-between; min-width: 0; }
 .f-contest-selected-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.f-contest-work-number { margin: 8px 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.f-contest-work-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.f-contest-description-state { margin: 8px 0; font-size: 12px; color: var(--danger); }
+.f-contest-description-state.is-complete { color: var(--brand-deep); }
+.f-contest-description-preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 8px 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-2); }
+.f-contest-description-editor { overflow-wrap: anywhere; }
+.f-contest-description-editor h3 { margin: 0 0 8px; }
+.f-contest-description-editor .field { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.f-contest-description-editor .textarea { width: 100%; min-height: 180px; resize: vertical; }
+.f-contest-description-editor .hint { display: block; margin: 10px 0; }
+.f-contest-description-editor .is-invalid { color: var(--danger); }
+.f-contest-submitted-works { width: 100%; max-width: 760px; display: grid; gap: 12px; margin-top: 26px; text-align: left; }
+.f-contest-submitted-work { padding: 18px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-solid); min-width: 0; overflow-wrap: anywhere; }
+.f-contest-submitted-work > strong { font-size: 13px; color: var(--brand-deep); }
+.f-contest-submitted-work h4 { margin: 8px 0; }
+.f-contest-submitted-work p { margin: 0; line-height: 1.8; white-space: pre-wrap; color: var(--ink-2); }
 .f-contest-cards-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .f-contest-confirm-list { margin: 12px 0 0; padding-left: 18px; color: var(--ink-2); line-height: 1.8; overflow-wrap: anywhere; }
 .f-contest-notice { padding: 24px; background: var(--brand-soft); border-radius: var(--r-md); color: var(--ink-2); }

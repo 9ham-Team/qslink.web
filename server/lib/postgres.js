@@ -4,11 +4,12 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
-const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql', '014_qsl_design_contest.sql', '015_contest_entry_cards.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql', '014_qsl_design_contest.sql', '015_contest_entry_cards.sql', '016_contest_works.sql'];
 const SCHEMA_VERSION = MIGRATIONS.length;
-const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals', 'contactLogs', 'contestEntries'];
+const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals', 'contactLogs', 'contestEntries', 'contestWorks'];
 const FIELDS = {
-  contestEntries: ['id', 'eventKey', 'userId', 'cardIds', 'description', 'contactEmail', 'status', 'reviewReason', 'reviewedBy', 'reviewedAt', 'revision', 'createdAt', 'updatedAt'],
+  contestWorks: ['id', 'eventKey', 'entryId', 'cardId', 'number', 'description', 'submittedAt', 'active'],
+  contestEntries: ['id', 'eventKey', 'userId', 'contactEmail', 'status', 'reviewReason', 'reviewedBy', 'reviewedAt', 'revision', 'createdAt', 'updatedAt'],
   contactLogs: ['id', 'userId', 'dedupKey', 'qsoAt', 'callSign', 'details', 'createdAt', 'updatedAt'],
   announcements: ['id', 'eventKey', 'title', 'body', 'status', 'displaySeconds', 'publishedAt', 'createdAt', 'updatedAt'],
   announcementDismissals: ['id', 'userId', 'announcementId', 'createdAt'],
@@ -72,7 +73,7 @@ const FIELDS = {
   sessions: ['token', 'userId', 'createdAt', 'expiresAt'],
 };
 const quote = (name) => '"' + name + '"'; // Constants or schema-validated identifiers only.
-const JSON_FIELDS = new Set(['selectedContactLogs', 'cardIds']);
+const JSON_FIELDS = new Set(['selectedContactLogs']);
 const keyFor = (name) => (name === 'sessions' ? 'token' : 'id');
 const emptyData = () =>
   Object.fromEntries([
@@ -327,11 +328,14 @@ function paginate(items, page, limit) {
   };
 }
 function cascadeDeleteCard(db, cardId) {
+  const entries = new Set();
+  for (const work of db.data.contestWorks) {
+    if (work.cardId !== cardId) continue;
+    if (work.active) entries.add(work.entryId);
+    Object.assign(work, { entryId: null, cardId: null, description: '', active: false });
+  }
   for (const entry of db.data.contestEntries) {
-    if ((entry.cardIds || []).includes(cardId)) {
-      entry.cardIds = entry.cardIds.filter((id) => id !== cardId);
-      require('./contests').resetEntry(entry);
-    }
+    if (entries.has(entry.id)) require('./contests').resetEntry(entry);
   }
   for (const exchange of db.data.exchanges)
     if (exchange.preferredCardId === cardId) exchange.preferredCardId = null;
@@ -341,6 +345,10 @@ function cascadeDeleteCard(db, cardId) {
     );
 }
 function cascadeDeleteUser(db, userId) {
+  const entryIds = new Set(db.data.contestEntries.filter((entry) => entry.userId === userId).map((entry) => entry.id));
+  for (const work of db.data.contestWorks) {
+    if (entryIds.has(work.entryId)) Object.assign(work, { entryId: null, cardId: null, description: '', active: false });
+  }
   db.data.contestEntries = db.data.contestEntries.filter((entry) => entry.userId !== userId);
   for (const entry of db.data.contestEntries) {
     if (entry.reviewedBy === userId) entry.reviewedBy = null;

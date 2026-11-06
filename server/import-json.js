@@ -19,6 +19,23 @@ async function main() {
   );
   if (data.announcements === undefined) data.announcements = [];
   if (data.announcementDismissals === undefined) data.announcementDismissals = [];
+  if (data.contestEntries === undefined) data.contestEntries = [];
+  if (data.contestWorks === undefined) {
+    data.contestWorks = [];
+    const numbers = new Map();
+    for (const entry of [...data.contestEntries].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))) {
+      for (const cardId of entry.cardIds || (entry.cardId ? [entry.cardId] : [])) {
+        if (!data.cards.some((card) => card.id === cardId)) continue;
+        const number = (numbers.get(entry.eventKey) || 0) + 1;
+        numbers.set(entry.eventKey, number);
+        data.contestWorks.push({ id: 'cw_legacy_' + entry.id + '_' + number, eventKey: entry.eventKey,
+          entryId: entry.id, cardId, number, description: entry.description, submittedAt: entry.createdAt, active: true });
+      }
+      delete entry.cardIds;
+      delete entry.cardId;
+      delete entry.description;
+    }
+  }
   if (
     data.version !== 1 ||
     COLLECTIONS.some((name) => !Array.isArray(data[name]))

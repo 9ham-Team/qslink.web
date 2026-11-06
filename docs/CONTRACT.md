@@ -41,7 +41,9 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 |---|---|---|
 | `/` | `home` | 公开 |
 | `/explore` | `explore` | 公开 |
-| `/events/qsl-design-2026-11` | `qsl-design-contest` | 公开，报名需登录；含赛事动态、报名和三部分参赛须知 |
+| `/events/qsl-design-2026-11` | `qsl-design-contest` | 公开，比赛信息、赛事动态、奖品进度及参赛须知 |
+| `/events/qsl-design-2026-11/registration` | `qsl-design-registration` | 公开入口，报名需登录；每账号 1–3 张本人审核通过卡片，各自必填 1–2000 字作品说明 |
+| `/events/qsl-design-2026-11/works` | `qsl-design-works` | 公开参赛作品，按首次参赛时间/固定编号升序；`q` 搜索呼号或数字编号 |
 | `/space/:uid` | `space` | 公开，九位 UID |
 | `/card/:id` | `card-detail` | 公开（申请按钮需登录） |
 | `/share/:token` | `share` | 历史兼容，公开（卡片须通过审核且持有者未封禁） |
@@ -56,6 +58,10 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 | `/dashboard/profile` | `profile` | 登录 |
 | `/admin` | `admin` | 登录 + 管理员 |
 | 其它 | `not-found`（共享路由内置） | — |
+
+赛事顶栏按钮控制三项子导航平滑展开与内部容器增宽；首次展开进入比赛信息，深链保持对应选中项，支持 Escape、点击外侧关闭及 reduced-motion。手机菜单纵向展开。
+
+报名提交 `works: [{ cardId, description }]`，每张已选作品旁提供作品说明弹窗；保存弹窗仅修改页面草稿，最终提交报名才持久化。移除再加保留本页草稿，离页清理。每赛事卡片固定数字编号（显示为 001 起），按首次参赛时间升序；移除或删除不回收编号。公开作品仅限报名及卡片审核通过且账号正常的记录，不包含联系邮箱或审核备注。
 
 路由传参：`render(container, ctx)`，`ctx = { path, params: {id?, token?}, query: URLSearchParams }`。
 `render` 可返回 cleanup 函数（如 3D 动画销毁）。导航后容器自动清空。
