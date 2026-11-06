@@ -21,11 +21,7 @@
         QSL.t('总分、公众投票权重、评分维度及完整评分细则待公布。本轮页面不提供投票、自动评分或获奖计算。')
       ] },
       { title: QSL.t('奖品发放规则'), icon: 'trophy', items: [
-        QSL.t('前三名设置实物奖方向：一等奖候选为赛克斯等三选一，二等奖候选为SDR、键盘或耳机，由名次高者优先选择。候选品类不等于最终奖品承诺，具体型号及最终清单待公布。'),
-        QSL.t('第4—5名为实物奖方向；目前已有四份实物奖品，第五份奖品仍待确定，最终清单待公布。'),
-        QSL.t('第6—10名奖品为771天线，具体型号及发放细节待公布。电子奖状的覆盖范围存在待确认事项，以后续公告为准。'),
-        QSL.t('前五名领奖时须核验操作证号、执照号与呼号一致，并提供相关证明材料供人工审核；报名阶段不收集这些证照资料。'),
-        QSL.t('领奖时间、寄送方式及其他发放安排待公布。')
+        QSL.t('实物奖品共十名，前五名领奖时须核验操作证号、执照号与呼号一致，并提供相关证明材料供人工审核；报名阶段不收集这些证照资料。领奖时间、寄送方式及其他发放安排待公布。')
       ] }
     ];
     return sections.map((section, index) => '<article class="f-contest-rule"><div class="f-contest-rule-head">' +
@@ -42,6 +38,11 @@
     let newsPage = 0;
     let newsPages = 0;
     let saving = false;
+    let editing = false;
+    let entryBusy = false;
+    let transitionId = 0;
+    let animations = [];
+    let outgoing = null;
     let selected = [];
     let picker = null;
     let pickerCheck = null;
@@ -51,7 +52,8 @@
       '<h1>' + text('第一届QSLink QSL 卡片设计大赛') + '</h1>' +
       '<div class="f-contest-actions"><a class="btn btn-soft btn-lg" href="' + path + '#rules" data-link>' + text('参赛须知') + '</a>' +
       '<a class="btn btn-primary btn-lg" href="' + path + '#registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 18) + '</a></div></div>' +
-      '<img class="f-contest-hero-image" src="/assets/contest-trophy.webp" width="1600" height="2000" alt="' + text('QSL 卡片设计大赛') + '" decoding="async"></header>' +
+      '<figure class="f-contest-hero-figure"><img class="f-contest-hero-image" src="/assets/contest-trophy.webp" width="1600" height="2000" alt="' + text('QSL 卡片设计大赛') + '" decoding="async">' +
+      '<figcaption>' + text('此为奖杯样式图，真实的奖杯中的图片背景会用参赛的卡片制成哦') + '</figcaption></figure></header>' +
       '<section class="f-contest-section" aria-labelledby="contest-news-title"><div class="f-contest-section-head"><span class="eyebrow">01</span>' +
       '<h2 id="contest-news-title">' + text('赛事动态') + '</h2></div><div data-news aria-live="polite"></div>' +
       '<div class="f-contest-more"><button type="button" class="btn btn-soft" data-action="news" hidden>' + text('加载更多') + '</button></div></section>' +
@@ -95,7 +97,65 @@
       }
     }
 
-    function renderEntry() {
+    function stopTransition() {
+      transitionId++;
+      animations.forEach((animation) => animation.cancel());
+      animations = [];
+      if (outgoing) outgoing.remove();
+      outgoing = null;
+      registration.classList.remove('is-transitioning');
+    }
+
+    function showPanel(html, animate, focus, setup) {
+      const startHeight = registration.getBoundingClientRect().height;
+      stopTransition();
+      const previous = registration.firstElementChild;
+      const moveFocus = focus || registration.contains(document.activeElement);
+      const panel = document.createElement('div');
+      panel.className = 'f-contest-panel';
+      panel.innerHTML = html;
+      const motion = animate && previous && typeof registration.animate === 'function' &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (motion) {
+        const padding = getComputedStyle(registration);
+        previous.inert = true;
+        previous.setAttribute('aria-hidden', 'true');
+        previous.classList.add('f-contest-panel-out');
+        previous.style.top = padding.paddingTop;
+        previous.style.left = padding.paddingLeft;
+        previous.style.right = padding.paddingRight;
+        outgoing = previous;
+      } else registration.replaceChildren();
+      registration.append(panel);
+      if (setup) setup(panel);
+      if (moveFocus) {
+        const target = panel.querySelector('[data-result-title], textarea, [data-action="entry"], a');
+        if (target) target.focus({ preventScroll: true });
+      }
+      if (!motion) return;
+      const endHeight = registration.getBoundingClientRect().height;
+      const id = transitionId;
+      const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
+      registration.classList.add('is-transitioning');
+      animations = [
+        registration.animate([{ height: startHeight + 'px' }, { height: endHeight + 'px' }], { duration: 520, easing }),
+        previous.animate([{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-12px)' }], { duration: 160, fill: 'forwards', easing }),
+        panel.animate([{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 400, delay: 100, fill: 'backwards', easing })
+      ];
+      const icon = panel.querySelector('.f-contest-result-icon');
+      if (icon) animations.push(icon.animate([
+        { transform: 'scale(.65) rotate(-12deg)', opacity: 0 },
+        { transform: 'scale(1.06) rotate(2deg)', opacity: 1, offset: .7 },
+        { transform: 'scale(1) rotate(0)', opacity: 1 }
+      ], { duration: 420, delay: 100, fill: 'backwards', easing }));
+      panel.querySelectorAll('.f-contest-result .btn').forEach((button, index) => {
+        animations.push(button.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0)' }],
+          { duration: 260, delay: 180 + index * 60, fill: 'backwards', easing }));
+      });
+      animations[0].onfinish = () => { if (alive && id === transitionId) stopTransition(); };
+    }
+
+    function renderEntry(animate, focus) {
       const status = entry && entry.status;
       const missing = entry && (entry.cardIds || []).some((id) => !cards.some((card) => card.id === id));
       selected = entry ? (entry.cardIds || []).filter((id) => cards.some((card) => card.id === id)) : [];
@@ -103,13 +163,25 @@
         (status === 'pending' ? QSL.badge(QSL.t('待审核'), 'amber') : QSL.statusBadge(status)) + '</div>' +
         (status === 'rejected' ? '<p class="f-contest-review" role="status">' + text('驳回原因') + '：' + esc(entry.reviewReason || QSL.t('请修改后重新提交。')) + '</p>' : '') +
         (missing ? '<p class="f-contest-review">' + text('原报名卡片已不可用或未通过广场审核，请重新选择已通过审核的卡片。') + '</p>' : '') : '';
+      if (entry && !editing) {
+        const state = status === 'approved' ? { label: '已通过', icon: 'check-circle' } :
+          status === 'rejected' ? { label: '未通过', icon: 'alert' } : { label: '审核中', icon: 'clock' };
+        showPanel('<div class="f-contest-result f-contest-result--' + esc(status) + '">' +
+          '<span class="f-contest-result-icon" aria-hidden="true">' + QSL.icon(state.icon, 88) + '</span>' +
+          '<p class="f-contest-result-label">' + text('我的报名') + '</p><h3 tabindex="-1" data-result-title>' + text(state.label) + '</h3>' +
+          (status === 'rejected' ? '<p class="f-contest-result-note">' + text('驳回原因') + '：' + esc(entry.reviewReason || QSL.t('请修改后重新提交。')) + '</p>' : '') +
+          (missing ? '<p class="f-contest-result-note">' + text('原报名卡片已不可用或未通过广场审核，请重新选择已通过审核的卡片。') + '</p>' : '') +
+          '<div class="f-contest-actions"><button class="btn btn-soft" type="button" data-action="entry">' + QSL.icon('refresh', 18) + text('刷新状态') + '</button>' +
+          '<button class="btn btn-primary" type="button" data-action="edit-entry">' + QSL.icon('edit', 18) + text('修改报名信息') + '</button></div></div>', animate, focus);
+        return;
+      }
       const links = '<div class="f-contest-actions"><a class="btn btn-soft" href="/dashboard/cards/new" data-link>' + text('上传卡片') +
         '</a><a class="btn btn-ghost" href="/dashboard/cards" data-link>' + text('我的卡片') + '</a></div>';
       if (!cards.length) {
-        registration.innerHTML = statusHtml + '<p>' + text('暂无可参赛卡片。请先上传卡片并通过广场审核，再回来报名。') + '</p>' + links;
+        showPanel(statusHtml + '<p>' + text('暂无可参赛卡片。请先上传卡片并通过广场审核，再回来报名。') + '</p>' + links, animate, focus);
         return;
       }
-      registration.innerHTML = statusHtml + '<p class="f-contest-form-intro">' + text('每个账号一份报名。待审核时可更新；已通过的报名如修改作品或报名资料，将重新审核。') + '</p>' +
+      showPanel(statusHtml + '<p class="f-contest-form-intro">' + text('每个账号一份报名。待审核时可更新；已通过的报名如修改作品或报名资料，将重新审核。') + '</p>' +
         '<form data-entry-form><div class="field" role="group" aria-label="' + esc(QSL.t('参赛卡片')) + '">' +
           '<span class="label">' + text('参赛卡片') + '<i class="req">*</i></span>' +
           '<div class="f-contest-cards"><div class="f-contest-selected" data-selected-cards></div>' +
@@ -121,13 +193,13 @@
           input: '<input class="input" type="email" name="contactEmail" autocomplete="email" maxlength="120" required value="' + esc(entry ? entry.contactEmail : QSL.state.user.email || '') + '">' }) +
         '<p class="f-contest-form-error" role="alert" data-entry-error hidden></p>' +
         '<div class="f-contest-actions"><button class="btn btn-primary" type="submit">' + text(entry ? '更新报名' : '提交报名') + '</button>' +
-        '<button class="btn btn-ghost" type="button" data-action="entry">' + text('刷新报名状态') + '</button></div></form>';
-      paintSelected();
+        '<button class="btn btn-ghost" type="button" data-action="entry">' + text('刷新报名状态') + '</button></div></form>', animate, focus, paintSelected);
     }
 
-    function paintSelected() {
-      const target = registration.querySelector('[data-selected-cards]');
-      const count = registration.querySelector('[data-card-count]');
+    function paintSelected(panel) {
+      const root = panel || registration.querySelector('.f-contest-panel:not(.f-contest-panel-out)') || registration;
+      const target = root.querySelector('[data-selected-cards]');
+      const count = root.querySelector('[data-card-count]');
       if (!target) return;
       const chosen = cards.filter((card) => selected.includes(card.id));
       target.innerHTML = chosen.map((card) => '<div class="f-contest-selected-card">' +
@@ -226,28 +298,47 @@
       pickerCheck = check;
     }
 
-    async function loadEntry() {
+    async function loadEntry(refresh) {
+      if (refresh && (entryBusy || saving)) return;
       const request = ++entryRequest;
       const user = QSL.state.user;
-      entry = null;
-      cards = [];
+      const preserve = refresh && !!registration.querySelector('.f-contest-panel');
+      entryBusy = true;
+      if (!refresh) { entry = null; cards = []; editing = false; }
       if (!user) {
-        registration.innerHTML = '<div class="f-contest-guest">' + QSL.icon('lock', 30) + '<h3>' + text('登录后报名') + '</h3><p>' +
+        entryBusy = false;
+        registration.removeAttribute('aria-busy');
+        showPanel('<div class="f-contest-guest">' + QSL.icon('lock', 30) + '<h3>' + text('登录后报名') + '</h3><p>' +
           text('登录后选择自己的卡片，提交作品说明和联系邮箱。') + '</p><a class="btn btn-primary" href="/login?next=' +
-          encodeURIComponent(path + '#registration') + '" data-link>' + text('登录并返回报名') + '</a></div>';
+          encodeURIComponent(path + '#registration') + '" data-link>' + text('登录并返回报名') + '</a></div>');
         return;
       }
-      QSL.loading(registration);
+      if (!preserve) { stopTransition(); QSL.loading(registration); }
+      registration.setAttribute('aria-busy', 'true');
+      const controls = Array.from(registration.querySelectorAll('input, select, textarea, button'));
+      const disabled = controls.map((control) => control.disabled);
+      controls.forEach((control) => { control.disabled = true; });
+      const refreshButton = registration.querySelector('[data-action="entry"]');
+      if (refreshButton) QSL.setBusy(refreshButton, true);
       try {
         const [entryData, cardData] = await Promise.all([QSL.api.get(entryUrl), QSL.api.cards.mine()]);
         if (!alive || request !== entryRequest || QSL.state.user !== user) return;
         entry = entryData.entry;
         cards = cardData.items.filter((card) => card.status === 'approved');
-        renderEntry();
+        editing = false;
+        QSL.i18n.resetEdits();
+        renderEntry(preserve);
       } catch (err) {
         if (!alive || request !== entryRequest || QSL.state.user !== user) return;
-        registration.innerHTML = errorHtml(err.message || QSL.t('加载失败'), 'entry');
+        if (!preserve) showPanel(errorHtml(err.message || QSL.t('加载失败'), 'entry'));
         QSL.toast(err.message || QSL.t('加载失败'), 'error');
+      } finally {
+        if (alive && request === entryRequest) {
+          entryBusy = false;
+          registration.removeAttribute('aria-busy');
+          if (refreshButton) QSL.setBusy(refreshButton, false);
+          controls.forEach((control, index) => { control.disabled = disabled[index]; });
+        }
       }
     }
 
@@ -255,7 +346,7 @@
       const form = event.target.closest('[data-entry-form]');
       if (!form) return;
       event.preventDefault();
-      if (saving || !form.reportValidity()) return;
+      if (saving || entryBusy || form.closest('[inert]') || !form.reportValidity()) return;
       const error = form.querySelector('[data-entry-error]');
       error.hidden = true;
       if (!selected.length) {
@@ -277,7 +368,8 @@
         const result = await QSL.api.put(entryUrl, payload);
         if (!alive || request !== entryRequest || QSL.state.user !== user) return;
         entry = result.entry;
-        renderEntry();
+        editing = false;
+        renderEntry(true, true);
         QSL.i18n.resetEdits();
         QSL.toast(QSL.t('报名已保存'), 'success');
       } catch (err) {
@@ -298,16 +390,21 @@
     container.addEventListener('submit', submit, { signal: events.signal });
     container.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-action]');
-      if (!button || button.disabled) return;
+      if (!button || button.disabled || button.closest('[inert]')) return;
+      if (button.dataset.action === 'edit-entry' && entry && !entryBusy && !saving) {
+        editing = true;
+        renderEntry(true, true);
+      }
       if (button.dataset.action === 'news') loadNews();
       if (button.dataset.action === 'pick-cards') openPicker();
       if (button.dataset.action === 'remove-card') {
         updateSelected(selected.filter((id) => id !== button.dataset.id));
       }
       if (button.dataset.action === 'entry') {
-        const form = registration.querySelector('form');
+        if (entryBusy || saving) return;
+        const form = registration.querySelector('.f-contest-panel:not(.f-contest-panel-out) form');
         if (form && !await QSL.confirm({ message: QSL.t('刷新会丢弃尚未保存的报名修改，是否继续？') })) return;
-        if (alive && !saving) { QSL.i18n.resetEdits(); loadEntry(); }
+        if (alive && !saving) loadEntry(true);
       }
     }, { signal: events.signal });
     const offAuth = QSL.on('auth', () => { if (alive) loadEntry(); });
@@ -317,6 +414,7 @@
     return function cleanup() {
       alive = false;
       entryRequest++;
+      stopTransition();
       events.abort();
       offAuth();
       cancelAnimationFrame(frame);
