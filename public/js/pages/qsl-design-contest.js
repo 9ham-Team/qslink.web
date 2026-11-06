@@ -47,10 +47,11 @@
     let pickerCheck = null;
     const events = new AbortController();
     container.innerHTML = '<div class="f-contest container">' +
-      '<header class="f-contest-hero"><div class="f-contest-orbit" aria-hidden="true">' + QSL.icon('trophy', 100) + '</div>' +
+      '<header class="f-contest-hero"><div class="f-contest-hero-copy">' +
       '<h1>' + text('第一届QSLink QSL 卡片设计大赛') + '</h1>' +
       '<div class="f-contest-actions"><a class="btn btn-soft btn-lg" href="' + path + '#rules" data-link>' + text('参赛须知') + '</a>' +
-      '<a class="btn btn-primary btn-lg" href="' + path + '#registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 18) + '</a></div></header>' +
+      '<a class="btn btn-primary btn-lg" href="' + path + '#registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 18) + '</a></div></div>' +
+      '<img class="f-contest-hero-image" src="/assets/contest-trophy.webp" width="1600" height="2000" alt="' + text('QSL 卡片设计大赛') + '" decoding="async"></header>' +
       '<section class="f-contest-section" aria-labelledby="contest-news-title"><div class="f-contest-section-head"><span class="eyebrow">01</span>' +
       '<h2 id="contest-news-title">' + text('赛事动态') + '</h2></div><div data-news aria-live="polite"></div>' +
       '<div class="f-contest-more"><button type="button" class="btn btn-soft" data-action="news" hidden>' + text('加载更多') + '</button></div></section>' +

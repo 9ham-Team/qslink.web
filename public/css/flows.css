@@ -2384,10 +2384,11 @@ html[lang="en"] .f-visual-card {
 
 /* ---------------- QSL 设计大赛 ---------------- */
 .f-contest { padding-bottom: 42px; }
-.f-contest-hero { position: relative; isolation: isolate; padding: 100px 40px 86px; margin-top: 24px; border: 1px solid var(--line); border-radius: var(--r-xl); overflow: hidden; background: radial-gradient(ellipse at 90% 10%, rgba(245, 190, 84, .23), transparent 60%), linear-gradient(125deg, var(--surface-solid), var(--brand-soft)); }
+.f-contest-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .65fr); align-items: center; gap: 40px; position: relative; isolation: isolate; padding: 48px 40px; margin-top: 24px; border: 1px solid var(--line); border-radius: var(--r-xl); overflow: hidden; background: radial-gradient(ellipse at 90% 10%, rgba(245, 190, 84, .23), transparent 60%), linear-gradient(125deg, var(--surface-solid), var(--brand-soft)); }
 .f-contest-hero::before { content: ''; position: absolute; z-index: -1; width: 400px; height: 400px; right: -150px; top: -150px; border: 1px solid rgba(14, 175, 143, .15); border-radius: 50%; box-shadow: 0 0 0 46px rgba(14, 175, 143, .04), 0 0 0 92px rgba(14, 175, 143, .03); }
 .f-contest-hero h1 { position: relative; max-width: 900px; margin: 0 0 36px; font-size: clamp(34px, 5.5vw, 70px); line-height: 1.2; letter-spacing: -.04em; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; text-wrap: balance; }
-.f-contest-orbit { position: absolute; z-index: -1; right: 5%; bottom: 36px; color: var(--brand); opacity: .12; transform: rotate(12deg); }
+.f-contest-hero-copy { min-width: 0; }
+.f-contest-hero-image { display: block; width: 100%; max-width: 360px; height: auto; justify-self: center; border-radius: var(--r-lg); }
 .f-contest-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .f-contest-actions .btn { white-space: normal; text-align: center; }
 .f-contest-section { margin-top: 64px; scroll-margin-top: calc(var(--nav-h) + 24px); }
@@ -2433,7 +2434,8 @@ html[lang="en"] .f-visual-card {
   .f-contest-rules { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
-  .f-contest-hero { padding: 58px 22px 44px; margin-top: 16px; border-radius: var(--r-lg); }
+  .f-contest-hero { grid-template-columns: minmax(0, 1fr); gap: 30px; padding: 44px 22px; margin-top: 16px; border-radius: var(--r-lg); }
+  .f-contest-hero-image { max-width: 280px; }
   .f-contest-hero h1 { margin-bottom: 28px; }
   .f-contest-hero .f-contest-actions { align-items: stretch; }
   .f-contest-hero .btn { flex: 1 1 130px; padding-inline: 14px; }
