@@ -277,7 +277,8 @@ html { -webkit-tap-highlight-color: transparent; }
   display: flex;
   justify-content: center;
   gap: 10px;
-  padding: 0 0 14px;
+  /* Keep the shared 2px focus outline + 3px offset inside the animated clip. */
+  padding: 6px 6px 14px;
 }
 .nav-shell > .nav-contest-panel {
   width: min(100%, var(--container));
@@ -656,7 +657,7 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   .nav-mobile .nav-contest-toggle > .icon:last-child { margin-left: auto; }
   .nav-mobile .nav-contest-toggle:hover,
   .nav-mobile .nav-contest-toggle.is-active { color: var(--brand-deep); background: var(--brand-soft); }
-  .nav-mobile .nav-contest-links { flex-direction: column; gap: 4px; padding: 4px 0 8px 22px; }
+  .nav-mobile .nav-contest-links { flex-direction: column; gap: 4px; padding: 6px 6px 8px 22px; }
   .nav-mobile .nav-contest-links a { min-width: 0; padding: 10px 14px; }
   .nav-shell,
   .site-header.is-contest-open .nav-shell { width: calc(100% - 44px); }
