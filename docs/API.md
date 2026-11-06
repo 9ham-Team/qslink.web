@@ -359,7 +359,7 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ### GET /api/contests/:eventKey
 
-公开读取赛事定义，返回 `{ contest: { key, title } }`；不返回参赛者名单、联系邮箱或审核备注。
+匿名可读取赛事定义及实时统计，返回 `{ contest: { key, title, approvedRegistrationCount } }`。`approvedRegistrationCount` 为本赛事 `status === 'approved'` 的报名人数，初始为 `0`；每赛事每用户仅一份报名，多张参赛卡片仍计为一人。`pending`、`rejected` 不计入，通过后幂等保存不增加计数；修改或删卡使报名回到待审核时立即扣减，删除用户清理报名后也不再计入。公开响应仅包含赛事键、标题和统计，不返回用户信息、参赛者名单、联系邮箱或审核备注。
 
 ### GET /api/contests/:eventKey/entry 🔒
 

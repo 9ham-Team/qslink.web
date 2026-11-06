@@ -49,6 +49,10 @@ export async function testContests() {
     return db.transaction(unit => route.handler({ db: unit, user: viewer ? unit.find('users', item => item.id === viewer) : null, params: { eventKey: key, id }, body, query: new URLSearchParams(query), config: {} }), { write: method !== 'GET' });
   }
   const get = (options = {}) => call(contests.routes, 'GET', entryPath, options).then(result => result.body.entry);
+  const assertApprovedCount = async (count) => {
+    const result = await call(contests.routes, 'GET', publicPath, { viewer: null });
+    assert.deepEqual(result.body, { contest: { key: eventKey, title: '第一届QSLink QSL 卡片设计大赛', approvedRegistrationCount: count } }, 'public contest exposes only its key, title and approved registration count');
+  };
   const payload = { cardIds: ['target'], description: '<script>alert(1)</script> 作品说明', contactEmail: 'contest-private@example.test' };
   const submit = (body = payload, options = {}) => call(contests.routes, 'PUT', entryPath, { ...options, body }).then(result => result.body.entry);
   const review = (entry, status = 'approved', options = {}) => call(contests.routes, 'PUT', reviewPath, { viewer: 'admin', id: entry.id, body: { status, reviewReason: status === 'rejected' ? '请完善作品说明' : '', expectedRevision: entry.revision }, ...options }).then(result => result.body.entry);
@@ -70,6 +74,7 @@ export async function testContests() {
     const publicContest = (await call(contests.routes, 'GET', publicPath, { viewer: null })).body;
     assert.ok(publicContest.contest);
     assert.equal(publicContest.entry, undefined);
+    await assertApprovedCount(0);
     for (const pattern of [publicPath, entryPath, adminPath]) {
       await rejects(call(contests.routes, 'GET', pattern, { viewer: 'admin', key: 'missing-event' }), 404);
     }
@@ -91,6 +96,7 @@ export async function testContests() {
     assert.equal(entry.userId, 'owner');
     assert.deepEqual(entry.cardIds, ['target']);
     assert.equal(entry.status, 'pending');
+    await assertApprovedCount(0);
     assert.equal(entry.revision, 1);
     assert.equal(entry.contactEmail, payload.contactEmail);
     assert.equal(entry.description, payload.description, 'API stores plain text; rendering is responsible for escaping');
@@ -107,9 +113,12 @@ export async function testContests() {
     const multi = await submit({ ...payload, cardIds: ['target', 'replacement', 'extra1'], expectedRevision: entry.revision });
     assert.deepEqual(multi.cardIds, ['target', 'replacement', 'extra1']);
     assert.equal(multi.cards.length, 3);
-    entry = await submit({ ...payload, expectedRevision: multi.revision });
+    const approvedMulti = await review(multi);
+    await assertApprovedCount(1);
+    entry = await submit({ ...payload, expectedRevision: approvedMulti.revision });
     assert.deepEqual(entry.cardIds, ['target']);
-    assertPending(entry, multi);
+    assertPending(entry, approvedMulti);
+    await assertApprovedCount(0);
     await rejects(submit(payload), 400);
     await rejects(submit({ ...payload, expectedRevision: 0 }), 400);
     for (const expectedRevision of ['1', -1, 1.5, null]) await rejects(submit({ ...payload, expectedRevision }), 400);
@@ -118,14 +127,17 @@ export async function testContests() {
     assert.equal(unchanged.revision, entry.revision);
     entry = await review(entry);
     assert.equal(entry.status, 'approved');
+    await assertApprovedCount(1);
     assert.equal(await f.db.transaction(unit => unit.find('cards', item => item.id === 'target').status), 'approved');
     const approved = entry;
     const saved = await submit({ ...payload, expectedRevision: entry.revision });
     assert.equal(saved.status, 'approved');
     assert.equal(saved.revision, approved.revision);
     assert.equal(saved.updatedAt, approved.updatedAt, 'idempotent save preserves review and timestamps');
+    await assertApprovedCount(1);
     entry = await submit({ ...payload, description: '修改后的作品说明', expectedRevision: entry.revision });
     assertPending(entry, approved);
+    await assertApprovedCount(0);
     await rejects(review(approved), 409);
     await rejects(submit({ ...payload, expectedRevision: approved.revision }), 409);
     await rejects(call(contests.routes, 'PUT', reviewPath, { viewer: 'admin', id: entry.id, body: { status: 'rejected', reviewReason: '', expectedRevision: entry.revision } }), 400);
@@ -134,6 +146,7 @@ export async function testContests() {
     }
     entry = await review(entry, 'rejected');
     assert.equal(entry.status, 'rejected');
+    await assertApprovedCount(0);
     assert.equal(entry.reviewReason, '请完善作品说明');
     const rejected = entry;
     entry = await submit({ ...payload, description: '完善作品说明后重提', expectedRevision: entry.revision });
@@ -217,7 +230,9 @@ export async function testContests() {
       assert.ok(!JSON.stringify(response.body).includes(payload.contactEmail), 'public response never discloses contest contact email');
       assert.ok(!JSON.stringify(response.body).includes('contactEmail'));
     }
+    await assertApprovedCount(1);
     await call(cards.routes, 'DELETE', '/api/cards/:id', { id: 'target' });
+    await assertApprovedCount(0);
     updated = await get();
     assert.equal(updated.id, entry.id);
     assert.deepEqual(updated.cardIds, []);
@@ -228,7 +243,9 @@ export async function testContests() {
     assert.equal(entry.id, updated.id, 'deleting a card does not free the unique account entry');
     assert.deepEqual(entry.cardIds, ['replacement']);
     entry = await review(entry);
+    await assertApprovedCount(1);
     await call(admin.routes, 'DELETE', '/api/admin/cards/:id', { viewer: 'admin', id: 'replacement' });
+    await assertApprovedCount(0);
     updated = await get();
     assert.deepEqual(updated.cardIds, []);
     assertPending(updated, entry);

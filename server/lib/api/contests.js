@@ -109,7 +109,10 @@ async function reviewEntry(ctx) {
 
 module.exports = {
   routes: [
-    { method: 'GET', pattern: '/api/contests/:eventKey', handler: (ctx) => ({ body: { contest: requireContest(ctx.params.eventKey) } }) },
+    { method: 'GET', pattern: '/api/contests/:eventKey', handler: (ctx) => ({ body: { contest: {
+      ...requireContest(ctx.params.eventKey),
+      approvedRegistrationCount: ctx.db.data.contestEntries.filter((item) => item.eventKey === ctx.params.eventKey && item.status === 'approved').length,
+    } } }) },
     { method: 'GET', pattern: '/api/contests/:eventKey/entry', handler: ownEntry },
     { method: 'PUT', pattern: '/api/contests/:eventKey/entry', handler: saveEntry },
     { method: 'GET', pattern: '/api/admin/contests/:eventKey/entries', handler: listEntries },

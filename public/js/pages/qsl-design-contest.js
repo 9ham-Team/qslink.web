@@ -29,6 +29,18 @@
       '</span></div><h3>' + esc(section.title) + '</h3><ul>' + section.items.map((item) => '<li>' + esc(item) + '</li>').join('') + '</ul></article>').join('');
   }
 
+  function prizes() {
+    return '<section class="f-contest-prizes" aria-labelledby="contest-prizes-title">' +
+      '<h3 id="contest-prizes-title">' + text('十强好礼，等你来赢') + '</h3>' +
+      '<article class="f-contest-prizes-champion"><h4>' + QSL.icon('trophy', 26) + text('第一名 · 冠军大奖') + '</h4>' +
+      '<div class="f-contest-prizes-milestones"><div class="f-contest-prizes-bubble"><span>' + text('0 进度 · 起步即解锁') + '</span><strong>' + text('森海克斯 8650') + '</strong></div>' +
+      '<div class="f-contest-prizes-bubble f-contest-prizes-upgrade"><span>' + text('100 进度 · 大奖升级') + '</span><strong>' + text('拓竹 A1 mini') + '</strong><span>' + text('或') + '</span><strong>' + text('威诺 VR-N76') + '</strong><b>' + text('二选一哦') + '</b></div></div>' +
+      '<div class="f-contest-prizes-stat" data-prize-progress aria-live="polite"></div>' +
+      '<p class="f-contest-prizes-note">' + text('每个审核通过的报名账号 +1 进度；达到 100 人后升级为二选一，不叠加领取森海克斯 8650。进度随当前审核通过人数实时变化。') + '</p></article>' +
+      '<div class="f-contest-prizes-runners"><article><h4>' + text('第二至第五名') + '</h4><p class="f-contest-prizes-items">' + text('SDR / 键盘 / 耳机 /《孤独摇滚！》喜多郁代玩偶') + '</p><p>' + text('按获奖排名顺序选择，名次靠前优先挑选。') + '</p></article>' +
+      '<article><h4>' + text('第六至第十名') + '</h4><p class="f-contest-prizes-items">' + text('771 天线') + '</p><p>' + text('五席好礼，为你的下一次通联加油。') + '</p></article></div></section>';
+  }
+
   function render(container) {
     let alive = true;
     let entry = null;
@@ -55,7 +67,7 @@
       '<figure class="f-contest-hero-figure"><img class="f-contest-hero-image" src="/assets/contest-trophy.webp" width="1600" height="2000" alt="' + text('QSL 卡片设计大赛') + '" decoding="async">' +
       '<figcaption>' + text('此为奖杯样式图，真实的奖杯中的图片背景会用参赛的卡片制成哦') + '</figcaption></figure></header>' +
       '<section class="f-contest-section" aria-labelledby="contest-news-title"><div class="f-contest-section-head"><span class="eyebrow">01</span>' +
-      '<h2 id="contest-news-title">' + text('赛事动态') + '</h2></div><div data-news aria-live="polite"></div>' +
+      '<h2 id="contest-news-title">' + text('赛事动态') + '</h2></div>' + prizes() + '<div data-news aria-live="polite"></div>' +
       '<div class="f-contest-more"><button type="button" class="btn btn-soft" data-action="news" hidden>' + text('加载更多') + '</button></div></section>' +
       '<section class="f-contest-section" id="registration" aria-labelledby="contest-registration-title"><div class="f-contest-section-head"><span class="eyebrow">02</span>' +
       '<h2 id="contest-registration-title">' + text('比赛报名') + '</h2></div><div class="f-contest-registration" data-registration aria-live="polite"></div></section>' +
@@ -67,6 +79,29 @@
 
     function errorHtml(message, action) {
       return '<div class="f-contest-notice" role="alert"><p>' + esc(message) + '</p><button class="btn btn-soft" type="button" data-action="' + action + '">' + text('重试') + '</button></div>';
+    }
+
+    let prizeRequest = 0;
+    const prizeProgress = container.querySelector('[data-prize-progress]');
+    async function loadPrizeProgress() {
+      const request = ++prizeRequest;
+      prizeProgress.setAttribute('aria-busy', 'true');
+      prizeProgress.innerHTML = '<p>' + text('正在加载奖品进度…') + '</p>';
+      try {
+        const data = await QSL.api.get('/api/contests/' + eventKey);
+        if (!alive || request !== prizeRequest) return;
+        const count = data.contest.approvedRegistrationCount;
+        if (!Number.isSafeInteger(count) || count < 0) throw new Error(QSL.t('奖品进度加载失败'));
+        prizeProgress.innerHTML = '<progress max="100" value="' + Math.min(count, 100) + '" aria-label="' + text('冠军奖品解锁进度') + '"></progress>' +
+          '<div class="f-contest-prizes-scale" aria-hidden="true"><span>0</span><span>100</span></div>' +
+          '<div class="f-contest-prizes-count"><span>' + esc(QSL.t('已通过审核：{n} 人', { n: count })) + '</span><span>' +
+          (count >= 100 ? text('升级大奖已解锁，冠军二选一！') : esc(QSL.t('再有 {n} 人即可升级大奖', { n: 100 - count }))) + '</span></div>';
+      } catch (err) {
+        if (!alive || request !== prizeRequest) return;
+        prizeProgress.innerHTML = errorHtml(QSL.t('奖品进度加载失败'), 'prize-progress');
+      } finally {
+        if (alive && request === prizeRequest) prizeProgress.removeAttribute('aria-busy');
+      }
     }
 
     async function loadNews() {
@@ -372,6 +407,7 @@
         renderEntry(true, true);
         QSL.i18n.resetEdits();
         QSL.toast(QSL.t('报名已保存'), 'success');
+        loadPrizeProgress();
       } catch (err) {
         if (!alive || request !== entryRequest || QSL.state.user !== user) return;
         QSL.showFieldErrors(form, err.fields);
@@ -396,6 +432,7 @@
         renderEntry(true, true);
       }
       if (button.dataset.action === 'news') loadNews();
+      if (button.dataset.action === 'prize-progress') loadPrizeProgress();
       if (button.dataset.action === 'pick-cards') openPicker();
       if (button.dataset.action === 'remove-card') {
         updateSelected(selected.filter((id) => id !== button.dataset.id));
@@ -409,6 +446,7 @@
     }, { signal: events.signal });
     const offAuth = QSL.on('auth', () => { if (alive) loadEntry(); });
     loadNews();
+    loadPrizeProgress();
     loadEntry();
     const frame = requestAnimationFrame(() => { if (alive) QSL.scrollToHash(); });
     return function cleanup() {
