@@ -25,6 +25,18 @@
   }
   let contestOpen = isContestRoute();
   let lastContestRoute = location.pathname;
+  const contestNavObserver = new ResizeObserver(alignContestPanel);
+
+  function alignContestPanel() {
+    if (!headerEl) return;
+    const button = headerEl.querySelector('.nav-links [data-contest-toggle]');
+    const panel = document.getElementById('nav-contest-desktop');
+    if (!button || !panel || !button.offsetWidth) return;
+    const buttonRect = button.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    panel.style.setProperty('--contest-anchor',
+      (buttonRect.left + buttonRect.width / 2 - panelRect.left) + 'px');
+  }
 
   function contestToggle(size, mobile) {
     return '<button type="button" class="nav-contest-toggle" data-contest-toggle aria-expanded="' +
@@ -165,6 +177,7 @@
           '<button type="button" class="btn btn-ghost btn-block" data-logout>' + QSL.icon('logout', 18) + (QSL.escapeHtml(QSL.t("退出登录")) + "</button>")
         : mobileContestMenu() + '<a href="/login" data-link>' + QSL.icon('log-in', 18) + (QSL.escapeHtml(QSL.t("登录")) + "</a>"));
 
+    contestNavObserver.disconnect();
     headerEl.innerHTML =
       '<div class="nav-shell container"><div class="nav-main-row">' +
       ("<a class=\"brand\" href=\"/\" data-link aria-label=\"" + QSL.escapeHtml(QSL.t("QSLink 首页")) + "\">") +
@@ -177,6 +190,10 @@
       '<div class="nav-mobile" id="nav-mobile">' + mobileLinks + '</div>';
 
     setContestOpen(contestOpen);
+    alignContestPanel();
+    ['.nav-main-row', '.nav-links', '.nav-actions', '.brand', '.nav-links [data-contest-toggle]'].forEach(function (selector) {
+      contestNavObserver.observe(headerEl.querySelector(selector));
+    });
     bindHeader();
   }
 
@@ -185,7 +202,7 @@
       button.addEventListener('click', function () {
         const open = !contestOpen;
         setContestOpen(open);
-        if (open) QSL.navigate(contestPath);
+        if (open && !isContestRoute()) QSL.navigate(contestPath);
       });
       button.addEventListener('keydown', function (event) {
         if (event.key !== 'ArrowDown') return;
