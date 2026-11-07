@@ -245,9 +245,9 @@ html { -webkit-tap-highlight-color: transparent; }
   column-gap: 30px;
   transition: width var(--t-base) var(--ease);
 }
-.site-header .nav-shell { row-gap: 0; }
-.site-header.is-contest-open .nav-shell {
-  width: min(100% - 44px, calc(var(--container) + 160px));
+.site-header .nav-shell {
+  row-gap: 0;
+  width: min(100% - 44px, calc(var(--container) + 480px));
 }
 .nav-main-row {
   display: flex;
@@ -255,7 +255,7 @@ html { -webkit-tap-highlight-color: transparent; }
   gap: inherit;
   min-width: 0;
   min-height: var(--nav-h);
-  width: min(100%, var(--container));
+  width: 100%;
   justify-self: center;
 }
 .nav-contest-panel {
@@ -546,34 +546,21 @@ html { -webkit-tap-highlight-color: transparent; }
 
 /* ---------------- 响应式导航 ---------------- */
 .nav-language { flex: 0 0 auto; min-width: 42px; white-space: nowrap; }
-.nav-links :is(a, .nav-contest-toggle) { white-space: nowrap; min-width: 0; }
-.nav-links :is(a, .nav-contest-toggle) > span:not(.nav-badge) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav-links :is(a, .nav-contest-toggle) { white-space: nowrap; flex-shrink: 0; }
 .nav-menu a.is-active { background: var(--brand-soft); color: var(--brand-deep); }
 .nav-menu .nav-contest span, .nav-mobile .nav-contest span { min-width: 0; overflow-wrap: anywhere; }
 .nav-menu { max-width: calc(100vw - 24px); }
 .nav-mobile { max-height: calc(100dvh - var(--nav-h)); overflow-y: auto; }
-@media (min-width: 1181px) {
-  .nav-shell { gap: 14px; }
-  .nav-links { margin-left: 0; gap: 2px; }
-  .nav-links :is(a, .nav-contest-toggle) { padding-inline: 9px; font-size: 13px; gap: 5px; }
-  .nav-user-name { display: none; }
-  html[lang="en"] .brand-text small { display: none; }
-}
 html[lang="en"] .brand-text small { letter-spacing: 0; }
-@media (min-width: 901px) and (max-width: 1180px) {
-  html[lang="en"] .nav-links :is(a, .nav-contest-toggle) { padding-inline: 8px; gap: 5px; font-size: 12px; }
-  html[lang="en"] .nav-user-name { display: none; }
-  html[lang="en"] .brand-text small { display: none; }
-}
 @media (max-width: 380px) {
   .nav-actions, .nav-guest { gap: 4px; }
   .nav-shell { gap: 6px; }
   .site-header .brand-text { display: none; }
-  .nav-language { padding-inline: 8px; }
+  .nav-actions .nav-language { padding-inline: 8px; }
   .nav-guest .btn-primary { padding-inline: 10px; }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1720px) {
   .nav-links { display: none; }
   .nav-toggle {
     display: inline-flex;
@@ -652,14 +639,14 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   .nav-mobile .nav-contest-toggle.is-active { color: var(--brand-deep); background: var(--brand-soft); }
   .nav-mobile .nav-contest-links { flex-direction: column; gap: 4px; padding: 6px 6px 8px 22px; }
   .nav-mobile .nav-contest-links a { min-width: 0; padding: 10px 14px; }
-  .nav-shell,
+  .site-header .nav-shell,
   .site-header.is-contest-open .nav-shell { width: calc(100% - 44px); }
 }
 @media (max-width: 900px) {
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; }
 }
 
-@media (max-width: 1180px) and (prefers-reduced-motion: reduce) {
+@media (max-width: 1720px) and (prefers-reduced-motion: reduce) {
   .nav-mobile,
   .nav-mobile.is-open { transform: none; clip-path: none; transition-duration: 0s; transition-delay: 0s; }
 }
@@ -668,10 +655,11 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   :root { --nav-h: 66px; }
   body { font-size: 14.5px; }
   .container { width: min(100% - 32px, var(--container)); }
-  .nav-shell,
+  .site-header .nav-shell,
   .site-header.is-contest-open .nav-shell { width: calc(100% - 32px); }
   .container-narrow { width: min(100% - 32px, 920px); }
   .section { padding: 46px 0; }
+  .nav-actions .nav-language { padding-inline: 8px; }
   .brand-text small { display: none; }
   .brand-text b { font-size: 17.5px; }
   .brand-mark { width: 34px; height: 34px; }
