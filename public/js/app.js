@@ -44,7 +44,7 @@
   function contestToggle(size, mobile) {
     return '<button type="button" class="nav-contest-toggle" data-contest-toggle aria-expanded="' +
       contestOpen + '" aria-controls="nav-contest-' + (mobile ? 'mobile' : 'desktop') + '">' +
-      QSL.icon('trophy', size) + '<span>' + QSL.escapeHtml(QSL.t('QSL设计大赛-2026.11')) +
+      QSL.icon('trophy', size) + '<span>' + QSL.escapeHtml(QSL.t('第一届QSLink杯QSL卡片设计大赛')) +
       '</span>' + QSL.icon('chevron-down', 14) + '</button>';
   }
 
@@ -56,7 +56,7 @@
     ];
     return '<div class="nav-contest-panel" data-contest-panel id="nav-contest-' +
       (mobile ? 'mobile' : 'desktop') + '"><div class="nav-contest-clip"><nav class="nav-contest-links" aria-label="' +
-      QSL.escapeHtml(QSL.t('QSL设计大赛-2026.11')) + '">' + links.map(function (link) {
+      QSL.escapeHtml(QSL.t('第一届QSLink杯QSL卡片设计大赛')) + '">' + links.map(function (link) {
         const active = isContestLinkActive(link.href);
         return '<a href="' + link.href + '" data-link class="' + (active ? 'is-active' : '') + '"' +
           (active ? ' aria-current="page"' : '') + '>' + QSL.escapeHtml(QSL.t(link.label)) + '</a>';
@@ -93,7 +93,7 @@
   function contestMenuLink(size) {
     return '<a href="' + contestPath + '" data-link class="nav-contest' +
       (location.pathname === contestPath ? ' is-active' : '') + '">' + QSL.icon('trophy', size) +
-      '<span>' + QSL.escapeHtml(QSL.t('QSL设计大赛-2026.11')) + '</span></a>';
+      '<span>' + QSL.escapeHtml(QSL.t('第一届QSLink杯QSL卡片设计大赛')) + '</span></a>';
   }
 
   function logbookMenuLink(size) {

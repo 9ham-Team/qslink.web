@@ -134,40 +134,40 @@
 
   async function contestPoster(card, work, url, signal) {
     const img = card.frontImage ? await image(card.frontImage, signal) : null;
-    const palette = QSL.posterPalette.fromImage(img);
     const canvas = document.createElement('canvas');
     canvas.width = 900; canvas.height = 1440;
     const ctx = canvas.getContext('2d');
     const sans = '"Microsoft YaHei", "PingFang SC", sans-serif';
-    ctx.fillStyle = palette.backgroundTop; ctx.fillRect(0, 0, 900, 1440);
-    function line(value, y, size, color) {
-      ctx.font = size + 'px ' + sans; ctx.fillStyle = color || palette.ink;
+    ctx.fillStyle = '#142524'; ctx.fillRect(0, 0, 900, 1440);
+    function line(value, x, y, size, width, color, align) {
+      ctx.font = size + 'px ' + sans; ctx.fillStyle = color || '#ffffff';
+      ctx.textAlign = align || 'left';
       let label = Array.from(String(value || '')).slice(0, 160).join('');
-      while (label && ctx.measureText(label + '…').width > 764) label = Array.from(label).slice(0, -1).join('');
+      while (label && ctx.measureText(label + '…').width > width) label = Array.from(label).slice(0, -1).join('');
       if (label !== String(value || '')) label += '…';
-      ctx.fillText(label, 68, y);
+      ctx.fillText(label, x, y);
     }
-    line('QSLink · QSL DESIGN CONTEST', 82, 22, palette.accent);
-    line(QSL.t('QSL设计大赛-2026.11'), 143, 36);
-    line(QSL.t('作品编号：{n}', { n: String(work.number).padStart(3, '0') }), 195, 25, palette.muted);
+    line('QSLink', 450, 94, 48, 764, '#ffffff', 'center');
+    line(QSL.t('第一届QSLink杯QSL卡片设计大赛'), 450, 155, 30, 792, '#dce9df', 'center');
+    line(QSL.t('作品编号：{n}', { n: String(work.number).padStart(3, '0') }), 450, 207, 23, 764, '#a9c7b6', 'center');
+    ctx.fillStyle = '#0d1b1b'; ctx.beginPath(); ctx.roundRect(48, 250, 804, 664, 24); ctx.fill();
     if (img) {
-      const scale = Math.min(764 / img.naturalWidth, 620 / img.naturalHeight);
+      const scale = Math.min(780 / img.naturalWidth, 640 / img.naturalHeight);
       const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
-      ctx.drawImage(img, (900 - w) / 2, 242 + (620 - h) / 2, w, h);
+      ctx.save(); ctx.beginPath(); ctx.roundRect(60, 262, 780, 640, 16); ctx.clip();
+      ctx.drawImage(img, (900 - w) / 2, 262 + (640 - h) / 2, w, h); ctx.restore();
     }
-    line(card.title || QSL.t('未命名卡片'), 938, 36);
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(48, 946, 804, 352, 24); ctx.fill();
+    line(card.title || QSL.t('未命名卡片'), 78, 1009, 31, 452, '#172a27');
     const owner = card.owner || {};
-    line([owner.displayName || owner.username, card.callSign || owner.callSign].filter(Boolean).join(' · '), 990, 23, palette.muted);
+    line([owner.displayName || owner.username, card.callSign || owner.callSign].filter(Boolean).join(' · '), 78, 1055, 22, 452, '#5e7169');
+    line(QSL.t('喜欢这张设计？'), 78, 1124, 29, 452, '#172a27');
+    line(QSL.t('扫码投我一票！'), 78, 1174, 32, 452, '#286b51');
+    line(new URL(url).host, 78, 1245, 18, 452, '#5e7169');
     const qr = QSL.qr.canvas(url, 6, 240);
-    ctx.fillStyle = '#fff'; ctx.fillRect(68, 1052, 256, 256);
-    ctx.drawImage(qr, 68 + Math.floor((256 - qr.width) / 2), 1052 + Math.floor((256 - qr.height) / 2));
-    ctx.fillStyle = palette.ink; ctx.font = '28px ' + sans;
-    ctx.fillText(QSL.t('扫码欣赏作品'), 358, 1130);
-    ctx.font = '23px ' + sans; ctx.fillStyle = palette.accent;
-    ctx.fillText(QSL.t('为喜欢的设计投一票'), 358, 1180);
-    ctx.font = '18px ' + sans; ctx.fillStyle = palette.muted;
-    ctx.fillText(new URL(url).host, 358, 1230);
-    line(QSL.t('每一张 QSL 卡片，都有自己的设计故事。'), 1370, 20, palette.muted);
+    ctx.drawImage(qr, 566 + Math.floor((256 - qr.width) / 2), 982 + Math.floor((256 - qr.height) / 2));
+    line(QSL.t('扫码支持'), 694, 1266, 20, 256, '#286b51', 'center');
+    line(QSL.t('保存分享图，邀请朋友为好设计加油。'), 450, 1362, 24, 792, '#dce9df', 'center');
     if (signal.aborted) throw new Error(QSL.t('已取消生成'));
     return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error(QSL.t('图片生成失败'))), 'image/png'));
   }

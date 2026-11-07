@@ -10,9 +10,9 @@
   function rules() {
     const sections = [
       { title: QSL.t('参赛规则'), icon: 'cards', items: [
-        QSL.t('参赛卡片须先上传至卡片广场供大家换卡，通过广场审核后，再选择本人卡片提交比赛报名。每个账号保留一份报名，可修改后重新提交。'),
-        QSL.t('比赛采用一轮投票制：每个账号按北京时间每日最多投 1 票，本赛事累计最多投 3 票；对每件作品仅可投 1 次，投出后不可撤回，允许投给自己的作品。每个呼号仅可获得其最高名次的一项奖。'),
-        QSL.t('投票时账号须正常可用，且当前至少有一张审核通过、可在公开广场展示的本人卡片；无需报名参赛。投票起止时间以赛事公布的安排为准，请从参赛作品列表进入作品详情投票，列表不提供快捷投票。'),
+        QSL.t('参赛卡片须先上传至卡片广场供大家换卡，通过广场审核后，再选择本人卡片提交比赛报名。每个账号保留一份报名，最多选择 2 件作品，可修改后重新提交。'),
+        QSL.t('比赛采用一轮投票制：每个账号全赛期累计最多投 5 票，可投给五个不同作品，无每日限制；对每件作品最多投 1 票，投出后不可撤回，允许投给自己的作品。每个呼号仅可获得其最高名次的一项奖。'),
+        QSL.t('账号正常可用即可投票，无需拥有广场卡片，也无需报名参赛。投票起止时间以赛事公布的安排为准，请从参赛作品列表进入作品详情投票，列表不提供快捷投票。'),
         QSL.t('报名开始、截止日期及完整赛程待公布。当前可提交报名，后续安排请关注赛事动态。')
       ] },
       { title: QSL.t('评分规则'), icon: 'star', items: [
@@ -49,10 +49,10 @@
     const events = new AbortController();
     container.innerHTML = '<div class="f-contest container">' +
       '<header class="f-contest-hero"><div class="f-contest-hero-copy">' +
-      '<h1>' + text('第一届QSLink QSL 卡片设计大赛') + '</h1>' +
+      '<h1>' + text('第一届QSLink杯QSL卡片设计大赛') + '</h1>' +
       '<div class="f-contest-actions"><a class="btn btn-soft btn-lg" href="' + path + '#rules" data-link>' + text('参赛须知') + '</a>' +
       '<a class="btn btn-primary btn-lg" href="' + path + '/registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 18) + '</a></div></div>' +
-      '<figure class="f-contest-hero-figure"><img class="f-contest-hero-image" src="/assets/contest-trophy.webp" width="1121" height="1403" alt="' + text('QSL 卡片设计大赛') + '" decoding="async">' +
+      '<figure class="f-contest-hero-figure"><img class="f-contest-hero-image" src="/assets/contest-trophy.webp" width="1121" height="1403" alt="' + text('第一届QSLink杯QSL卡片设计大赛') + '" decoding="async">' +
       '<figcaption>' + text('此为奖杯样式图，真实的奖杯中的图片背景会用参赛的卡片制成哦') + '</figcaption></figure></header>' +
       '<section class="f-contest-section" aria-labelledby="contest-news-title"><div class="f-contest-section-head"><span class="eyebrow">01</span>' +
       '<h2 id="contest-news-title">' + text('赛事动态') + '</h2></div>' + prizes() + '<div data-news aria-live="polite"></div>' +
@@ -133,5 +133,5 @@
     };
   }
 
-  QSL.registerPage('qsl-design-contest', { title: QSL.t('QSL设计大赛-2026.11'), render });
+  QSL.registerPage('qsl-design-contest', { title: QSL.t('第一届QSLink杯QSL卡片设计大赛'), render });
 })();

@@ -72,23 +72,22 @@ async function testContestVoting() {
     assert.equal(result.body.voting.revision, previous.revision + 1);
     return result.body.voting;
   }
-  const movePreviousVotes = () => f.db.transaction(unit => unit.client.query('UPDATE "contestVotes" SET "voteDate"="voteDate"-10, "createdAt"="createdAt"-interval \'10 days\' WHERE "userId"=$1', ['voter']), { write: true });
   try {
     await f.db.transaction(unit => {
-      for (const id of ['admin', 'author', 'author2', 'voter', 'racer', 'ineligible']) {
+      for (const id of ['admin', 'author', 'author2', 'author3', 'voter', 'racer', 'ineligible']) {
         unit.insert('users', { id, username: id === 'voter' ? formulaUser : id, email: id + '@example.test', displayName: id,
           callSign: id === 'voter' ? formulaCallSign : '', bio: '', avatarColor: '#123456', role: id === 'admin' ? 'admin' : 'user',
           status: 'active', passwordHash: 'private-password-hash', address: null, createdAt: iso(0), updatedAt: iso(0) });
       }
-      for (const [id, ownerId, status] of [['work1', 'author', 'approved'], ['work2', 'author', 'approved'], ['work3', 'author', 'approved'],
-        ['work4', 'author2', 'approved'], ['voter-card', 'voter', 'approved'], ['racer-card', 'racer', 'approved'], ['pending-card', 'ineligible', 'pending']]) {
+      for (const [id, ownerId, status] of [['work1', 'author', 'approved'], ['work2', 'author', 'approved'], ['work3', 'author2', 'approved'],
+        ['work4', 'author2', 'approved'], ['work5', 'author3', 'approved'], ['work6', 'author3', 'approved']]) {
         unit.insert('cards', { id, ownerId, title: id === 'work1' ? formulaTitle : id, callSign: '', band: '', mode: '', notes: '', stock: null,
           backImage: '', ratio: { w: 3, h: 2 }, frontImage: '/uploads/test.png', shareToken: 'private-share-' + id, status,
           rejectReason: null, createdAt: iso(0), updatedAt: iso(0) });
       }
     }, { write: true });
     const works = [];
-    for (const [viewer, cardIds] of [['author', ['work1', 'work2', 'work3']], ['author2', ['work4']]]) {
+    for (const [viewer, cardIds] of [['author', ['work1', 'work2']], ['author2', ['work3', 'work4']], ['author3', ['work5', 'work6']]]) {
       const entry = (await call('PUT', entryPath, { viewer, body: { contactEmail: privateEmail,
         works: cardIds.map(cardId => ({ cardId, description: '投票测试作品' })) } })).body.entry;
       const approved = (await call('PUT', reviewPath, { viewer: 'admin', id: entry.id,
@@ -96,9 +95,9 @@ async function testContestVoting() {
       works.push(...approved.works);
     }
     const ids = works.map(work => work.id);
-    assert.equal(ids.length, 4);
-    assert.deepEqual(await settings(), { startsAt: null, endsAt: null, isOpen: false, eligible: false,
-      votesUsed: 0, votedToday: false, votedWorkIds: [], revision: 0 });
+    assert.equal(ids.length, 6);
+    assert.deepEqual(await settings(), { startsAt: null, endsAt: null, isOpen: false, eligible: true,
+      votesUsed: 0, votedWorkIds: [], revision: 0 });
     await rejects(vote(ids[0], { viewer: null }), 401);
     for (const [method, pattern] of [['GET', settingsPath], ['PUT', settingsPath], ['GET', exportPath]]) {
       await rejects(call(method, pattern, { viewer: null }), 401);
@@ -124,6 +123,8 @@ async function testContestVoting() {
       await rejects(call('PUT', settingsPath, { viewer: 'admin', body }), 400);
     }
     await rejects(call('PUT', settingsPath, { viewer: 'admin', body: { startsAt: iso(-day), endsAt: iso(day), expectedRevision: 0 } }), 409, 'REVISION_CONFLICT');
+    assert.equal((await detail(ids[0], { viewer: 'voter' })).voting.eligible, true, 'active accounts without cards can vote');
+    await f.db.transaction(unit => { unit.find('users', user => user.id === 'ineligible').status = 'banned'; }, { write: true });
     assert.equal((await detail(ids[0], { viewer: 'ineligible' })).voting.eligible, false);
     await rejects(vote(ids[0], { viewer: 'ineligible' }), 403);
     for (const body of [{}, { fingerprint: 123 }, { fingerprint: 'x'.repeat(8193) }]) await rejects(vote(ids[0], { body }), 400);
@@ -142,30 +143,53 @@ async function testContestVoting() {
     await rejects(vote('missing'), 404);
     await call('POST', '/api/cards/:id/like', { id: 'work1', routes: cards.routes });
     const likesBefore = await f.db.transaction(unit => structuredClone(unit.data.likes));
+    await f.db.transaction(async unit => {
+      await unit.client.query('ALTER TABLE "contestVotes" DROP CONSTRAINT "contestVotes_slot_check", ADD CONSTRAINT "contestVotes_slot_check" CHECK (slot BETWEEN 1 AND 3), ADD CONSTRAINT "contestVotes_eventKey_voterKey_voteDate_key" UNIQUE ("eventKey", "voterKey", "voteDate")');
+      await unit.client.query('DELETE FROM schema_migrations WHERE version=18');
+    }, { write: true });
+    for (let index = 0; index < 3; index++) {
+      await vote(ids[index], { viewer: 'racer' });
+      await f.db.transaction(unit => unit.client.query('UPDATE "contestVotes" SET "voteDate"="voteDate"-1, "createdAt"="createdAt"-interval \'1 day\' WHERE "userId"=$1', ['racer']), { write: true });
+    }
+    const legacyVotes = await rows();
+    const legacySettings = await settings();
+    const legacyWorks = await f.db.transaction(unit => structuredClone(unit.data.contestWorks));
+    const legacySecret = await f.db.transaction(async unit => (await unit.client.query("SELECT value FROM app_meta WHERE key='contestVotingSecret'")).rows[0].value);
+    await f.db.migrate();
+    await f.db.migrate();
+    assert.deepEqual(await rows(), legacyVotes, '018 replay preserves every historical audit column');
+    assert.deepEqual(await settings(), legacySettings, '018 preserves voting settings and revision');
+    assert.deepEqual(await f.db.transaction(unit => unit.data.contestWorks), legacyWorks, '018 preserves work identities');
+    assert.equal(await f.db.transaction(async unit => (await unit.client.query("SELECT value FROM app_meta WHERE key='contestVotingSecret'")).rows[0].value), legacySecret);
+    assert.equal((await detail(ids[0], { viewer: 'racer' })).voting.votesUsed, 3, 'historical votes occupy the new quota');
+    await rejects(vote(ids[0], { viewer: 'racer' }), 409, 'WORK_ALREADY_VOTED');
     const first = (await vote(ids[0])).body;
-    assert.equal(first.work.voteCount, 1);
+    assert.equal(first.work.voteCount, 2);
     assert.equal(first.work.card.likeCount, 1);
     assert.deepEqual(first.voting.votedWorkIds, [ids[0]]);
     assert.equal(first.voting.votesUsed, 1);
-    assert.equal(first.voting.votedToday, true);
+    assert.equal(Object.hasOwn(first.voting, 'votedToday'), false);
     assert.equal(first.voting.eligible, true);
     assert.deepEqual(await f.db.transaction(unit => unit.data.likes), likesBefore, 'votes never mutate likes');
     await rejects(vote(ids[0]), 409, 'WORK_ALREADY_VOTED');
-    await rejects(vote(ids[1]), 409, 'DAILY_VOTE_LIMIT');
-    await movePreviousVotes();
-    assert.equal((await detail(ids[0])).voting.votedToday, false);
+    for (let index = 1; index < 5; index++) assert.equal((await vote(ids[index])).body.voting.votesUsed, index + 1);
+    const sameDayVotes = (await rows()).filter(row => row.userId === 'voter');
+    assert.equal(new Set(sameDayVotes.map(row => row.voteDate)).size, 1, 'five different works can be voted on the same day');
+    await rejects(vote(ids[5]), 409, 'TOTAL_VOTE_LIMIT');
+    await f.db.transaction(unit => unit.client.query('UPDATE "contestVotes" SET "voteDate"="voteDate"-10, "createdAt"="createdAt"-interval \'10 days\' WHERE "userId"=$1', ['voter']), { write: true });
+    await rejects(vote(ids[5]), 409, 'TOTAL_VOTE_LIMIT');
     await rejects(vote(ids[0]), 409, 'WORK_ALREADY_VOTED');
-    assert.equal((await vote(ids[1])).body.voting.votesUsed, 2);
-    await movePreviousVotes();
-    assert.equal((await vote(ids[2])).body.voting.votesUsed, 3);
-    await movePreviousVotes();
-    await rejects(vote(ids[3]), 409, 'TOTAL_VOTE_LIMIT');
-    const concurrent = await Promise.allSettled([vote(ids[3], { viewer: 'racer' }), vote(ids[2], { viewer: 'racer', db: second })]);
+    const duplicate = await Promise.allSettled([vote(ids[3], { viewer: 'racer' }), vote(ids[3], { viewer: 'racer', db: second })]);
+    assert.equal(duplicate.filter(result => result.status === 'fulfilled').length, 1);
+    assert.equal(duplicate.find(result => result.status === 'rejected').reason.code, 'WORK_ALREADY_VOTED');
+    const concurrent = await Promise.allSettled([vote(ids[4], { viewer: 'racer' }), vote(ids[5], { viewer: 'racer', db: second })]);
     assert.equal(concurrent.filter(result => result.status === 'fulfilled').length, 1);
-    assert.equal(concurrent.find(result => result.status === 'rejected').reason.status, 409);
+    assert.equal(concurrent.find(result => result.status === 'rejected').reason.code, 'TOTAL_VOTE_LIMIT');
     const votes = await rows();
-    assert.equal(votes.length, 4);
-    assert.equal(votes.filter(item => item.userId === 'racer').length, 1);
+    assert.equal(votes.length, 10);
+    assert.equal(votes.filter(item => item.userId === 'racer').length, 5);
+    for (const userId of ['voter', 'racer']) assert.deepEqual(votes.filter(row => row.userId === userId).map(row => row.slot), [1, 2, 3, 4, 5]);
+    assert.deepEqual(votes.filter(row => legacyVotes.some(legacy => legacy.id === row.id)), legacyVotes, 'new votes retain legacy audit records unchanged');
     const secret = await f.db.transaction(async unit => (await unit.client.query("SELECT value FROM app_meta WHERE key='contestVotingSecret'")).rows[0].value);
     assert.match(secret, /^[a-f0-9]{64}$/);
     const hmac = (purpose, value) => crypto.createHmac('sha256', secret).update(JSON.stringify([purpose, eventKey, value])).digest('hex');
@@ -197,7 +221,7 @@ async function testContestVoting() {
     assert.deepEqual(workbook.worksheets.map(sheet => sheet.name), ['作品汇总', '逐票明细']);
     const summary = workbook.getWorksheet('作品汇总');
     const details = workbook.getWorksheet('逐票明细');
-    assert.equal(summary.rowCount, 5);
+    assert.equal(summary.rowCount, ids.length + 1);
     assert.equal(details.rowCount, votes.length + 1);
     assert.equal(summary.getRow(1).getCell(10).value, '票数');
     assert.equal(details.getRow(1).getCell(9).value, '投票日期（北京时间）');
@@ -249,11 +273,11 @@ async function testContestVoting() {
     for (const work of (await call('GET', worksPath, { viewer: null })).body.items) {
       assert.equal(work.voteCount, votes.filter(row => row.workId === work.id).length);
     }
-    await rejects(vote(ids[3]), 409, 'TOTAL_VOTE_LIMIT');
+    await rejects(vote(ids[5]), 409, 'TOTAL_VOTE_LIMIT');
     await call('DELETE', '/api/admin/users/:id', { viewer: 'admin', id: 'voter', routes: admin.routes });
     assert.ok((await rows()).filter(row => votes.some(v => v.id === row.id && v.userId === 'voter')).every(row => row.userId === null));
     await call('DELETE', '/api/cards/:id', { viewer: 'author', id: 'work1', routes: cards.routes });
-    for (const id of ['author', 'author2']) await call('DELETE', '/api/admin/users/:id', { viewer: 'admin', id, routes: admin.routes });
+    for (const id of ['author', 'author2', 'author3']) await call('DELETE', '/api/admin/users/:id', { viewer: 'admin', id, routes: admin.routes });
     const retained = await rows();
     assert.deepEqual(retained.map(row => row.id), votes.map(row => row.id));
     assert.deepEqual(retained.map(row => [row.voterKey, row.workId]), votes.map(row => [row.voterKey, row.workId]));
@@ -270,11 +294,11 @@ async function testContestVoting() {
     assert.equal((await call('GET', worksPath, { viewer: null })).body.total, 0);
     const historical = new ExcelJS.Workbook();
     await historical.xlsx.load((await call('GET', exportPath, { viewer: 'admin' })).body);
-    assert.equal(historical.getWorksheet('作品汇总').rowCount, 5);
-    assert.equal(historical.getWorksheet('逐票明细').rowCount, 5);
+    assert.equal(historical.getWorksheet('作品汇总').rowCount, ids.length + 1);
+    assert.equal(historical.getWorksheet('逐票明细').rowCount, votes.length + 1);
     const deletedVoterRows = [];
     historical.getWorksheet('逐票明细').eachRow((row, index) => { if (index > 1 && row.getCell(7).value === '已注销') deletedVoterRows.push(row); });
-    assert.equal(deletedVoterRows.length, 3);
+    assert.equal(deletedVoterRows.length, 5);
     for (const row of deletedVoterRows) {
       assert.ok(!row.getCell(4).value);
       assert.ok(!row.getCell(5).value);
@@ -301,8 +325,8 @@ export async function testContests() {
   const assertApprovedCount = async (count) => {
     const result = await call(contests.routes, 'GET', publicPath, { viewer: null });
     const { contest, voting } = result.body;
-    assert.deepEqual(contest, { key: eventKey, title: '第一届QSLink QSL 卡片设计大赛', approvedRegistrationCount: count });
-    assert.deepEqual(Object.keys(voting).sort(), ['eligible', 'endsAt', 'isOpen', 'startsAt', 'votedToday', 'votedWorkIds', 'votesUsed']);
+    assert.deepEqual(contest, { key: eventKey, title: '第一届QSLink杯QSL卡片设计大赛', approvedRegistrationCount: count });
+    assert.deepEqual(Object.keys(voting).sort(), ['eligible', 'endsAt', 'isOpen', 'startsAt', 'votedWorkIds', 'votesUsed']);
     assert.ok(!/contactEmail|fingerprint|voterKey|passwordHash/.test(JSON.stringify(result.body)), 'public contest excludes private registration and vote data');
   };
   const description = '<script>alert(1)</script> 作品说明';
@@ -375,7 +399,7 @@ export async function testContests() {
     await rejects(submit({ ...payload, works: selected(['missing']) }), 400);
     await rejects(submit({ ...payload, works: selected(['foreign']) }), 400);
     for (const cardId of ['pending', 'rejected']) await rejects(submit({ ...payload, works: selected([cardId]) }), 400);
-    for (const cardIds of [[], ['target', 'target'], ['target', 'replacement', 'extra1', 'extra2'], ['target', 7]]) await rejects(submit({ ...payload, works: selected(cardIds) }), 400);
+    for (const cardIds of [[], ['target', 'target'], ['target', 'replacement', 'extra1'], ['target', 'replacement', 'extra1', 'extra2'], ['target', 7]]) await rejects(submit({ ...payload, works: selected(cardIds) }), 400);
     let entry = await submit({ ...payload, userId: 'other', status: 'approved', revision: 99, reviewReason: 'forged' });
     assert.equal(entry.userId, 'owner');
     assert.deepEqual(entry.cardIds, ['target']);
@@ -398,12 +422,14 @@ export async function testContests() {
     assert.equal((await get()).id, entry.id);
     assert.equal((await second.transaction(unit => unit.find('contestEntries', item => item.id === entry.id))).contactEmail, payload.contactEmail);
     assert.equal(await f.db.transaction(unit => unit.find('users', item => item.id === 'owner').email), 'owner@example.test', 'entry contact does not change account email');
-    const multi = await submit({ ...payload, works: selected(['target', 'replacement', 'extra1']), expectedRevision: entry.revision });
-    assert.deepEqual(multi.cardIds, ['target', 'replacement', 'extra1']);
-    assert.equal(multi.cards.length, 3);
+    await rejects(submit({ ...payload, works: selected(['target', 'replacement', 'extra1']), expectedRevision: entry.revision }), 400);
+    assert.equal((await get()).revision, entry.revision, 'over-limit update leaves the entry unchanged');
+    const multi = await submit({ ...payload, works: selected(['target', 'replacement']), expectedRevision: entry.revision });
+    assert.deepEqual(multi.cardIds, ['target', 'replacement']);
+    assert.equal(multi.cards.length, 2);
     const approvedMulti = await review(multi);
     assert.equal(multi.works[0].submittedAt, originalWork.submittedAt);
-    assert.deepEqual(approvedMulti.works.map(work => work.number), [1, 2, 3]);
+    assert.deepEqual(approvedMulti.works.map(work => work.number), [1, 2]);
     await f.db.transaction(unit => {
       unit.find('cards', item => item.id === 'target').callSign = 'BH1AbC';
       unit.find('cards', item => item.id === 'replacement').callSign = 'BH2XYZ';
@@ -414,11 +440,11 @@ export async function testContests() {
       unit.find('users', item => item.id === 'owner').status = 'active';
       unit.find('cards', item => item.id === 'target').status = 'pending';
     }, { write: true });
-    assert.equal((await publicWorks()).total, 2);
+    assert.equal((await publicWorks()).total, 1);
     await f.db.transaction(unit => { unit.find('cards', item => item.id === 'target').status = 'approved'; }, { write: true });
     const firstPage = await publicWorks('limit=1');
-    assert.equal(firstPage.total, 3);
-    assert.equal(firstPage.pages, 3);
+    assert.equal(firstPage.total, 2);
+    assert.equal(firstPage.pages, 2);
     assert.deepEqual(Object.keys(firstPage.items[0]).sort(), ['card', 'description', 'id', 'number', 'submittedAt', 'voteCount']);
     assert.equal(firstPage.items[0].card.owner.id, 'owner');
     assert.ok(firstPage.items[0].card.frontImage);
@@ -603,7 +629,7 @@ export async function testContests() {
     otherEntry = await submit({ ...payload, works: selected(['after_tombstone']), expectedRevision: otherEntry.revision }, { viewer: 'other' });
     assert.equal(otherEntry.works[0].number, maxNumber + 1);
     await f.db.transaction(unit => {
-      assert.ok(unit.data.contestWorks.filter(work => [1, 2, 3].includes(work.number)).every(work => work.cardId === null && work.entryId === null && work.description === ''));
+      assert.ok(unit.data.contestWorks.filter(work => [1, 2].includes(work.number)).every(work => work.cardId === null && work.entryId === null && work.description === ''));
     });
     await testContestVoting();
     console.log('[contests] migration, numbered works, permissions, privacy, search, pagination, revisions, moderation, tombstones and voting passed');

@@ -42,7 +42,7 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 | `/` | `home` | 公开 |
 | `/explore` | `explore` | 公开 |
 | `/events/qsl-design-2026-11` | `qsl-design-contest` | 公开，比赛信息、赛事动态、奖品进度及参赛须知 |
-| `/events/qsl-design-2026-11/registration` | `qsl-design-registration` | 公开入口，报名需登录；每账号 1–3 张本人审核通过卡片，各自必填 1–2000 字作品说明 |
+| `/events/qsl-design-2026-11/registration` | `qsl-design-registration` | 公开入口，报名需登录；每账号 1–2 张本人审核通过卡片，各自必填 1–2000 字作品说明 |
 | `/events/qsl-design-2026-11/works` | `qsl-design-works` | 公开参赛作品，按首次参赛时间/固定编号升序；`q` 搜索呼号或数字编号；只读票数，不提供快捷投票 |
 | `/events/qsl-design-2026-11/works/:id` | `qsl-design-work-detail` | 公开独立作品详情；`:id` 为作品 ID；投票需登录并由服务端校验资格与限额 |
 | `/space/:uid` | `space` | 公开，九位 UID |
@@ -62,15 +62,15 @@ js/core.js → api.js → ui.js → effects.js → card3d.js
 
 赛事顶栏按钮控制三项子导航平滑展开与内部容器增宽；首次展开进入比赛信息，深链保持对应选中项，支持 Escape、点击外侧关闭及 reduced-motion。手机菜单纵向展开。
 
-报名提交 `works: [{ cardId, description }]`，每张已选作品旁提供作品说明弹窗；保存弹窗仅修改页面草稿，最终提交报名才持久化。移除再加保留本页草稿，离页清理。每赛事卡片固定数字编号（显示为 001 起），按首次参赛时间升序；移除或删除不回收编号。公开作品仅限报名及卡片审核通过且账号正常的记录，不包含联系邮箱或审核备注。
+第一届QSLink杯QSL卡片设计大赛报名提交 `works: [{ cardId, description }]`，新提交选择 1–2 件作品；历史超额或当前不可参赛作品仍完整展示，不自动截断、隐藏或移除，更新前由用户明确调整选择。每张已选作品旁提供作品说明弹窗；保存弹窗仅修改页面草稿，最终提交报名才持久化。移除再加保留本页草稿，离页清理。每赛事卡片固定数字编号（显示为 001 起），按首次参赛时间升序；移除或删除不回收编号。公开作品仅限报名及卡片审核通过且账号正常的记录，不包含联系邮箱或审核备注。
 
 ### 赛事作品投票
 
 作品列表项使用独立作品 `id` 链接到 `/events/qsl-design-2026-11/works/:id`，不以卡片 ID 或固定展示编号代替。列表保留图片、呼号、编号及作品说明入口，并只读显示 `voteCount`；票箱仅作计票展示，不提供列表快捷投票。作品详情请求 `GET /api/contests/:eventKey/works/:id`，使用 `{ work, voting }` 展示作品双面图片、说明、票数及投票状态；不可公开的作品遵循服务端 404，不用缓存内容绕过审核。
 
-投票规则按账号而非呼号：北京时间（UTC+8）每日最多 1 票、本赛事共 3 票，每作品仅可投 1 次，不可撤回，允许自投。账号必须正常可用，且投票时当前至少有一张审核通过、可在公开广场展示的本人卡片，无需报名参赛。`voting` 包含 `startsAt`、`endsAt`、`isOpen`、`eligible`、`votesUsed`、`votedToday`、`votedWorkIds`；未配置时不开放。资格与开放、剩余票数是不同状态，界面分别说明，不能将 `eligible` 单独当作可投标志。时间展示明确为北京时间，不依赖访客本地时区。
+投票规则按账号而非呼号：每账号全赛期累计最多 5 票，可投给五个不同作品，无每日限制，每作品最多投 1 票，不可撤回，允许自投。账号正常可用（active）即可，无需拥有广场卡片或报名参赛。`voting` 包含 `startsAt`、`endsAt`、`isOpen`、`eligible`、`votesUsed`、`votedWorkIds`，不返回 `votedToday`；未配置时不开放。资格与开放、剩余票数是不同状态，界面分别说明，不能将 `eligible` 单独当作可投标志。时间展示明确为北京时间，不依赖访客本地时区。
 
-详情通过 `POST /api/contests/:eventKey/works/:id/vote` 提交 `{ fingerprint }`，成功后以 `{ work, voting }` 更新票数和状态，不先行乐观加票。提交中禁用按钮，失败保留作品并显示错误；重复作品、当天已投、累计票数用完或时段结束均以服务端结果为准。规则和投票确认文案只说明规则与不可撤回；浏览器诊断摘要的用户告知仅置于中英文隐私政策，不在规则或投票弹窗重复提示、不增加独立同意框。页面退出后忽略未完成响应并释放监听、计时器、观察器及 3D 实例。
+详情通过 `POST /api/contests/:eventKey/works/:id/vote` 提交 `{ fingerprint }`，成功后以 `{ work, voting }` 更新票数和状态，不先行乐观加票。提交中禁用按钮，失败保留作品并显示错误；重复作品、累计票数用完或时段结束均以服务端结果为准。规则和投票确认文案只说明规则与不可撤回；浏览器诊断摘要的用户告知仅置于中英文隐私政策，不在规则或投票弹窗重复提示、不增加独立同意框。页面退出后忽略未完成响应并释放监听、计时器、观察器及 3D 实例。
 
 后台仅管理员可读取和保存 `/api/admin/contests/:eventKey/voting`，以北京时间编辑起止时间并显式转换时区，提交 `{ startsAt, endsAt, expectedRevision }`；使用返回的 `voting.revision` 防止旧表单覆盖新配置，冲突时刷新并提示。`GET /api/admin/contests/:eventKey/votes.xlsx` 下载真实 XLSX，含“作品汇总”和“逐票明细”两表，不能以改扩展名的 CSV 冒充。下载通过有鉴权的请求处理，不把令牌放入 URL；后台入口隐藏不代替服务端管理员校验。详细响应和错误码见 `docs/API.md`。
 

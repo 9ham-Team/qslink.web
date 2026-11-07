@@ -351,15 +351,17 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 需要登录。以服务端当前用户身份保存此公告的“不再提醒”偏好；无需请求体，忽略客户端传入的用户 ID。成功 `200 → { dismissed: true }`，重复提交幂等；游客 `401`，禁用用户 `403`，不存在或未发布公告 `404`。偏好保存在数据库，跨设备、重新登录以及此公告编辑 / 撤下再发布后仍生效；新建公告使用新 ID，独立提醒。不会从公告板隐藏公告，也不返回其他用户的偏好。
 
-## QSL 设计大赛（2026.11）
+## 第一届QSLink杯QSL卡片设计大赛
 
 本届 `eventKey` 固定为 `qsl-design-2026-11`，其他赛事键返回 404。公开页面为 `/events/qsl-design-2026-11`，独立作品详情路由为 `/events/qsl-design-2026-11/works/:id`（`:id` 为作品 ID，不是卡片 ID 或展示编号）。本轮提供赛事动态、逐作品报名、报名审核、公开参赛作品及投票，不提供评分计算或证照上传接口。作品列表只读展示票数，不提供快捷投票；投票在作品详情发起。未明确的赛期、完整评分和奖品细则在页面标注待公布。
 
-投票按账号而非呼号计限额：正常可用账号在投票时须当前至少有一张审核通过、可在公开广场展示的本人卡片，无需报名参赛；每账号北京时间（UTC+8）每日最多 1 票、本赛事累计最多 3 票，每作品仅可投 1 次，投出不可撤回，允许自投。时间窗口与账号、资格、目标作品状态及票数限制均由服务端校验，不能仅依赖前端禁用按钮。票数不直接代表最终得分或获奖结果。
+投票按账号而非呼号计限额：正常可用（active）账号即可投票，无需拥有广场卡片或报名参赛；每账号全赛期累计最多 5 票，可投给五个不同作品，无每日限制，每作品最多投 1 票，投出不可撤回，允许自投。时间窗口与账号、资格、目标作品状态及票数限制均由服务端校验，不能仅依赖前端禁用按钮。票数不直接代表最终得分或获奖结果。
 
 迁移 `014_qsl_design_contest.sql` 新增报名表与公告范围字段，原有公告保留为全站公告。迁移 `015_contest_entry_cards.sql` 将单卡引用 `cardId` 改为最多 3 张卡片的 `cardIds` 数组（升级时把原引用转换为单元素数组并删除旧列）；旧版程序无法读取升级后的报名表，回滚须另行评估数据兼容性，不能以镜像回退代替数据库恢复。
 
 迁移 `016_contest_works.sql` 新增独立 `contestWorks`，按旧报名 `createdAt`、ID、原选卡顺序分配编号，将总说明复制到每张作品，首次时间沿用报名创建时间（无法恢复历史逐卡加选时间）。删除报名级 `cardIds/description` 列，以作品为唯一来源。新编号在现有写事务锁内按含停用与墓碑的最大编号加一分配，赛事内编号与卡片关联均有唯一约束；SQL 删除与应用删除均清除关联说明并留墓碑。发布前须备份数据库，恢复旧镜像不构成数据回滚。
+
+迁移 `018_contest_voting_limits.sql` 将投票槽位扩大为 1–5，移除每日唯一约束，保留同账号同作品唯一约束及全部历史票、审计日期和 HMAC 密钥；历史票继续计入总额度。升级后不能直接运行旧版程序，恢复旧镜像不等于回滚数据库。
 
 ### GET /api/contests/:eventKey
 
@@ -373,24 +375,23 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 {
   startsAt, endsAt, // 含时区的 ISO 时间；未配置时为 null
   isOpen,          // 服务端当前时间满足 startsAt <= now < endsAt
-  eligible,        // 当前账号正常，且当前有审核通过、可公开展示的本人广场卡
-  votesUsed,       // 当前账号在本赛事已投票数，0–3
-  votedToday,      // 当前账号北京时间当天是否已投票
+  eligible,        // 当前账号正常可用（active），不要求拥有广场卡片
+  votesUsed,       // 当前账号在本赛事已投票数，0–5
   votedWorkIds     // 当前账号在本赛事已投过的作品 ID 数组
 }
 ```
 
-游客的 `eligible`、`votedToday` 为 `false`，`votesUsed` 为 `0`，`votedWorkIds` 为 `[]`；仍可读取投票时段和开放状态。`eligible` 不代表时段已开放或仍有剩余票数，客户端需结合各字段展示状态。北京时间每日 00:00 切换日期，不按浏览器本地时区或滚动 24 小时计算。
+游客的 `eligible` 为 `false`，`votesUsed` 为 `0`，`votedWorkIds` 为 `[]`；仍可读取投票时段和开放状态。`eligible` 不代表时段已开放或仍有剩余票数，客户端需结合各字段展示状态。无每日投票限制，不返回 `votedToday`。
 
 ### GET /api/contests/:eventKey/entry 🔒
 
-仅读取当前用户自己的报名，返回 `{ entry }`，未报名为 `{ entry: null }`。报名包含 `id`、`eventKey`、`userId`、`cardIds`、`cards`、`works`、`contactEmail`、`status`、`reviewReason`、`reviewedBy`、`reviewedAt`、`revision`、`createdAt`、`updatedAt`；`cardIds` 为 0–3 个卡片 ID，`cards` 为对应的卡片展示信息（卡片被删除后从数组中移除）。`works` 为 `[{ id, cardId, number, description, submittedAt, card }]`，按首次提交时间、编号正序；`cardIds/cards` 从当前作品派生，总 `description` 不再返回，审核相关字段保持不变。每届每卡编号固定，移除后重加恢复原编号及 `submittedAt`；`number` 为整数，客户端可补零显示。联系邮箱仅本人及管理员可见，不修改账号邮箱，不在报名时收集领奖证照。
+仅读取当前用户自己的报名，返回 `{ entry }`，未报名为 `{ entry: null }`。报名包含 `id`、`eventKey`、`userId`、`cardIds`、`cards`、`works`、`contactEmail`、`status`、`reviewReason`、`reviewedBy`、`reviewedAt`、`revision`、`createdAt`、`updatedAt`；`cardIds` 为当前关联的卡片 ID 数组（新提交最多 2 件，历史记录可能超过 2 件），`cards` 为对应的卡片展示信息（卡片被删除后从数组中移除）。`works` 为 `[{ id, cardId, number, description, submittedAt, card }]`，按首次提交时间、编号正序；`cardIds/cards` 从当前作品派生，总 `description` 不再返回，审核相关字段保持不变。每届每卡编号固定，移除后重加恢复原编号及 `submittedAt`；`number` 为整数，客户端可补零显示。联系邮箱仅本人及管理员可见，不修改账号邮箱，不在报名时收集领奖证照。
 
 ### PUT /api/contests/:eventKey/entry 🔒
 
-body：`{ works: [{ cardId, description }], contactEmail, expectedRevision? }`，`works` 必须包含 1–3 张不重复的卡片，每张作品的 `description` 必填，去除首尾空白后为 1–2000 个 Unicode 字符，禁止 NUL。不再接收报名总说明或以 `cardIds` 选择作品。首次可省略 `expectedRevision`，更新已有报名必须携带当前版本。服务端逐张检查所选卡片属于当前用户且已通过广场审核，客户端不能指定报名用户、审核状态或审核人。
+body：`{ works: [{ cardId, description }], contactEmail, expectedRevision? }`，`works` 必须包含 1–2 张不重复的卡片，每张作品的 `description` 必填，去除首尾空白后为 1–2000 个 Unicode 字符，禁止 NUL。不再接收报名总说明或以 `cardIds` 选择作品。首次可省略 `expectedRevision`，更新已有报名必须携带当前版本。服务端逐张检查所选卡片属于当前用户且已通过广场审核，客户端不能指定报名用户、审核状态或审核人。
 
-- 每账号本届仅保留一份报名，数据库唯一约束保护并发请求；待审核、驳回、通过后修改均更新原记录。
+- 每账号本届仅保留一份报名，数据库唯一约束保护并发请求；待审核、驳回、通过后修改均更新原记录。历史超额作品不自动删除，读取仍完整返回；再次提交须由用户明确调整至最多 2 件，不能由客户端静默截断。
 - 有效修改递增 `revision`、转为 `pending` 并清空旧审核信息；没有实际变化的重复保存不撤销审核结果。
 - 旧版本更新返回 `409`，需重新读取再提交；非法字段为 `400`，未登录为 `401`。
 - 修改作品选择、逐作品说明或联系邮箱，整份报名重新待审核；任一当前作品卡片内容变化或失去广场通过状态时同样重新待审核，仅库存变化不影响赛事审核。删卡清除作品的卡片/报名关联及说明并保留编号墓碑，报名保留；删除用户清理报名及所有作品个人内容，编号不回收。
@@ -408,7 +409,7 @@ body：`{ works: [{ cardId, description }], contactEmail, expectedRevision? }`�
 
 body：`{ fingerprint }`，`fingerprint` 为浏览器诊断摘要字符串（最多 8192 字符），不是原始诊断材料；成功 `200 → { work, voting }`，返回最新作品票数与当前账号投票状态。此端点只追加一票，不提供撤回或改投。允许投给自己的作品，但仍须满足相同资格和限额。
 
-未登录为 `401`，账号不可用或当前没有审核通过、可公开展示的本人广场卡为 `403`；作品不存在或不可公开为 `404`；请求字段无效为 `400`。不在投票时段、同一作品已投、北京时间当天已投或赛事 3 票已用完为 `409`，分别使用 `VOTING_CLOSED`、`WORK_ALREADY_VOTED`、`DAILY_VOTE_LIMIT`、`TOTAL_VOTE_LIMIT`。服务端在事务内校验并以数据库约束保护并发，不因重复请求多记票。公开响应不返回诊断摘要或其他投票人信息；有关诊断摘要用途、保留及注销处理的用户告知仅置于隐私政策，不在赛事规则或投票弹窗重复展示。
+未登录为 `401`，账号不可用为 `403`；作品不存在或不可公开为 `404`；请求字段无效为 `400`。不在投票时段、同一作品已投或赛事 5 票已用完为 `409`，分别使用 `VOTING_CLOSED`、`WORK_ALREADY_VOTED`、`TOTAL_VOTE_LIMIT`。服务端在事务内校验并以数据库约束保护并发，不因重复请求多记票。公开响应不返回诊断摘要或其他投票人信息；有关诊断摘要用途、保留及注销处理的用户告知仅置于隐私政策，不在赛事规则或投票弹窗重复展示。
 
 ### GET /api/admin/contests/:eventKey/entries 🔒👑
 

@@ -24,7 +24,7 @@ function eligibleCard(db, cardId, userId) {
 }
 
 function parseWorks(db, value, userId) {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 3) throw badRequest({ works: '请选择 1–3 张不重复的本人卡片' });
+  if (!Array.isArray(value) || value.length < 1 || value.length > 2) throw badRequest({ works: '请选择 1–2 张不重复的本人卡片' });
   const works = value.map((work, index) => {
     if (!isObj(work) || !str(work.cardId)) throw badRequest({ works: '请选择有效卡片' });
     const description = str(work.description);
@@ -33,7 +33,7 @@ function parseWorks(db, value, userId) {
     }
     return { cardId: eligibleCard(db, str(work.cardId), userId).id, description };
   });
-  if (new Set(works.map((work) => work.cardId)).size !== works.length) throw badRequest({ works: '请选择 1–3 张不重复的本人卡片' });
+  if (new Set(works.map((work) => work.cardId)).size !== works.length) throw badRequest({ works: '请选择 1–2 张不重复的本人卡片' });
   return works;
 }
 
@@ -132,6 +132,7 @@ async function reviewEntry(ctx) {
   if (body.status === 'approved') {
     const works = entryWorks(ctx.db, entry);
     if (!works.length) throw badRequest({ works: '报名未关联可用卡片，不能批准' });
+    if (works.length > 2) throw badRequest({ works: '每人最多提交 2 件参赛作品，不能批准' });
     for (const work of works) eligibleCard(ctx.db, work.cardId, entry.userId);
   }
   const reviewReason = body.status === 'rejected' ? reason : null;

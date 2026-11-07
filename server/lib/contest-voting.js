@@ -49,11 +49,11 @@ async function voting(ctx, now = Date.now()) {
   const settings = (await ctx.db.client.query('SELECT "startsAt", "endsAt" FROM "contestVotingSettings" WHERE id=$1', [eventKey])).rows[0];
   const startsAt = settings && settings.startsAt ? settings.startsAt.toISOString() : null;
   const endsAt = settings && settings.endsAt ? settings.endsAt.toISOString() : null;
-  const eligible = !!(ctx.user && ctx.user.status === 'active' && ctx.db.data.cards.some((card) => card.ownerId === ctx.user.id && card.status === 'approved'));
-  const votes = ctx.user ? (await ctx.db.client.query('SELECT "workId", "voteDate"::text FROM "contestVotes" WHERE "eventKey"=$1 AND "voterKey"=$2 ORDER BY slot',
+  const eligible = !!(ctx.user && ctx.user.status === 'active');
+  const votes = ctx.user ? (await ctx.db.client.query('SELECT "workId" FROM "contestVotes" WHERE "eventKey"=$1 AND "voterKey"=$2 ORDER BY slot',
     [eventKey, digest(await secret(ctx.db), 'voter', eventKey, ctx.user.id)])).rows : [];
   return { startsAt, endsAt, isOpen: !!(startsAt && endsAt && now >= settings.startsAt.getTime() && now < settings.endsAt.getTime()),
-    eligible, votesUsed: votes.length, votedToday: votes.some((vote) => vote.voteDate === beijingDate(now)), votedWorkIds: votes.map((vote) => vote.workId) };
+    eligible, votesUsed: votes.length, votedWorkIds: votes.map((vote) => vote.workId) };
 }
 
 async function detail(ctx) {
@@ -70,10 +70,9 @@ async function vote(ctx) {
   const now = Date.now();
   const state = await voting(ctx, now);
   if (!state.isOpen) throw conflict('VOTING_CLOSED', '当前不在投票时间内');
-  if (!state.eligible) throw forbidden('须为可用账号且当前有已通过广场审核的卡片');
+  if (!state.eligible) throw forbidden('须为已登录的可用账号');
   if (state.votedWorkIds.includes(work.id)) throw conflict('WORK_ALREADY_VOTED', '已投过该作品');
-  if (state.votedToday) throw conflict('DAILY_VOTE_LIMIT', '北京时间每日只能投一票');
-  if (state.votesUsed >= 3) throw conflict('TOTAL_VOTE_LIMIT', '本赛事最多投三票');
+  if (state.votesUsed >= 5) throw conflict('TOTAL_VOTE_LIMIT', '本赛事最多投五票');
   const key = await secret(ctx.db);
   await ctx.db.client.query('INSERT INTO "contestVotes" (id,"eventKey","workId","userId","voterKey","voteDate",slot,"createdAt","fingerprintHash","fingerprintExpiresAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
     [createId('cv'), ctx.params.eventKey, work.id, user.id, digest(key, 'voter', ctx.params.eventKey, user.id), beijingDate(now), state.votesUsed + 1,

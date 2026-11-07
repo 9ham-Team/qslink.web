@@ -2,7 +2,7 @@
 
 const { notFound, badRequest } = require('./errors');
 
-const CONTEST = { key: 'qsl-design-2026-11', title: '第一届QSLink QSL 卡片设计大赛' };
+const CONTEST = { key: 'qsl-design-2026-11', title: '第一届QSLink杯QSL卡片设计大赛' };
 const CONTENT_FIELDS = ['title', 'callSign', 'band', 'mode', 'notes', 'ratio', 'frontImage', 'backImage'];
 
 function requireContest(key) {
