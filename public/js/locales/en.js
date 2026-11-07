@@ -5,6 +5,7 @@
   QSL.translations = QSL.translations || {};
   QSL.translations.en = {
   "比赛信息": "Contest info",
+  "冠军奖杯": "Champion trophy",
   "第一届QSLink杯QSL卡片设计大赛": "The 1st QSLink Cup QSL Card Design Contest",
   "喜欢这张设计？": "Love this design?",
   "扫码投我一票！": "Scan to vote for me!",

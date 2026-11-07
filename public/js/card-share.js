@@ -138,7 +138,7 @@
     canvas.width = 900; canvas.height = 1440;
     const ctx = canvas.getContext('2d');
     const sans = '"Microsoft YaHei", "PingFang SC", sans-serif';
-    ctx.fillStyle = '#142524'; ctx.fillRect(0, 0, 900, 1440);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 900, 1440);
     function line(value, x, y, size, width, color, align) {
       ctx.font = size + 'px ' + sans; ctx.fillStyle = color || '#ffffff';
       ctx.textAlign = align || 'left';
@@ -147,27 +147,26 @@
       if (label !== String(value || '')) label += '…';
       ctx.fillText(label, x, y);
     }
-    line('QSLink', 450, 94, 48, 764, '#ffffff', 'center');
-    line(QSL.t('第一届QSLink杯QSL卡片设计大赛'), 450, 155, 30, 792, '#dce9df', 'center');
-    line(QSL.t('作品编号：{n}', { n: String(work.number).padStart(3, '0') }), 450, 207, 23, 764, '#a9c7b6', 'center');
-    ctx.fillStyle = '#0d1b1b'; ctx.beginPath(); ctx.roundRect(48, 250, 804, 664, 24); ctx.fill();
+    const brand = ctx.createLinearGradient(350, 0, 550, 0);
+    brand.addColorStop(0, '#0eaf8f'); brand.addColorStop(.5, '#21c7b0'); brand.addColorStop(1, '#38bdf8');
+    line('QSLink', 450, 94, 48, 764, brand, 'center');
+    line(QSL.t('第一届QSLink杯QSL卡片设计大赛'), 450, 155, 30, 792, '#172a27', 'center');
+    line(QSL.t('作品编号：{n}', { n: String(work.number).padStart(3, '0') }), 450, 207, 23, 764, '#5e7169', 'center');
+    ctx.fillStyle = '#f0f7f5'; ctx.beginPath(); ctx.roundRect(48, 250, 804, 664, 24); ctx.fill();
     if (img) {
       const scale = Math.min(780 / img.naturalWidth, 640 / img.naturalHeight);
       const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
       ctx.save(); ctx.beginPath(); ctx.roundRect(60, 262, 780, 640, 16); ctx.clip();
       ctx.drawImage(img, (900 - w) / 2, 262 + (640 - h) / 2, w, h); ctx.restore();
     }
-    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(48, 946, 804, 352, 24); ctx.fill();
-    line(card.title || QSL.t('未命名卡片'), 78, 1009, 31, 452, '#172a27');
+    line(card.title || QSL.t('未命名卡片'), 60, 1009, 34, 780, '#172a27');
     const owner = card.owner || {};
-    line([owner.displayName || owner.username, card.callSign || owner.callSign].filter(Boolean).join(' · '), 78, 1055, 22, 452, '#5e7169');
-    line(QSL.t('喜欢这张设计？'), 78, 1124, 29, 452, '#172a27');
-    line(QSL.t('扫码投我一票！'), 78, 1174, 32, 452, '#286b51');
-    line(new URL(url).host, 78, 1245, 18, 452, '#5e7169');
+    line([owner.displayName || owner.username, card.callSign || owner.callSign].filter(Boolean).join(' · '), 60, 1055, 22, 780, '#5e7169');
+    ctx.fillStyle = '#dcebe6'; ctx.fillRect(60, 1092, 780, 1);
+    line(QSL.t('扫码投我一票！'), 60, 1210, 34, 460, '#0b806b');
+    line(new URL(url).host, 60, 1260, 20, 460, '#5e7169');
     const qr = QSL.qr.canvas(url, 6, 240);
-    ctx.drawImage(qr, 566 + Math.floor((256 - qr.width) / 2), 982 + Math.floor((256 - qr.height) / 2));
-    line(QSL.t('扫码支持'), 694, 1266, 20, 256, '#286b51', 'center');
-    line(QSL.t('保存分享图，邀请朋友为好设计加油。'), 450, 1362, 24, 792, '#dce9df', 'center');
+    ctx.drawImage(qr, 572 + Math.floor((268 - qr.width) / 2), 1120 + Math.floor((268 - qr.height) / 2));
     if (signal.aborted) throw new Error(QSL.t('已取消生成'));
     return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error(QSL.t('图片生成失败'))), 'image/png'));
   }

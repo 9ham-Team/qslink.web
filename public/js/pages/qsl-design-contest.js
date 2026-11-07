@@ -47,13 +47,15 @@
     let newsPage = 0;
     let newsPages = 0;
     const events = new AbortController();
+    const title = QSL.t('第一届QSLink杯QSL卡片设计大赛').split('QSLink').map(esc).join('<span class="f-contest-brand">QSLink</span>');
     container.innerHTML = '<div class="f-contest container">' +
-      '<header class="f-contest-hero"><div class="f-contest-hero-copy">' +
-      '<h1>' + text('第一届QSLink杯QSL卡片设计大赛') + '</h1>' +
+      '<div class="f-contest-intro"><header class="f-contest-hero"><div class="f-contest-hero-copy">' +
+      '<h1>' + title + '</h1>' +
       '<div class="f-contest-actions"><a class="btn btn-soft btn-lg" href="' + path + '#rules" data-link>' + text('参赛须知') + '</a>' +
-      '<a class="btn btn-primary btn-lg" href="' + path + '/registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 18) + '</a></div></div>' +
-      '<figure class="f-contest-hero-figure"><img class="f-contest-hero-image" src="/assets/contest-trophy.webp" width="1121" height="1403" alt="' + text('第一届QSLink杯QSL卡片设计大赛') + '" decoding="async">' +
-      '<figcaption>' + text('此为奖杯样式图，真实的奖杯中的图片背景会用参赛的卡片制成哦') + '</figcaption></figure></header>' +
+      '<a class="btn btn-primary btn-lg" href="' + path + '/registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 18) + '</a></div></div></header>' +
+      '<figure class="f-contest-hero-figure"><span class="f-contest-trophy-label">' + QSL.icon('trophy', 16) + text('冠军奖杯') + '</span>' +
+      '<div class="f-contest-trophy-stage"><img class="f-contest-hero-image" src="/assets/contest-trophy.webp" width="1121" height="1403" alt="' + text('第一届QSLink杯QSL卡片设计大赛') + '" decoding="async"></div>' +
+      '<figcaption>' + text('此为奖杯样式图，真实的奖杯中的图片背景会用参赛的卡片制成哦') + '</figcaption></figure></div>' +
       '<section class="f-contest-section" aria-labelledby="contest-news-title"><div class="f-contest-section-head"><span class="eyebrow">01</span>' +
       '<h2 id="contest-news-title">' + text('赛事动态') + '</h2></div>' + prizes() + '<div data-news aria-live="polite"></div>' +
       '<div class="f-contest-more"><button type="button" class="btn btn-soft" data-action="news" hidden>' + text('加载更多') + '</button></div></section>' +
