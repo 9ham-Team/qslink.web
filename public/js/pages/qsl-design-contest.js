@@ -47,7 +47,7 @@
       '<h1><span>' + text('第一届') + ' <span class="f-contest-brand">QSLink</span></span><span>' + text('QSL 卡片设计大赛') + '</span></h1>' +
       '<p class="f-contest-alt-subtitle">' + text('上传你的 QSL 卡片，参与评选，赢取十强好礼。') + '</p>' +
       '<div class="f-contest-alt-actions"><a class="btn btn-primary" href="' + path + '/registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 16) + '</a>' +
-      '<a class="btn btn-soft" href="' + path + '/alternate#rules" data-link>' + '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v15M12 5C9 3 5 3 3 4v14c3-1 6-1 9 2 3-3 6-3 9-2V4c-2-1-6-1-9 1Z"/></svg>' + text('参赛须知') + '</a></div>' +
+      '<a class="btn btn-soft" href="' + path + '#rules" data-link>' + '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v15M12 5C9 3 5 3 3 4v14c3-1 6-1 9 2 3-3 6-3 9-2V4c-2-1-6-1-9 1Z"/></svg>' + text('参赛须知') + '</a></div>' +
       '<p class="f-contest-alt-status">' + text('报名通道开放中 · 截止日期待公布') + '</p>' +
       '<dl class="f-contest-alt-stats"><div><dt>10<small>' + text('名') + '</small></dt><dd>' + text('实物奖品') + '</dd></div>' +
       '<div><dt>50<small> + </small>30</dt><dd>' + text('机器 + 人工评分') + '</dd></div>' +
@@ -64,11 +64,11 @@
     let newsPages = 0;
     const events = new AbortController();
     const title = QSL.t('第一届QSLink杯QSL卡片设计大赛').split('QSLink').map(esc).join('<span class="f-contest-brand">QSLink</span>');
-    const alternate = ctx.path === path + '/alternate';
+    const alternate = ctx.path !== path + '/alternate';
     container.innerHTML = '<div class="f-contest container' + (alternate ? ' f-contest--alternate' : '') + '">' +
       (alternate ? alternateHero() : '<div class="f-contest-intro"><header class="f-contest-hero"><div class="f-contest-hero-copy">' +
       '<h1>' + title + '</h1>' +
-      '<div class="f-contest-actions"><a class="btn btn-soft btn-lg" href="' + path + '#rules" data-link>' + text('参赛须知') + '</a>' +
+      '<div class="f-contest-actions"><a class="btn btn-soft btn-lg" href="' + path + '/alternate#rules" data-link>' + text('参赛须知') + '</a>' +
       '<a class="btn btn-primary btn-lg" href="' + path + '/registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 18) + '</a></div></div></header>' +
       '<figure class="f-contest-hero-figure"><span class="f-contest-trophy-label">' + QSL.icon('trophy', 16) + text('冠军奖杯') + '</span>' +
       '<div class="f-contest-trophy-stage"><img class="f-contest-hero-image" src="/assets/contest-trophy.webp" width="1121" height="1403" alt="' + text('第一届QSLink杯QSL卡片设计大赛') + '" decoding="async"></div>' +
