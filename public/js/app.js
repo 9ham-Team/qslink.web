@@ -38,8 +38,10 @@
     if (!button || !panel || !button.offsetWidth) return;
     const buttonRect = button.getBoundingClientRect();
     const panelRect = panel.getBoundingClientRect();
+    const halfLinksWidth = panel.querySelector('.nav-contest-links').offsetWidth / 2;
+    const anchor = buttonRect.left + buttonRect.width / 2 - panelRect.left;
     panel.style.setProperty('--contest-anchor',
-      (buttonRect.left + buttonRect.width / 2 - panelRect.left) + 'px');
+      Math.max(halfLinksWidth, Math.min(panelRect.width - halfLinksWidth, anchor)) + 'px');
   }
 
   function contestToggle(size, mobile) {
@@ -202,6 +204,7 @@
   }
 
   function bindHeader() {
+    headerEl.querySelector('.nav-links').addEventListener('scroll', alignContestPanel, { passive: true });
     headerEl.querySelectorAll('[data-contest-toggle]').forEach(function (button) {
       button.addEventListener('click', function () {
         const open = !contestOpen;

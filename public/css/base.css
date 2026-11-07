@@ -242,12 +242,12 @@ html { -webkit-tap-highlight-color: transparent; }
 .nav-shell {
   display: grid;
   gap: 0;
-  column-gap: 30px;
+  column-gap: 16px;
   transition: width var(--t-base) var(--ease);
 }
 .site-header .nav-shell {
   row-gap: 0;
-  width: min(100% - 44px, calc(var(--container) + 480px));
+  width: min(100% - 44px, var(--container));
 }
 .nav-main-row {
   display: flex;
@@ -338,9 +338,10 @@ html { -webkit-tap-highlight-color: transparent; }
 }
 .nav-links {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px;
-  margin-left: 8px;
+  margin-left: 0;
   min-width: 0;
   flex: 0 1 auto;
 }
@@ -349,7 +350,7 @@ html { -webkit-tap-highlight-color: transparent; }
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 9px 15px;
+  padding: 9px 9px;
   border-radius: var(--r-pill);
   font-size: 14.5px;
   font-weight: 600;
@@ -560,7 +561,30 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   .nav-guest .btn-primary { padding-inline: 10px; }
 }
 
-@media (max-width: 1720px) {
+@media (min-width: 901px) and (max-width: 1278px) {
+  .nav-main-row { flex-wrap: wrap; row-gap: 0; }
+  .nav-links {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: center;
+    margin-left: 0;
+    padding-bottom: 10px;
+  }
+}
+
+@media (min-width: 901px) {
+  html[lang="en"] .nav-main-row { flex-wrap: wrap; row-gap: 0; }
+  html[lang="en"] .nav-links {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: safe center;
+    overflow-x: auto;
+    margin-left: 0;
+    padding: 5px 5px 10px;
+  }
+}
+
+@media (max-width: 900px) {
   .nav-links { display: none; }
   .nav-toggle {
     display: inline-flex;
@@ -646,7 +670,7 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; }
 }
 
-@media (max-width: 1720px) and (prefers-reduced-motion: reduce) {
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
   .nav-mobile,
   .nav-mobile.is-open { transform: none; clip-path: none; transition-duration: 0s; transition-delay: 0s; }
 }
