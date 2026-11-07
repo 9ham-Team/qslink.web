@@ -2,6 +2,7 @@
 (function (scope) {
   'use strict';
   const QSL = scope.QSL || (scope.QSL = {});
+  const t = QSL.t || (source => source);
   const MAX_EDGE = 3840;
 
   function exifOrientation(view, start) {
@@ -70,7 +71,7 @@
         offset += size;
       }
     }
-    if (!width || !height) throw new Error('图片格式无效或无法读取分辨率，请重新选择');
+    if (!width || !height) throw new Error(t("图片格式无效或无法读取分辨率，请重新选择"));
     if (orientation >= 5 && orientation <= 8) [width, height] = [height, width];
     return { width, height };
   }
@@ -87,17 +88,17 @@
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('浏览器无法处理图片，请更换浏览器后重试');
+      if (!ctx) throw new Error(t("浏览器无法处理图片，请更换浏览器后重试"));
       ctx.drawImage(bitmap, 0, 0, width, height);
       const blob = canvas.convertToBlob
         ? await canvas.convertToBlob({ type: 'image/webp', quality: 0.82 })
         : await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.82));
-      if (!blob || blob.type !== 'image/webp') throw new Error('浏览器不支持 WebP 转换，请更换浏览器后重试');
-      if (blob.size > 8 * 1024 * 1024) throw new Error('处理后的图片超过 8MB，请选择其他图片');
+      if (!blob || blob.type !== 'image/webp') throw new Error(t("浏览器不支持 WebP 转换，请更换浏览器后重试"));
+      if (blob.size > 8 * 1024 * 1024) throw new Error(t("处理后的图片超过 8MB，请选择其他图片"));
       const src = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('图片读取失败，请重新选择'));
+        reader.onerror = () => reject(new Error(t("图片读取失败，请重新选择")));
         reader.readAsDataURL(blob);
       });
       return { src, width: original.width, height: original.height };
@@ -110,7 +111,7 @@
   function createProcessor() {
     let worker = null, stopped = false, rejectActive = null;
     let queue = Promise.resolve();
-    const aborted = () => new DOMException('图片处理已取消', 'AbortError');
+    const aborted = () => new DOMException(t("图片处理已取消"), 'AbortError');
     function process(file) {
       const job = queue.then(() => {
         if (stopped) throw aborted();
@@ -121,10 +122,10 @@
           const finish = () => { worker.terminate(); worker = null; rejectActive = null; };
           worker.onmessage = event => {
             finish();
-            if (event.data.error) reject(new Error(event.data.error));
+            if (event.data.error) reject(new Error(t(event.data.error)));
             else resolve(event.data.result);
           };
-          worker.onerror = () => { finish(); reject(new Error('图片处理失败，请重新选择或更换浏览器')); };
+          worker.onerror = () => { finish(); reject(new Error(t("图片处理失败，请重新选择或更换浏览器"))); };
           worker.postMessage(file);
         });
       });

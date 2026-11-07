@@ -27,13 +27,13 @@
       api.open(card);
       return;
     }
-    if (QSL.toast) QSL.toast('换卡申请加载中，请稍后再试', 'info');
+    if (QSL.toast) QSL.toast(QSL.t("换卡申请加载中，请稍后再试"), 'info');
     setTimeout(function () {
       const retryApi = window.QSL && window.QSL.exchangeRequest;
       if (retryApi && typeof retryApi.open === 'function') {
         retryApi.open(card);
       } else if (QSL.toast) {
-        QSL.toast('换卡功能尚未就绪，请刷新页面后重试', 'error');
+        QSL.toast(QSL.t("换卡功能尚未就绪，请刷新页面后重试"), 'error');
       }
     }, 900);
   }
@@ -63,10 +63,10 @@
     return (
       '<div class="g-detail">' +
       '<div class="container">' +
-      '<nav class="g-crumbs" aria-label="面包屑" data-reveal>' +
-      '<a href="/" data-link>首页</a><span class="g-crumbs__sep">/</span>' +
-      '<a href="/explore" data-link>卡片广场</a><span class="g-crumbs__sep">/</span>' +
-      '<span class="g-crumbs__current" data-crumb-current>卡片详情</span>' +
+      ("<nav class=\"g-crumbs\" aria-label=\"" + QSL.escapeHtml(QSL.t("面包屑")) + "\" data-reveal>") +
+      ("<a href=\"/\" data-link>" + QSL.escapeHtml(QSL.t("首页")) + "</a><span class=\"g-crumbs__sep\">/</span>") +
+      ("<a href=\"/explore\" data-link>" + QSL.escapeHtml(QSL.t("卡片广场")) + "</a><span class=\"g-crumbs__sep\">/</span>") +
+      ("<span class=\"g-crumbs__current\" data-crumb-current>" + QSL.escapeHtml(QSL.t("卡片详情")) + "</span>") +
       '</nav>' +
       '<div class="g-detail__grid">' +
       '<div class="g-detail__viewer g-panel" data-detail-viewer>' + viewerSkeleton() + '</div>' +
@@ -74,9 +74,9 @@
       '</div>' +
       '<section class="g-detail__reco" data-detail-reco hidden>' +
       '<div class="g-sec-head" data-reveal>' +
-      '<div><p class="eyebrow">MORE CARDS</p><h2 class="g-sec-title">同好推荐</h2>' +
-      '<p class="g-sec-desc">广场里，也许还有你想交换的卡片。</p></div>' +
-      '<a class="g-sec-link" href="/explore" data-link>去广场看看' + ic('arrow-right', 16) + '</a>' +
+      ("<div><p class=\"eyebrow\">MORE CARDS</p><h2 class=\"g-sec-title\">" + QSL.escapeHtml(QSL.t("同好推荐")) + "</h2>") +
+      ("<p class=\"g-sec-desc\">" + QSL.escapeHtml(QSL.t("广场里，也许还有你想交换的卡片。")) + "</p></div>") +
+      ("<a class=\"g-sec-link\" href=\"/explore\" data-link>" + QSL.escapeHtml(QSL.t("去广场看看"))) + ic('arrow-right', 16) + '</a>' +
       '</div>' +
       '<div class="g-detail__reco-grid" data-reco-grid></div>' +
       '</section>' +
@@ -90,11 +90,11 @@
     panel.classList.add('is-ready');
     panel.innerHTML =
       '<div class="g-detail__viewer-deco" aria-hidden="true"></div>' +
-      '<div class="g-detail__viewer-stage" data-viewer-mount aria-label="3D 卡片查看器"></div>' +
+      ("<div class=\"g-detail__viewer-stage\" data-viewer-mount aria-label=\"" + QSL.escapeHtml(QSL.t("3D 卡片查看器")) + "\"></div>") +
       '<div class="g-detail__viewer-foot">' +
-      '<span class="badge badge-mint">' + ic('3d', 13) + ' 3D 可交互</span>' +
+      '<span class="badge badge-mint">' + ic('3d', 13) + (" " + QSL.escapeHtml(QSL.t("3D 可交互")) + "</span>") +
       '<span class="g-detail__ratio">' + esc(QSL.ratioLabel(card.ratio)) + '</span>' +
-      '<span class="g-detail__viewer-note">拖拽旋转 · 双击翻面</span>' +
+      ("<span class=\"g-detail__viewer-note\">" + QSL.escapeHtml(QSL.t("拖拽旋转 · 双击翻面")) + "</span>") +
       '</div>';
     const mount = panel.querySelector('[data-viewer-mount]');
     if (!mount || !QSL.card3d) return null;
@@ -133,48 +133,48 @@
     if (isOwner) {
       applyHtml =
         '<a class="btn btn-primary btn-lg" href="/dashboard/cards/' + encodeURIComponent(card.id) + '/edit" data-link>' +
-        ic('edit', 17) + '<span>编辑这张卡片</span></a>' +
-        '<a class="btn btn-soft" href="/dashboard/cards" data-link>' + ic('cards', 16) + '<span>我的卡片</span></a>';
+        ic('edit', 17) + ("<span>" + QSL.escapeHtml(QSL.t("编辑这张卡片")) + "</span></a>") +
+        '<a class="btn btn-soft" href="/dashboard/cards" data-link>' + ic('cards', 16) + ("<span>" + QSL.escapeHtml(QSL.t("我的卡片")) + "</span></a>");
       noticeHtml =
         '<div class="g-detail__notice is-owner">' + ic('user', 16) +
-        '<span>这是你的卡片，你可以编辑它、查看分享链接，或等待火腿们的换卡申请。' +
-        '<a href="/dashboard/exchanges" data-link>查看换卡申请</a></span></div>';
+        ("<span>" + QSL.escapeHtml(QSL.t("这是你的卡片，你可以编辑它、查看分享链接，或等待火腿们的换卡申请。"))) +
+        ("<a href=\"/dashboard/exchanges\" data-link>" + QSL.escapeHtml(QSL.t("查看换卡申请")) + "</a></span></div>");
       if (status !== 'approved') {
         noticeHtml =
           '<div class="g-detail__notice is-warn">' + ic('clock', 16) +
-          '<span>这张卡片' + esc(QSL.statusText ? QSL.statusText(status) : status) +
-          '中，仅你自己可见；审核通过后才会出现在卡片广场。</span></div>' + noticeHtml;
+          ("<span>" + QSL.escapeHtml(QSL.t("这张卡片"))) + esc(QSL.statusText ? QSL.statusText(status) : status) +
+          (QSL.escapeHtml(QSL.t("中，仅你自己可见；审核通过后才会出现在卡片广场。")) + "</span></div>") + noticeHtml;
       }
     } else if (myExchange && myExchange.status === 'pending') {
       applyHtml = '<button class="btn btn-soft btn-lg" type="button" disabled>' + ic('clock', 17) +
-        '<span>申请处理中</span></button>';
+        ("<span>" + QSL.escapeHtml(QSL.t("申请处理中")) + "</span></button>");
       noticeHtml =
         '<div class="g-detail__notice is-pending">' + ic('clock', 16) +
-        '<span>你已提交换卡申请，等待对方处理 · ' +
-        '<a href="/dashboard/exchanges" data-link>查看我的申请</a></span></div>';
+        ("<span>" + QSL.escapeHtml(QSL.t("你已提交换卡申请，等待对方处理 ·")) + " ") +
+        ("<a href=\"/dashboard/exchanges\" data-link>" + QSL.escapeHtml(QSL.t("查看我的申请")) + "</a></span></div>");
     } else if (myExchange && myExchange.status === 'approved') {
       applyHtml = '<a class="btn btn-primary btn-lg" href="/dashboard/exchanges" data-link>' + ic('check-circle', 17) +
-        '<span>已达成交换</span></a>';
+        ("<span>" + QSL.escapeHtml(QSL.t("已达成交换")) + "</span></a>");
       noticeHtml =
         '<div class="g-detail__notice is-ok">' + ic('check-circle', 16) +
-        '<span>对方已同意你的换卡申请，去换卡申请页查看地址并寄出卡片吧。</span></div>';
+        ("<span>" + QSL.escapeHtml(QSL.t("对方已同意你的换卡申请，去换卡申请页查看地址并寄出卡片吧。")) + "</span></div>");
     } else if (!canApply) {
       applyHtml = '<button class="btn btn-ghost btn-lg" type="button" disabled>' + ic('send', 17) +
-        '<span>' + (card.stock === 0 ? '暂无库存' : '暂不可申请') + '</span></button>';
+        '<span>' + (card.stock === 0 ? QSL.t("暂无库存") : QSL.t("暂不可申请")) + '</span></button>';
     } else {
       applyHtml = '<button class="btn btn-primary btn-lg" type="button" data-apply>' + ic('send', 17) +
-        '<span>申请换卡</span></button>';
+        ("<span>" + QSL.escapeHtml(QSL.t("申请换卡")) + "</span></button>");
       if (myExchange && (myExchange.status === 'rejected' || myExchange.status === 'cancelled')) {
         noticeHtml =
           '<div class="g-detail__notice is-muted">' + ic('info', 16) +
-          '<span>你之前的申请' + esc(QSL.exchangeText ? QSL.exchangeText(myExchange.status) : '已结束') +
-          '，可以重新申请。</span></div>';
+          ("<span>" + QSL.escapeHtml(QSL.t("你之前的申请"))) + esc(QSL.exchangeText ? QSL.exchangeText(myExchange.status) : QSL.t("已结束")) +
+          (QSL.escapeHtml(QSL.t("，可以重新申请。")) + "</span></div>");
       }
     }
 
     const notes = card.notes
       ? '<p class="g-detail__notes">' + esc(card.notes) + '</p>'
-      : '<p class="g-detail__notes is-empty">这张卡片的主人还没有留下简介。</p>';
+      : ("<p class=\"g-detail__notes is-empty\">" + QSL.escapeHtml(QSL.t("这张卡片的主人还没有留下简介。")) + "</p>");
 
     info.innerHTML =
       '<div class="g-detail__badges">' +
@@ -184,53 +184,53 @@
       (QSL.badge ? QSL.badge(QSL.ratioLabel(card.ratio), 'slate') : '') +
       (status !== 'approved' && QSL.statusBadge ? QSL.statusBadge(status) : '') +
       '</div>' +
-      '<h1 class="g-detail__title">' + esc(card.title || '未命名卡片') + '</h1>' +
+      '<h1 class="g-detail__title">' + esc(card.title || QSL.t("未命名卡片")) + '</h1>' +
       '<div class="g-detail__owner">' +
-      (ownerData.uid ? '<a href="/space/' + esc(ownerData.uid) + '" data-link aria-label="查看上传者的公开主页">' : '') +
-      (QSL.ownerLine ? QSL.ownerLine(ownerData) : esc(ownerData.displayName || ownerData.username || '未知火腿')) +
+      (ownerData.uid ? '<a href="/space/' + esc(ownerData.uid) + ("\" data-link aria-label=\"" + QSL.escapeHtml(QSL.t("查看上传者的公开主页")) + "\">") : '') +
+      (QSL.ownerLine ? QSL.ownerLine(ownerData) : esc(ownerData.displayName || ownerData.username || QSL.t("未知火腿"))) +
       (ownerData.uid ? '</a>' : '') +
-      '<span class="g-detail__owner-time">' + esc(QSL.timeAgo(card.createdAt)) + '发布</span>' +
+      '<span class="g-detail__owner-time">' + esc(QSL.timeAgo(card.createdAt)) + (QSL.escapeHtml(QSL.t("发布")) + "</span>") +
       '</div>' +
       notes +
       '<dl class="g-detail__meta">' +
-      metaItem('卡片比例', esc(QSL.ratioLabel(card.ratio))) +
-      metaItem('剩余库存', card.stock == null ? '未设置' : esc(card.stock) + ' 张') +
-      metaItem('换卡次数', esc(String(card.exchangeCount || 0)) + ' 次') +
-      metaItem('发布时间', esc(QSL.formatDate(card.createdAt))) +
+      metaItem(QSL.t("卡片比例"), esc(QSL.ratioLabel(card.ratio))) +
+      metaItem(QSL.t("剩余库存"), card.stock == null ? QSL.t("未设置") : esc(card.stock) + (" " + QSL.t("张"))) +
+      metaItem(QSL.t("换卡次数"), esc(String(card.exchangeCount || 0)) + (" " + QSL.t("次"))) +
+      metaItem(QSL.t("发布时间"), esc(QSL.formatDate(card.createdAt))) +
       '</dl>' +
       '<div class="g-detail__actions">' + applyHtml +
       '<button class="btn btn-ghost g-like-btn' + (card.liked ? ' is-liked' : '') + '" type="button" data-like ' +
-      'aria-pressed="' + (card.liked ? 'true' : 'false') + '" aria-label="点赞这张卡片">' +
+      'aria-pressed="' + (card.liked ? 'true' : 'false') + ("\" aria-label=\"" + QSL.escapeHtml(QSL.t("点赞这张卡片")) + "\">") +
       ic('heart', 17) + '<span data-like-count>' + esc(QSL.formatNumber(card.likeCount || 0)) + '</span></button>' +
-      '<button class="btn btn-ghost" type="button" data-share aria-label="复制分享链接">' +
-      ic('share', 17) + '<span' + (isOwner ? '' : ' class="hide-sm"') + '>分享</span></button>' +
+      ("<button class=\"btn btn-ghost\" type=\"button\" data-share aria-label=\"" + QSL.escapeHtml(QSL.t("复制分享链接")) + "\">") +
+      ic('share', 17) + '<span' + (isOwner ? '' : ' class="hide-sm"') + (">" + QSL.escapeHtml(QSL.t("分享")) + "</span></button>") +
       '</div>' +
       '<p class="g-detail__hint">' + ic('lock', 13) +
-      '<span>交换地址仅在双方同意后互相可见 · 73</span></p>' +
+      ("<span>" + QSL.escapeHtml(QSL.t("交换地址仅在双方同意后互相可见 · 73")) + "</span></p>") +
       noticeHtml;
   }
 
   /* ---------------- 404 / 错误 ---------------- */
   function renderMissing(container, isNotFound, retry) {
     const host = container.querySelector('.g-detail .container') || container;
-    const title = isNotFound ? '这张卡片不见了' : '卡片加载失败';
+    const title = isNotFound ? QSL.t("这张卡片不见了") : QSL.t("卡片加载失败");
     const desc = isNotFound
-      ? '它可能尚未通过审核、已被删除，或者链接抄错了一个字符。去广场看看其它卡片吧。'
-      : '电波暂时有点杂音，请稍后重试。';
+      ? QSL.t("它可能尚未通过审核、已被删除，或者链接抄错了一个字符。去广场看看其它卡片吧。")
+      : QSL.t("电波暂时有点杂音，请稍后重试。");
     host.innerHTML =
-      '<nav class="g-crumbs" aria-label="面包屑">' +
-      '<a href="/" data-link>首页</a><span class="g-crumbs__sep">/</span>' +
-      '<a href="/explore" data-link>卡片广场</a><span class="g-crumbs__sep">/</span>' +
-      '<span class="g-crumbs__current">' + (isNotFound ? '卡片不存在' : '加载失败') + '</span></nav>' +
+      ("<nav class=\"g-crumbs\" aria-label=\"" + QSL.escapeHtml(QSL.t("面包屑")) + "\">") +
+      ("<a href=\"/\" data-link>" + QSL.escapeHtml(QSL.t("首页")) + "</a><span class=\"g-crumbs__sep\">/</span>") +
+      ("<a href=\"/explore\" data-link>" + QSL.escapeHtml(QSL.t("卡片广场")) + "</a><span class=\"g-crumbs__sep\">/</span>") +
+      '<span class="g-crumbs__current">' + (isNotFound ? QSL.t("卡片不存在") : QSL.t("加载失败")) + '</span></nav>' +
       '<div class="g-detail__missing">' +
       '<div class="g-detail__missing-art">' + (isNotFound ? '404' : ic('alert', 40)) + '</div>' +
       '<h1 class="g-display">' + esc(title) + '</h1>' +
       '<p>' + esc(desc) + '</p>' +
       '<div class="btn-group">' +
-      (isNotFound ? '' : '<button class="btn btn-primary" type="button" data-retry>重新加载</button>') +
+      (isNotFound ? '' : ("<button class=\"btn btn-primary\" type=\"button\" data-retry>" + QSL.escapeHtml(QSL.t("重新加载")) + "</button>")) +
       '<a class="btn ' + (isNotFound ? 'btn-primary' : 'btn-ghost') + '" href="/explore" data-link>' +
-      ic('grid', 16) + '<span>去卡片广场</span></a>' +
-      '<a class="btn btn-ghost" href="/" data-link>返回首页</a>' +
+      ic('grid', 16) + ("<span>" + QSL.escapeHtml(QSL.t("去卡片广场")) + "</span></a>") +
+      ("<a class=\"btn btn-ghost\" href=\"/\" data-link>" + QSL.escapeHtml(QSL.t("返回首页")) + "</a>") +
       '</div></div>';
     const btn = host.querySelector('[data-retry]');
     if (btn && retry) btn.addEventListener('click', retry);
@@ -290,7 +290,7 @@
     function onLike(e) {
       const btn = e.currentTarget;
       if (!user) {
-        if (QSL.toast) QSL.toast('登录后即可点赞收藏', 'info');
+        if (QSL.toast) QSL.toast(QSL.t("登录后即可点赞收藏"), 'info');
         toNextLogin();
         return;
       }
@@ -305,7 +305,7 @@
           if (QSL.fx && QSL.fx.confetti) QSL.fx.confetti(e.clientX, e.clientY);
         }
       }).catch(function (err) {
-        if (QSL.toast) QSL.toast((err && err.message) || '点赞失败', 'error');
+        if (QSL.toast) QSL.toast((err && err.message) || QSL.t("点赞失败"), 'error');
       }).finally(function () {
         btn.disabled = false;
       });
@@ -314,7 +314,7 @@
     function onApply() {
       const current = QSL.state && QSL.state.user;
       if (!current) {
-        if (QSL.toast) QSL.toast('登录后即可申请换卡', 'info');
+        if (QSL.toast) QSL.toast(QSL.t("登录后即可申请换卡"), 'info');
         toNextLogin();
         return;
       }
@@ -331,7 +331,7 @@
 
   /* ---------------- 页面注册 ---------------- */
   QSL.registerPage('card-detail', {
-    title: '卡片详情',
+    title: QSL.t("卡片详情"),
     render: function (container, ctx) {
       const params = (ctx && ctx.params) || {};
       const id = params.id || (location.pathname.split('/')[2] || '');
@@ -360,7 +360,7 @@
           }
           container.querySelector('.g-detail').classList.add('is-loaded');
           const crumb = container.querySelector('[data-crumb-current]');
-          if (crumb) crumb.textContent = card.title || '卡片详情';
+          if (crumb) crumb.textContent = card.title || QSL.t("卡片详情");
           const viewerPanel = container.querySelector('[data-detail-viewer]');
           const infoPanel = container.querySelector('[data-detail-info]');
           if (viewerPanel) state.viewer = renderViewer(viewerPanel, card);
@@ -369,7 +369,7 @@
             bindActions(container, card, state);
           }
           renderReco(container, card, cardsApi);
-          try { document.title = (card.title || '卡片详情') + ' · QSLink'; } catch (err) { /* 忽略 */ }
+          try { document.title = (card.title || QSL.t("卡片详情")) + ' · QSLink'; } catch (err) { /* 忽略 */ }
         }).catch(function (err) {
           if (state.cancelled) return;
           const notFound = !!err && (err.status === 404 || err.code === 'NOT_FOUND');
@@ -377,7 +377,7 @@
             renderMissing(container, true, load);
           } else {
             renderMissing(container, false, load);
-            if (QSL.toast) QSL.toast((err && err.message) || '卡片加载失败，请稍后重试', 'error');
+            if (QSL.toast) QSL.toast((err && err.message) || QSL.t("卡片加载失败，请稍后重试"), 'error');
           }
         });
       }

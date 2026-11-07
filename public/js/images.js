@@ -4,9 +4,10 @@
   const QSL = window.QSL;
   const widths = [160, 320, 480, 640, 960, 1280, 1600, 1920, 2560, 3840];
   const raster = /^\/uploads\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.(?:png|jpe?g|webp)$/i;
-  function candidates(src) {
+  function candidates(src, minWidth) {
     if (!raster.test(src || '')) return '';
-    return widths.map(w => src + '?w=' + w + ' ' + w + 'w').join(', ');
+    const minimum = Math.min(3840, Math.max(0, Number(minWidth) || 0));
+    return widths.filter(w => w >= minimum).map(w => src + '?w=' + w + ' ' + w + 'w').join(', ');
   }
   function attributes(src, sizes) {
     const set = candidates(src);
@@ -14,13 +15,14 @@
     return 'src="' + esc(set ? src + '?w=320' : src) + '"' +
       (set ? ' data-qsl-responsive srcset="' + esc(set) + '" sizes="auto, ' + esc(sizes || '(max-width: 860px) calc((100vw - 64px) / 2), 400px') + '"' : '');
   }
-  function apply(img, src, width) {
-    const set = candidates(src);
+  function apply(img, src, width, minWidth) {
+    const set = candidates(src, minWidth);
     // Set sizes before srcset/src, so the first request already has the measured width.
     if (set) {
       img.sizes = Math.max(1, Math.ceil(width)) + 'px';
       img.srcset = set;
-      img.src = src + '?w=320';
+      const fallback = minWidth ? widths.find(w => w >= Math.min(3840, Math.max(0, Number(minWidth) || 0))) : 320;
+      img.src = src + '?w=' + fallback;
     } else {
       img.removeAttribute('srcset');
       img.removeAttribute('sizes');

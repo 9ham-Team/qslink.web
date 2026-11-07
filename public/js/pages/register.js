@@ -15,7 +15,7 @@
     btn.disabled = !!busy;
     btn.classList.toggle('f-loading', !!busy);
     const label = btn.querySelector('.f-btn-label');
-    if (label) label.textContent = busy ? busyText || '请稍候…' : btn.dataset.label || '创建账号';
+    if (label) label.textContent = busy ? busyText || QSL.t("请稍候…") : btn.dataset.label || QSL.t("创建账号");
   }
 
   function setAlert(box, message) {
@@ -31,8 +31,8 @@
     badge.classList.toggle('is-visible', !!state);
     badge.classList.toggle('is-error', state === 'error');
     badge.setAttribute('aria-hidden', state ? 'false' : 'true');
-    badge.setAttribute('aria-label', message || '邮箱格式正确');
-    badge.title = message || '邮箱格式正确';
+    badge.setAttribute('aria-label', message || QSL.t("邮箱格式正确"));
+    badge.title = message || QSL.t("邮箱格式正确");
     wrap.querySelector('.f-input-wrap').classList.toggle('is-valid', state === 'valid');
   }
 
@@ -128,23 +128,23 @@
       '</div>' +
       wavesSvg() +
       '<div class="f-auth-visual-inner">' +
-      '<a class="f-brand" href="/" aria-label="QSLink 首页">' +
+      ("<a class=\"f-brand\" href=\"/\" aria-label=\"" + QSL.escapeHtml(QSL.t("QSLink 首页")) + "\">") +
       '<span class="f-brand-mark">' + brandMark() + '</span>' +
       '<span class="f-brand-name">QS<em>Link</em></span>' +
       '</a>' +
       '<span class="f-eyebrow f-eyebrow-light">' + ico('sparkles', 15) + ' JOIN THE AIRWAVES</span>' +
-      '<h1 class="f-visual-title">把你收到的<br>每一份<span class="f-grad-text"> 73 </span>，<br>变成看得见的收藏。</h1>' +
-      '<p class="f-visual-desc">创建一个账号只需要一分钟。上传双面 QSL 卡片、等待审核通过，就能在广场被同好发现，并开始交换实体卡片。</p>' +
+      ("<h1 class=\"f-visual-title\">" + QSL.escapeHtml(QSL.t("把你收到的")) + "<br>" + QSL.escapeHtml(QSL.t("每一份")) + "<span class=\"f-grad-text\"> 73 </span>，<br>" + QSL.escapeHtml(QSL.t("变成看得见的收藏。")) + "</h1>") +
+      ("<p class=\"f-visual-desc\">" + QSL.escapeHtml(QSL.t("创建一个账号只需要一分钟。上传双面 QSL 卡片、等待审核通过，就能在广场被同好发现，并开始交换实体卡片。")) + "</p>") +
       '<ol class="f-visual-steps">' +
-      '<li><span class="f-step-num">01</span><span><b>创建账号</b><small>填写呼号，完善资料</small></span></li>' +
-      '<li><span class="f-step-num">02</span><span><b>上传卡片</b><small>正面 · 背面，等待审核</small></span></li>' +
-      '<li><span class="f-step-num">03</span><span><b>开始换卡</b><small>申请 · 同意 · 互寄</small></span></li>' +
+      ("<li><span class=\"f-step-num\">01</span><span><b>" + QSL.escapeHtml(QSL.t("创建账号")) + "</b><small>" + QSL.escapeHtml(QSL.t("填写呼号，完善资料")) + "</small></span></li>") +
+      ("<li><span class=\"f-step-num\">02</span><span><b>" + QSL.escapeHtml(QSL.t("上传卡片")) + "</b><small>" + QSL.escapeHtml(QSL.t("正面 · 背面，等待审核")) + "</small></span></li>") +
+      ("<li><span class=\"f-step-num\">03</span><span><b>" + QSL.escapeHtml(QSL.t("开始换卡")) + "</b><small>" + QSL.escapeHtml(QSL.t("申请 · 同意 · 互寄")) + "</small></span></li>") +
       '</ol>' +
       '<div class="f-visual-card f-visual-card-sm" aria-hidden="true">' +
       '<div class="f-mini-card f-mini-front"><span class="f-mini-sign">QSL</span><span class="f-mini-call">BH4XYZ</span><span class="f-mini-line"></span></div>' +
       '<div class="f-mini-card f-mini-back"><span class="f-mini-back-line"></span><span class="f-mini-back-line short"></span><span class="f-mini-stamp">QSL</span></div>' +
       '</div>' +
-      '<p class="f-visual-foot">' + ico('antenna', 15) + ' 73 · 电波永不消逝，卡片永远抵达。</p>' +
+      '<p class="f-visual-foot">' + ico('antenna', 15) + (" " + QSL.escapeHtml(QSL.t("73 · 电波永不消逝，卡片永远抵达。")) + "</p>") +
       '</div>' +
       '</aside>'
     );
@@ -156,7 +156,7 @@
     return (
       '<div class="f-field' + (o.half ? ' f-field-half' : '') + '" data-field="' + esc(o.name) + '">' +
       '<div class="f-field-row"><label class="label" for="' + esc(o.id) + '">' + esc(o.label) +
-      (o.optional ? '<span class="f-optional">选填</span>' : '') + '</label>' +
+      (o.optional ? ("<span class=\"f-optional\">" + QSL.escapeHtml(QSL.t("选填")) + "</span>") : '') + '</label>' +
       (o.hint ? '<span class="f-label-hint">' + esc(o.hint) + '</span>' : '') + '</div>' +
       '<div class="f-input-wrap">' +
       '<span class="f-input-ico">' + ico(o.icon || 'user', 18) + '</span>' +
@@ -169,15 +169,15 @@
       (o.maxlength ? ' maxlength="' + esc(o.maxlength) + '"' : '') +
       (o.required ? ' required' : '') + '>' +
       (o.eye
-        ? '<button type="button" class="f-eye" aria-label="显示密码" aria-pressed="false" data-eye>' + ico('eye', 18) + '</button>'
+        ? ("<button type=\"button\" class=\"f-eye\" aria-label=\"" + QSL.escapeHtml(QSL.t("显示密码")) + "\" aria-pressed=\"false\" data-eye>") + ico('eye', 18) + '</button>'
         : '') +
-      (o.name === 'email' ? '<span class="f-reg-email-check" role="img" aria-label="邮箱格式正确" aria-hidden="true"><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor"/><g fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path class="f-reg-email-tick" d="m6 10 2.5 2.5 5-5"/><path class="f-reg-email-cross" d="m7 7 6 6m0-6-6 6"/></g></svg></span>' : '') +
+      (o.name === 'email' ? ("<span class=\"f-reg-email-check\" role=\"img\" aria-label=\"" + QSL.escapeHtml(QSL.t("邮箱格式正确")) + "\" aria-hidden=\"true\"><svg viewBox=\"0 0 20 20\" width=\"20\" height=\"20\" aria-hidden=\"true\"><circle cx=\"10\" cy=\"10\" r=\"9\" fill=\"currentColor\"/><g fill=\"none\" stroke=\"#fff\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path class=\"f-reg-email-tick\" d=\"m6 10 2.5 2.5 5-5\"/><path class=\"f-reg-email-cross\" d=\"m7 7 6 6m0-6-6 6\"/></g></svg></span>") : '') +
       '</div>' +
       '<p class="f-error"' + (o.name === 'email' ? ' id="fRegEmailError"' : '') + ' data-error="' + esc(o.name) + '" role="alert" hidden></p>' +
       (o.name === 'email' ? '<div class="f-reg-code-reveal" aria-hidden="true" inert><div class="f-reg-code-inner"><div class="f-field" data-field="emailCode">' +
-        '<label class="label" for="fRegEmailCode">邮箱验证码</label><div class="f-reg-code-row">' +
-        '<input id="fRegEmailCode" class="input f-input" name="emailCode" type="text" placeholder="6 位数字" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required aria-describedby="fRegCodeStatus">' +
-        '<button type="button" class="btn f-reg-code-send" disabled>发送验证码</button></div>' +
+        ("<label class=\"label\" for=\"fRegEmailCode\">" + QSL.escapeHtml(QSL.t("邮箱验证码")) + "</label><div class=\"f-reg-code-row\">") +
+        ("<input id=\"fRegEmailCode\" class=\"input f-input\" name=\"emailCode\" type=\"text\" placeholder=\"" + QSL.escapeHtml(QSL.t("6 位数字")) + "\" maxlength=\"6\" inputmode=\"numeric\" autocomplete=\"one-time-code\" required aria-describedby=\"fRegCodeStatus\">") +
+        ("<button type=\"button\" class=\"btn f-reg-code-send\" disabled>" + QSL.escapeHtml(QSL.t("发送验证码")) + "</button></div>") +
         '<div class="f-reg-code-feedback"><div class="f-reg-code-feedback-inner"><p class="f-error" data-error="emailCode" role="alert" hidden></p>' +
         '<p class="f-reg-code-status" id="fRegCodeStatus" role="status" aria-live="polite"></p>' +
         '</div></div></div></div></div>' : '') +
@@ -199,31 +199,31 @@
       '<form class="f-auth-card glass f-auth-card-reg" id="fRegisterForm" novalidate>' +
       '<div class="f-auth-card-head">' +
       '<span class="f-auth-chip">' + ico('sparkles', 15) + ' CREATE ACCOUNT</span>' +
-      '<h2 id="fRegTitle">加入 QSLink</h2>' +
-      '<p>创建你的账号，开始收集与交换 QSL 卡片。</p>' +
+      ("<h2 id=\"fRegTitle\">" + QSL.escapeHtml(QSL.t("加入 QSLink")) + "</h2>") +
+      ("<p>" + QSL.escapeHtml(QSL.t("创建你的账号，开始收集与交换 QSL 卡片。")) + "</p>") +
       '</div>' +
       '<div class="f-form-alert" role="alert" hidden></div>' +
       '<div class="f-form-grid f-form-grid-2">' +
-      textField({ id: 'fRegUsername', name: 'username', label: '用户名', icon: 'user', placeholder: '3-20 位字母/数字/下划线', autocomplete: 'username', required: true, maxlength: 20 }) +
-      textField({ id: 'fRegEmail', name: 'email', label: '邮箱', icon: 'mail', type: 'email', placeholder: 'you@example.com', autocomplete: 'email', required: true, maxlength: 120, inputmode: 'email' }) +
-      textField({ id: 'fRegDisplayName', name: 'displayName', label: '昵称', icon: 'sparkles', placeholder: '展示给其他火腿的名字', autocomplete: 'nickname', maxlength: 40, optional: true }) +
-      textField({ id: 'fRegCallSign', name: 'callSign', label: '呼号', icon: 'radio', autocomplete: 'off', maxlength: 20, optional: true, hint: '大写字母+数字' }) +
+      textField({ id: 'fRegUsername', name: 'username', label: QSL.t("用户名"), icon: 'user', placeholder: QSL.t("3-20 位字母/数字/下划线"), autocomplete: 'username', required: true, maxlength: 20 }) +
+      textField({ id: 'fRegEmail', name: 'email', label: QSL.t("邮箱"), icon: 'mail', type: 'email', placeholder: 'you@example.com', autocomplete: 'email', required: true, maxlength: 120, inputmode: 'email' }) +
+      textField({ id: 'fRegDisplayName', name: 'displayName', label: QSL.t("昵称"), icon: 'sparkles', placeholder: QSL.t("展示给其他火腿的名字"), autocomplete: 'nickname', maxlength: 40, optional: true }) +
+      textField({ id: 'fRegCallSign', name: 'callSign', label: QSL.t("呼号"), icon: 'radio', autocomplete: 'off', maxlength: 20, optional: true, hint: QSL.t("大写字母+数字") }) +
       '</div>' +
       '<div class="f-form-grid f-form-grid-2">' +
-      textField({ id: 'fRegPassword', name: 'password', label: '密码', icon: 'lock', type: 'password', placeholder: '至少 8 位，含字母与数字', autocomplete: 'new-password', required: true, maxlength: 128, eye: true }) +
-      textField({ id: 'fRegConfirm', name: 'confirmPassword', label: '确认密码', icon: 'lock', type: 'password', placeholder: '再次输入密码', autocomplete: 'new-password', required: true, maxlength: 128, eye: true }) +
+      textField({ id: 'fRegPassword', name: 'password', label: QSL.t("密码"), icon: 'lock', type: 'password', placeholder: QSL.t("至少 8 位，含字母与数字"), autocomplete: 'new-password', required: true, maxlength: 128, eye: true }) +
+      textField({ id: 'fRegConfirm', name: 'confirmPassword', label: QSL.t("确认密码"), icon: 'lock', type: 'password', placeholder: QSL.t("再次输入密码"), autocomplete: 'new-password', required: true, maxlength: 128, eye: true }) +
       '</div>' +
       '<div class="f-strength" data-strength hidden aria-hidden="true">' +
       '<span class="f-strength-bar"><i></i></span><span class="f-strength-bar"><i></i></span><span class="f-strength-bar"><i></i></span>' +
-      '<span class="f-strength-text">密码强度</span>' +
+      ("<span class=\"f-strength-text\">" + QSL.escapeHtml(QSL.t("密码强度")) + "</span>") +
       '</div>' +
-      '<div class="f-field" data-field="legalConsent"><label class="f-consent"><input type="checkbox" name="legalConsent" required><span>我已阅读并同意<a href="/legal/terms.html" target="_blank" rel="noopener">用户条款</a>，并已阅读<a href="/legal/privacy.html" target="_blank" rel="noopener">隐私说明</a>。</span></label><p class="f-error" role="alert" hidden></p></div>' +
-      '<button class="btn btn-primary btn-lg f-submit" type="submit" data-label="创建账号">' +
-      '<span class="f-btn-label">创建账号</span>' + ico('arrow-right', 18) +
+      ("<div class=\"f-field\" data-field=\"legalConsent\"><label class=\"f-consent\"><input type=\"checkbox\" name=\"legalConsent\" required><span>" + QSL.escapeHtml(QSL.t("我已阅读并同意")) + "<a href=\"/legal/terms.html\" target=\"_blank\" rel=\"noopener\">" + QSL.escapeHtml(QSL.t("用户条款")) + "</a>" + QSL.escapeHtml(QSL.t("，并已阅读")) + "<a href=\"/legal/privacy.html\" target=\"_blank\" rel=\"noopener\">" + QSL.escapeHtml(QSL.t("隐私说明")) + "</a>。</span></label><p class=\"f-error\" role=\"alert\" hidden></p></div>") +
+      ("<button class=\"btn btn-primary btn-lg f-submit\" type=\"submit\" data-label=\"" + QSL.escapeHtml(QSL.t("创建账号")) + "\">") +
+      ("<span class=\"f-btn-label\">" + QSL.escapeHtml(QSL.t("创建账号")) + "</span>") + ico('arrow-right', 18) +
       '</button>' +
-      '<p class="f-auth-alt">已经有账号了？<a class="f-link" href="' + esc(loginHref) + '">直接登录</a></p>' +
+      ("<p class=\"f-auth-alt\">" + QSL.escapeHtml(QSL.t("已经有账号了？")) + "<a class=\"f-link\" href=\"") + esc(loginHref) + ("\">" + QSL.escapeHtml(QSL.t("直接登录")) + "</a></p>") +
       '</form>' +
-      '<p class="f-auth-legal">' + ico('shield', 14) + ' 请保护收件信息，上传卡片时需另行确认内容授权。</p>' +
+      '<p class="f-auth-legal">' + ico('shield', 14) + (" " + QSL.escapeHtml(QSL.t("请保护收件信息，上传卡片时需另行确认内容授权。")) + "</p>") +
       '</div>' +
       '</div>' +
       '</section>';
@@ -270,9 +270,9 @@
     }
 
     function emailError(value) {
-      if (!value) return '请填写邮箱';
-      if (value.length > 120) return '邮箱不能超过 120 个字符';
-      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) ? '' : '邮箱格式不正确';
+      if (!value) return QSL.t("请填写邮箱");
+      if (value.length > 120) return QSL.t("邮箱不能超过 120 个字符");
+      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) ? '' : QSL.t("邮箱格式不正确");
     }
 
     function revealCode() {
@@ -285,7 +285,7 @@
       const remaining = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
       sendBtn.disabled = !emailValid || sending || remaining > 0;
       sendBtn.setAttribute('aria-busy', sending ? 'true' : 'false');
-      sendBtn.textContent = sending ? '发送中…' : remaining ? remaining + ' 秒后重发' : '发送验证码';
+      sendBtn.textContent = sending ? QSL.t("发送中…") : remaining ? remaining + (" " + QSL.t("秒后重发")) : QSL.t("发送验证码");
       if (!remaining && cooldownTimer !== null) {
         clearInterval(cooldownTimer);
         cooldownTimer = null;
@@ -345,13 +345,13 @@
         if (disposed) return;
         startCooldown(60);
         if (emailRevision === revision && emailInput.value.trim() === email) {
-          showCodeFeedback('验证码已发送，请查收邮件（30 分钟内有效）。', false);
+          showCodeFeedback(QSL.t("验证码已发送，请查收邮件（30 分钟内有效）。"), false);
         }
       } catch (err) {
         if (disposed) return;
         if (err && err.status === 429) startCooldown(60);
         if (emailRevision === revision && emailInput.value.trim() === email) {
-          showCodeFeedback((err && err.message) || '验证码发送失败，请稍后重试', true);
+          showCodeFeedback((err && err.message) || QSL.t("验证码发送失败，请稍后重试"), true);
         }
       } finally {
         if (!disposed) {
@@ -368,7 +368,7 @@
         const showing = input.type === 'text';
         input.type = showing ? 'password' : 'text';
         this.classList.toggle('is-on', !showing);
-        this.setAttribute('aria-label', showing ? '显示密码' : '隐藏密码');
+        this.setAttribute('aria-label', showing ? QSL.t("显示密码") : QSL.t("隐藏密码"));
         this.setAttribute('aria-pressed', showing ? 'false' : 'true');
         input.focus({ preventScroll: true });
       });
@@ -396,10 +396,10 @@
       if (!strengthEl) return;
       const score = scorePassword(value);
       strengthEl.hidden = !value;
-      const labels = ['太短', '较弱', '不错', '很强'];
+      const labels = [QSL.t("太短"), QSL.t("较弱"), QSL.t("不错"), QSL.t("很强")];
       strengthEl.dataset.level = String(score);
       strengthBars.forEach((bar, index) => bar.classList.toggle('is-on', index < Math.max(1, score)));
-      if (strengthText) strengthText.textContent = value ? '密码强度：' + labels[score] : '密码强度';
+      if (strengthText) strengthText.textContent = value ? QSL.t("密码强度：") + labels[score] : QSL.t("密码强度");
     }
     passwordInput.addEventListener('input', () => paintStrength(passwordInput.value));
 
@@ -421,20 +421,20 @@
 
     function validate(values) {
       const errors = {};
-      if (!form.querySelector('[name="legalConsent"]').checked) errors.legalConsent = '请阅读并同意用户条款，确认已阅读隐私说明';
-      if (!values.username) errors.username = '请填写用户名';
-      else if (!/^[A-Za-z0-9_]{3,20}$/.test(values.username)) errors.username = '用户名需为 3-20 位字母、数字或下划线';
+      if (!form.querySelector('[name="legalConsent"]').checked) errors.legalConsent = QSL.t("请阅读并同意用户条款，确认已阅读隐私说明");
+      if (!values.username) errors.username = QSL.t("请填写用户名");
+      else if (!/^[A-Za-z0-9_]{3,20}$/.test(values.username)) errors.username = QSL.t("用户名需为 3-20 位字母、数字或下划线");
       const message = emailError(values.email);
       if (message) errors.email = message;
-      if (!values.emailCode) errors.emailCode = '请填写邮箱验证码';
-      else if (!/^\d{6}$/.test(values.emailCode)) errors.emailCode = '验证码需为 6 位数字';
-      if (values.displayName && values.displayName.length > 40) errors.displayName = '昵称不能超过 40 个字符';
-      if (values.callSign && values.callSign.length > 20) errors.callSign = '呼号不能超过 20 个字符';
-      if (!values.password) errors.password = '请设置密码';
-      else if (values.password.length < 8) errors.password = '密码至少 8 位';
-      else if (!/[A-Za-z]/.test(values.password) || !/[0-9]/.test(values.password)) errors.password = '密码需同时包含字母与数字';
-      if (!values.confirmPassword) errors.confirmPassword = '请再次输入密码';
-      else if (values.confirmPassword !== values.password) errors.confirmPassword = '两次输入的密码不一致';
+      if (!values.emailCode) errors.emailCode = QSL.t("请填写邮箱验证码");
+      else if (!/^\d{6}$/.test(values.emailCode)) errors.emailCode = QSL.t("验证码需为 6 位数字");
+      if (values.displayName && values.displayName.length > 40) errors.displayName = QSL.t("昵称不能超过 40 个字符");
+      if (values.callSign && values.callSign.length > 20) errors.callSign = QSL.t("呼号不能超过 20 个字符");
+      if (!values.password) errors.password = QSL.t("请设置密码");
+      else if (values.password.length < 8) errors.password = QSL.t("密码至少 8 位");
+      else if (!/[A-Za-z]/.test(values.password) || !/[0-9]/.test(values.password)) errors.password = QSL.t("密码需同时包含字母与数字");
+      if (!values.confirmPassword) errors.confirmPassword = QSL.t("请再次输入密码");
+      else if (values.confirmPassword !== values.password) errors.confirmPassword = QSL.t("两次输入的密码不一致");
       return errors;
     }
 
@@ -465,7 +465,7 @@
         return;
       }
       busy = true;
-      setBusy(submitBtn, true, '创建中…');
+      setBusy(submitBtn, true, QSL.t("创建中…"));
       try {
         const payload = {
           acceptTerms: true,
@@ -483,7 +483,7 @@
         if (res && res.user) QSL.setUser(res.user);
         else await QSL.refreshUser();
         if (disposed) return;
-        if (QSL.toast) QSL.toast('注册成功，欢迎加入 QSLink！', 'success');
+        if (QSL.toast) QSL.toast(QSL.t("注册成功，欢迎加入 QSLink！"), 'success');
         QSL.navigate(safeNext || '/dashboard');
       } catch (err) {
         if (disposed) return;
@@ -491,10 +491,10 @@
         setBusy(submitBtn, false);
         if (err && err.fields) applyFieldErrors(form, err.fields);
         let message = '';
-        if (err && err.code === 'USERNAME_TAKEN') message = '该用户名已被占用，换一个试试';
-        else if (err && err.code === 'EMAIL_TAKEN') message = '该邮箱已被注册，可直接登录';
-        else if (err && err.isNetwork) message = '无法连接服务器，请确认服务已启动后重试';
-        else if (!err || !err.fields || !Object.keys(err.fields).length) message = (err && err.message) || '注册失败，请稍后重试';
+        if (err && err.code === 'USERNAME_TAKEN') message = QSL.t("该用户名已被占用，换一个试试");
+        else if (err && err.code === 'EMAIL_TAKEN') message = QSL.t("该邮箱已被注册，可直接登录");
+        else if (err && err.isNetwork) message = QSL.t("无法连接服务器，请确认服务已启动后重试");
+        else if (!err || !err.fields || !Object.keys(err.fields).length) message = (err && err.message) || QSL.t("注册失败，请稍后重试");
         setAlert(alertBox, message);
         if (err && err.status !== 400) console.error('[register]', err);
       }
@@ -522,5 +522,5 @@
     };
   }
 
-  QSL.registerPage('register', { title: '注册', render: render });
+  QSL.registerPage('register', { title: QSL.t("注册"), render: render });
 })();

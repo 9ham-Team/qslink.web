@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import './profile-address.mjs';
+import './i18n.mjs';
 import './review-webhook.mjs';
 import { testExchangeCardChoice } from './exchange-card-choice.mjs';
 test('exchange card choice: privacy, validation, empty confirmation and persistence', testExchangeCardChoice);
@@ -30,6 +31,23 @@ test('announcements: permissions, validation, publishing, pagination and persist
 
 const require = createRequire(import.meta.url);
 const sharp = require('sharp');
+
+test('public user count includes active accounts without cards or callsigns and excludes banned accounts', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const app = await start(t, dir);
+  const db = databases.get(dir).db;
+  const now = new Date().toISOString();
+  await db.transaction(unit => {
+    for (const [id, status] of [['without-cards', 'active'], ['also-without-cards', 'active'], ['banned-user', 'banned']]) {
+      unit.insert('users', { id, uid: id === 'without-cards' ? '123456789' : id === 'also-without-cards' ? '123456780' : '123456781', username: id, email: id + '@example.test', displayName: '', callSign: '', bio: '', avatarColor: '#fff', role: 'user', status, passwordHash: 'unused', createdAt: now, updatedAt: now });
+    }
+  }, { write: true });
+  const response = await fetch(app.base + '/api/stats');
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { userCount: 3 });
+  assert.equal((await (await fetch(app.base + '/api/cards')).json()).total, 0);
+});
 
 test('new uploads save only bounded WebP, preserve small images and reject invalid images', async t => {
   const dir = await temp(t);
@@ -55,6 +73,45 @@ test('new uploads save only bounded WebP, preserve small images and reject inval
   await assert.rejects(saveImage('data:image/png;base64,aW52YWxpZA==', dir, 'backImage'), err =>
     err.status === 400 && err.code === 'VALIDATION' && !!err.fields.backImage);
   assert.deepEqual(await fs.readdir(dir), before, 'invalid upload leaves no file');
+});
+
+test('compliant WebP uploads preserve bytes; oversized, oriented and disguised inputs are converted', async t => {
+  const dir = await temp(t);
+  const { saveImage, MAX_IMAGE_BYTES } = require('../server/lib/uploads');
+  const image = (width, height) => sharp({ create: { width, height, channels: 4, background: '#18b59b80' } });
+  const save = async (buffer, mime = 'webp') => {
+    const url = await saveImage(`data:image/${mime};base64,${buffer.toString('base64')}`, dir, 'frontImage');
+    return fs.readFile(path.join(dir, path.basename(url)));
+  };
+  for (const [width, height, options] of [[37, 19, {}], [3840, 16, { lossless: true }]]) {
+    const input = await image(width, height).webp(options).toBuffer();
+    assert.deepEqual(await save(input), input, 'valid bounded WebP is saved byte for byte');
+  }
+  const oversized = await image(4000, 20).webp().toBuffer();
+  const resized = await save(oversized);
+  assert.notDeepEqual(resized, oversized);
+  assert.equal((await sharp(resized).metadata()).width, 3840);
+  const oriented = await image(37, 19).withMetadata({ orientation: 6 }).webp().toBuffer();
+  const rotated = await sharp(await save(oriented)).metadata();
+  assert.deepEqual([rotated.width, rotated.height], [19, 37]);
+  assert.equal(rotated.orientation, undefined);
+  const png = await image(37, 19).png().toBuffer();
+  assert.equal((await sharp(await save(png)).metadata()).format, 'webp', 'declared MIME does not determine actual format');
+  const frames = Buffer.alloc(16 * 32 * 3);
+  frames.fill(255, 16 * 16 * 3);
+  const animated = await sharp(frames, { raw: { width: 16, height: 32, channels: 3, pageHeight: 16 } })
+    .webp({ loop: 0, delay: [100, 100] }).toBuffer();
+  assert.equal((await sharp(animated).metadata()).pages, 2);
+  const flattened = await sharp(await save(animated)).metadata();
+  assert.ok(!flattened.pages || flattened.pages === 1, 'animation keeps the existing first-frame conversion');
+  const before = await fs.readdir(dir);
+  const damaged = await sharp({ create: { width: 64, height: 32, channels: 4, background: '#12345680' } }).webp().toBuffer();
+  damaged[38] ^= 255;
+  assert.equal((await sharp(damaged).metadata()).format, 'webp', 'damaged pixel payload still has readable metadata');
+  await assert.rejects(save(damaged), err => err.status === 400 && err.code === 'VALIDATION' && !!err.fields.frontImage);
+  await assert.rejects(save(Buffer.alloc(MAX_IMAGE_BYTES + 1)), err => err.status === 413 && err.code === 'PAYLOAD_TOO_LARGE');
+  await assert.rejects(save(Buffer.from('invalid webp')), err => err.status === 400 && !!err.fields.frontImage);
+  assert.deepEqual(await fs.readdir(dir), before, 'rejected inputs leave no files');
 });
 
 test('responsive upload variants resize, cache, deduplicate and preserve original/vector files', async t => {
@@ -757,7 +814,7 @@ test('production frontend ignores devToken and does not render demo login UI', a
   assert.equal(tokenWasSet, false);
   const loginSource = await fs.readFile(path.join(ROOT, 'public/js/pages/login.js'), 'utf8');
   const loginContext = { window: { QSL: { state: { config: { demo: false } }, registerPage: (name, page) => { loginContext.page = page; },
-    safeNext: () => null, escapeHtml: text => String(text ?? ''), icon: () => '' } } };
+    t: source => source, safeNext: () => null, escapeHtml: text => String(text ?? ''), icon: () => '' } } };
   vm.createContext(loginContext);
   vm.runInContext(loginSource, loginContext);
   const container = { innerHTML: '', querySelector() { throw new Error('render captured'); } };

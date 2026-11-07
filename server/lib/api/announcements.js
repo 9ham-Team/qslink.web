@@ -4,6 +4,7 @@ const auth = require('../auth');
 const { badRequest, notFound } = require('../errors');
 const { parsePagination, parseEnum } = require('../validate');
 const { createId, paginate } = require('../db');
+const { announcementScope } = require('../contests');
 
 function validate(body, partial = false) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw badRequest(null, '请提交公告内容');
@@ -31,10 +32,12 @@ function validate(body, partial = false) {
 function list(ctx, admin = false) {
   if (admin) auth.requireAdmin(ctx);
   const { page, limit } = parsePagination(ctx.query);
+  const eventKey = announcementScope(ctx.query.get('eventKey'));
+  if (ctx.query.get('reminder') === '1' && eventKey !== null) throw badRequest({ eventKey: '提醒仅支持全站公告' });
   const status = admin ? parseEnum(ctx.query, 'status', ['all', 'draft', 'published'], 'all') : 'published';
   const dismissed = new Set(!admin && ctx.query.get('reminder') === '1' && ctx.user
     ? ctx.db.data.announcementDismissals.filter((item) => item.userId === ctx.user.id).map((item) => item.announcementId) : []);
-  const items = ctx.db.data.announcements.filter((item) => (status === 'all' || item.status === status) && !dismissed.has(item.id));
+  const items = ctx.db.data.announcements.filter((item) => (item.eventKey || null) === eventKey && (status === 'all' || item.status === status) && !dismissed.has(item.id));
   items.sort((a, b) => (admin ? b.updatedAt.localeCompare(a.updatedAt) : b.publishedAt.localeCompare(a.publishedAt)) || b.id.localeCompare(a.id));
   return { body: paginate(items, page, limit) };
 }
@@ -42,6 +45,7 @@ function list(ctx, admin = false) {
 async function create(ctx) {
   auth.requireAdmin(ctx);
   const patch = validate(ctx.body);
+  patch.eventKey = announcementScope(ctx.body.eventKey);
   const now = new Date().toISOString();
   const announcement = ctx.db.insert('announcements', {
     id: createId('a'), ...patch, publishedAt: patch.status === 'published' ? now : null,
@@ -56,6 +60,9 @@ async function update(ctx) {
   const announcement = ctx.db.find('announcements', (item) => item.id === ctx.params.id);
   if (!announcement) throw notFound('公告不存在');
   const patch = validate(ctx.body, true);
+  if (Object.prototype.hasOwnProperty.call(ctx.body, 'eventKey') && announcementScope(ctx.body.eventKey) !== (announcement.eventKey || null)) {
+    throw badRequest({ eventKey: '不能修改公告所属范围' });
+  }
   const now = new Date().toISOString();
   if (patch.status === 'published' && announcement.status !== 'published') announcement.publishedAt = now;
   Object.assign(announcement, patch, { updatedAt: now });
@@ -65,7 +72,7 @@ async function update(ctx) {
 
 async function dismiss(ctx) {
   const user = auth.requireUser(ctx);
-  const announcement = ctx.db.find('announcements', (item) => item.id === ctx.params.id && item.status === 'published');
+  const announcement = ctx.db.find('announcements', (item) => item.id === ctx.params.id && item.status === 'published' && !item.eventKey);
   if (!announcement) throw notFound('公告不存在');
   if (!ctx.db.find('announcementDismissals', (item) => item.userId === user.id && item.announcementId === announcement.id)) {
     ctx.db.insert('announcementDismissals', {

@@ -4,6 +4,40 @@
  * 命名空间：.g-*（页面）  .card3d-*（3D 查看器）
  * ============================================================ */
 
+.g-contest-votes {
+  position: absolute; right: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-pill);
+  background: var(--surface-solid); color: var(--brand-deep); font-weight: 700; font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.g-contest-detail { padding-top: 18px; padding-bottom: 64px; }
+.g-contest-detail__grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.g-contest-detail__viewer { min-width: 0; padding: 16px; text-align: center; }
+.g-contest-detail__stage { height: clamp(440px, 45vw, 600px); }
+.g-contest-detail__info { min-width: 0; }
+.g-contest-detail__info h1 { margin: 10px 0 18px; font-family: var(--font-display); font-size: clamp(26px, 3vw, 38px); overflow-wrap: anywhere; }
+.g-contest-detail__info h2 { margin: 26px 0 12px; font-size: 16px; }
+.g-contest-detail__author { display: flex; flex-wrap: wrap; }
+.g-contest-detail__description { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.85; }
+.g-contest-detail__voting { margin-top: 24px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
+.g-contest-detail__voting > strong { font-size: 28px; color: var(--brand-deep); }
+.g-contest-detail__voting .hint { margin: 12px 0; }
+.g-contest-detail__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+@media (max-width: 860px) {
+  .g-contest-detail__grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .g-contest-detail__stage { height: clamp(390px, 90vw, 560px); }
+}
+@media (max-width: 620px) {
+  .g-contest-detail__viewer { padding: 8px; }
+  .g-contest-detail__voting { padding: 16px; }
+  .g-contest-detail__actions > .btn-primary { flex: 1 1 100%; }
+}
+
+.g-contest-work { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.g-contest-work > strong { display: block; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.g-contest-work summary { cursor: pointer; color: var(--muted); }
+.g-contest-work p { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 /* ============================================================
  * 一、3D 双面卡片查看器（QSL.card3d）
  * ============================================================ */

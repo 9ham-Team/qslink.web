@@ -25,6 +25,7 @@ const { Database } = require('./lib/db');
 const { readConfig, assertProductionData } = require('./lib/config');
 const { createAuthLimiter } = require('./lib/rate-limit');
 const { imageWidth, imageVariant } = require('./lib/image-variants');
+const contestVoting = require('./lib/contest-voting');
 
 const authApi = require('./lib/api/auth');
 const meApi = require('./lib/api/me');
@@ -39,6 +40,7 @@ const startedAt = Date.now();
 const ROUTES = [
   { method: 'GET', pattern: '/api/health', handler: health },
   { method: 'GET', pattern: '/api/config', handler: publicConfig },
+  { method: 'GET', pattern: '/api/stats', handler: publicStats },
   ...authApi.routes,
   ...meApi.routes,
   ...require('./lib/api/logbook').routes,
@@ -47,6 +49,7 @@ const ROUTES = [
   ...exchangesApi.routes,
   ...adminApi.routes,
   ...require('./lib/api/announcements').routes,
+  ...require('./lib/api/contests').routes,
 ];
 
 /* =========================================================================
@@ -90,6 +93,10 @@ function publicConfig(ctx) {
       }))
     : [];
   return { body: { demo: ctx.config.demo, demoAccounts: accounts, build: publicBuild } };
+}
+
+function publicStats(ctx) {
+  return { body: { userCount: ctx.db.count('users', user => user.status === 'active') } };
 }
 
 /** 用 :param 模式匹配路径，返回参数对象；不匹配返回 null */
@@ -296,7 +303,14 @@ async function handleApi(req, res, { db, config, url, host }) {
   // External side effects must run only after COMMIT and after releasing the DB connection.
   if (typeof result.afterCommit === 'function') await result.afterCommit();
   const status = result.status || 200;
-  sendJson(res, status, result.body === undefined ? {} : result.body);
+  if (Buffer.isBuffer(result.body)) {
+    if (res.writableEnded || res.destroyed) return;
+    res.writeHead(status, { ...result.headers, 'Content-Length': result.body.length,
+      'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+    res.end(result.body);
+  } else {
+    sendJson(res, status, result.body === undefined ? {} : result.body);
+  }
 }
 
 /* =========================================================================
@@ -547,6 +561,7 @@ async function start({ mailTransport, exchangeMailTransport, cardReviewMailTrans
               '检测到旧 JSON 数据，请先运行 npm run db:import-json，原文件不会自动删除',
             );
         }
+        await contestVoting.cleanup(unit);
         if (config.production) assertProductionData(unit);
         if (!unit.initialized) {
           if (config.demo) {
@@ -570,6 +585,21 @@ async function start({ mailTransport, exchangeMailTransport, cardReviewMailTrans
   const server = http.createServer(createRequestHandler(db, config));
   server.requestTimeout = 60000;
   server.headersTimeout = 15000;
+
+  let cleaningVotes = false;
+  const voteCleanupTimer = setInterval(async () => {
+    if (cleaningVotes) return;
+    cleaningVotes = true;
+    try {
+      await db.transaction((unit) => contestVoting.cleanup(unit), { write: true });
+    } catch (err) {
+      console.error('[contest] 清理过期指纹摘要失败');
+    } finally {
+      cleaningVotes = false;
+    }
+  }, 60 * 1000);
+  voteCleanupTimer.unref();
+  server.once('close', () => clearInterval(voteCleanupTimer));
 
   server.on('error', async (err) => {
     if (err && err.code === 'EADDRINUSE') {

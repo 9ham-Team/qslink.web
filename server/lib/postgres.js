@@ -4,12 +4,14 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
-const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql', '014_qsl_design_contest.sql', '015_contest_entry_cards.sql', '016_contest_works.sql', '017_contest_voting.sql', '018_contest_voting_limits.sql'];
 const SCHEMA_VERSION = MIGRATIONS.length;
-const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals', 'contactLogs'];
+const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals', 'contactLogs', 'contestEntries', 'contestWorks'];
 const FIELDS = {
+  contestWorks: ['id', 'eventKey', 'entryId', 'cardId', 'number', 'description', 'submittedAt', 'active'],
+  contestEntries: ['id', 'eventKey', 'userId', 'contactEmail', 'status', 'reviewReason', 'reviewedBy', 'reviewedAt', 'revision', 'createdAt', 'updatedAt'],
   contactLogs: ['id', 'userId', 'dedupKey', 'qsoAt', 'callSign', 'details', 'createdAt', 'updatedAt'],
-  announcements: ['id', 'title', 'body', 'status', 'displaySeconds', 'publishedAt', 'createdAt', 'updatedAt'],
+  announcements: ['id', 'eventKey', 'title', 'body', 'status', 'displaySeconds', 'publishedAt', 'createdAt', 'updatedAt'],
   announcementDismissals: ['id', 'userId', 'announcementId', 'createdAt'],
   emailVerifications: ['id', 'nonce', 'codeHash', 'attempts', 'status', 'sentAt', 'expiresAt'],
   mailQuotas: ['id', 'count', 'windowAt'],
@@ -71,6 +73,7 @@ const FIELDS = {
   sessions: ['token', 'userId', 'createdAt', 'expiresAt'],
 };
 const quote = (name) => '"' + name + '"'; // Constants or schema-validated identifiers only.
+const JSON_FIELDS = new Set(['selectedContactLogs']);
 const keyFor = (name) => (name === 'sessions' ? 'token' : 'id');
 const emptyData = () =>
   Object.fromEntries([
@@ -192,7 +195,7 @@ class UnitOfWork {
             .join(',');
         await this.client.query(
           `INSERT INTO ${quote(name)} (${fields.map(quote).join(',')}) VALUES (${fields.map((_, i) => '$' + (i + 1)).join(',')}) ON CONFLICT(${quote(key)}) DO UPDATE SET ${updates}`,
-          fields.map((field) => field === 'selectedContactLogs' ? JSON.stringify(row[field] || []) : (row[field] === undefined ? null : row[field])),
+          fields.map((field) => JSON_FIELDS.has(field) ? JSON.stringify(row[field] || []) : (row[field] === undefined ? null : row[field])),
         );
       }
     }
@@ -325,6 +328,15 @@ function paginate(items, page, limit) {
   };
 }
 function cascadeDeleteCard(db, cardId) {
+  const entries = new Set();
+  for (const work of db.data.contestWorks) {
+    if (work.cardId !== cardId) continue;
+    if (work.active) entries.add(work.entryId);
+    Object.assign(work, { entryId: null, cardId: null, description: '', active: false });
+  }
+  for (const entry of db.data.contestEntries) {
+    if (entries.has(entry.id)) require('./contests').resetEntry(entry);
+  }
   for (const exchange of db.data.exchanges)
     if (exchange.preferredCardId === cardId) exchange.preferredCardId = null;
   for (const name of ['cards', 'likes', 'exchanges'])
@@ -333,6 +345,14 @@ function cascadeDeleteCard(db, cardId) {
     );
 }
 function cascadeDeleteUser(db, userId) {
+  const entryIds = new Set(db.data.contestEntries.filter((entry) => entry.userId === userId).map((entry) => entry.id));
+  for (const work of db.data.contestWorks) {
+    if (entryIds.has(work.entryId)) Object.assign(work, { entryId: null, cardId: null, description: '', active: false });
+  }
+  db.data.contestEntries = db.data.contestEntries.filter((entry) => entry.userId !== userId);
+  for (const entry of db.data.contestEntries) {
+    if (entry.reviewedBy === userId) entry.reviewedBy = null;
+  }
   for (const card of [...db.data.cards])
     if (card.ownerId === userId) cascadeDeleteCard(db, card.id);
   db.data.likes = db.data.likes.filter((row) => row.userId !== userId);

@@ -140,13 +140,17 @@ Dockerfile 使用构建参数 `QSL_BUILD_REVISION` / `QSL_BUILD_CREATED` 同时�
 ### 图片上传
 上传接口在 JSON body 中提交 data URL：
 `"frontImage": "data:image/webp;base64,...."`（支持 png / jpeg / webp / svg+xml；单张解码后 ≤ 8MB）。
-服务端在上传请求完成前解码并转为 WebP（质量 82），自动纠正 EXIF 方向、保留透明度，按比例限制最长边至 3840 像素，不放大小图；仅保存转换结果并返回 `/uploads/<uuid>.webp`，不落盘保留上传原图。SVG 新上传也栅格化为 WebP。不设置输入像素数量上限；无法解码或转换失败返回 `400 VALIDATION`（含对应图片字段）；与响应式派生共用最多 2 项处理、64 项等待的队列，满载返回 `503 IMAGE_BUSY`。也可直接提交已保存的 `/uploads/...` URL（编辑时沿用旧图，不重新编码）；不批量转换或删除历史文件。
+服务端在上传请求完成前检查实际图片格式，并解码校验。实际为静态 WebP、最长边 ≤3840 像素且无需纠正 EXIF 方向（方向缺失或为 1）时，完整解码确认有效后直接保存上传字节，避免重复有损编码；不会仅信任客户端 MIME 声明。其余图片转为 WebP（质量 82），自动纠正 EXIF 方向、保留透明度，按比例限制最长边至 3840 像素，不放大小图；动画沿用原有首帧转换行为，SVG 新上传也栅格化为 WebP。仅保存最终 WebP 并返回 `/uploads/<uuid>.webp`，转换时不另存上传原图。不设置输入像素数量上限；无法解码或转换失败返回 `400 VALIDATION`（含对应图片字段）；校验与转换均与响应式派生共用最多 2 项处理、64 项等待的队列，满载返回 `503 IMAGE_BUSY`。单张 8MB 限制在转换前检查。也可直接提交已保存的 `/uploads/...` URL（编辑时沿用旧图，不重新编码）；不批量转换或删除历史文件。
 
 ---
 
 ## 1. 健康检查与运行配置
 
 `GET /api/health` → `{ "ok": true, "name": "QSLink", "version": "1.0.0", "uptime": 12.3, "time": "...", "storage": "postgresql" }`。健康检查会验证数据库连接。
+
+### GET /api/stats
+
+公开首页统计，无需登录，返回 `{ "userCount": 42 }`。`userCount` 为全库 `status=active` 的注册用户数量（包含管理员、未填写呼号和未上传卡片的用户，不计禁用用户），不受卡片审核、卡片列表分页或筛选影响。只公开聚合数量，不返回个人资料。
 
 ### GET /api/config
 
@@ -325,7 +329,7 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ## 公告
 
-公告对象 `Announcement` 包含 `id`、`title`、`body`、`status`、`displaySeconds`、`publishedAt`、`createdAt`、`updatedAt`。`displaySeconds` 为浮层停留秒数，整数 1–3600，默认 30。标题和正文均为纯文本；去除首尾空白后分别为 1–120 和 1–10000 个 Unicode 字符，不允许 NUL。状态仅为 `draft`（草稿 / 已撤下）或 `published`（已发布）。时间由服务端生成，为 UTC ISO 字符串，未发布过的草稿 `publishedAt: null`。客户端提交的 ID、时间及其它未知字段不参与写入。
+公告对象 `Announcement` 包含 `id`、`eventKey`、`title`、`body`、`status`、`displaySeconds`、`publishedAt`、`createdAt`、`updatedAt`。`eventKey: null` 为全站公告，`qsl-design-2026-11` 为本届比赛动态，创建后不可改变所属范围。`displaySeconds` 为浮层停留秒数，整数 1–3600，默认 30。标题和正文均为纯文本；去除首尾空白后分别为 1–120 和 1–10000 个 Unicode 字符，不允许 NUL。状态仅为 `draft`（草稿 / 已撤下）或 `published`（已发布）。时间由服务端生成，为 UTC ISO 字符串，未发布过的草稿 `publishedAt: null`。客户端提交的 ID、时间及其它未知字段不参与写入。
 
 ### GET /api/announcements
 
@@ -346,6 +350,96 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 ### POST /api/announcements/:id/dismiss
 
 需要登录。以服务端当前用户身份保存此公告的“不再提醒”偏好；无需请求体，忽略客户端传入的用户 ID。成功 `200 → { dismissed: true }`，重复提交幂等；游客 `401`，禁用用户 `403`，不存在或未发布公告 `404`。偏好保存在数据库，跨设备、重新登录以及此公告编辑 / 撤下再发布后仍生效；新建公告使用新 ID，独立提醒。不会从公告板隐藏公告，也不返回其他用户的偏好。
+
+## 第一届QSLink杯QSL卡片设计大赛
+
+本届 `eventKey` 固定为 `qsl-design-2026-11`，其他赛事键返回 404。公开页面为 `/events/qsl-design-2026-11`，独立作品详情路由为 `/events/qsl-design-2026-11/works/:id`（`:id` 为作品 ID，不是卡片 ID 或展示编号）。本轮提供赛事动态、逐作品报名、报名审核、公开参赛作品及投票，不提供评分计算或证照上传接口。作品列表只读展示票数，不提供快捷投票；投票在作品详情发起。未明确的赛期、完整评分和奖品细则在页面标注待公布。
+
+投票按账号而非呼号计限额：正常可用（active）账号即可投票，无需拥有广场卡片或报名参赛；每账号全赛期累计最多 5 票，可投给五个不同作品，无每日限制，每作品最多投 1 票，投出不可撤回，允许自投。时间窗口与账号、资格、目标作品状态及票数限制均由服务端校验，不能仅依赖前端禁用按钮。票数不直接代表最终得分或获奖结果。
+
+迁移 `014_qsl_design_contest.sql` 新增报名表与公告范围字段，原有公告保留为全站公告。迁移 `015_contest_entry_cards.sql` 将单卡引用 `cardId` 改为最多 3 张卡片的 `cardIds` 数组（升级时把原引用转换为单元素数组并删除旧列）；旧版程序无法读取升级后的报名表，回滚须另行评估数据兼容性，不能以镜像回退代替数据库恢复。
+
+迁移 `016_contest_works.sql` 新增独立 `contestWorks`，按旧报名 `createdAt`、ID、原选卡顺序分配编号，将总说明复制到每张作品，首次时间沿用报名创建时间（无法恢复历史逐卡加选时间）。删除报名级 `cardIds/description` 列，以作品为唯一来源。新编号在现有写事务锁内按含停用与墓碑的最大编号加一分配，赛事内编号与卡片关联均有唯一约束；SQL 删除与应用删除均清除关联说明并留墓碑。发布前须备份数据库，恢复旧镜像不构成数据回滚。
+
+迁移 `018_contest_voting_limits.sql` 将投票槽位扩大为 1–5，移除每日唯一约束，保留同账号同作品唯一约束及全部历史票、审计日期和 HMAC 密钥；历史票继续计入总额度。升级后不能直接运行旧版程序，恢复旧镜像不等于回滚数据库。
+
+### GET /api/contests/:eventKey
+
+匿名可读取赛事定义及实时统计，返回 `{ contest: { key, title, approvedRegistrationCount }, voting }`。`approvedRegistrationCount` 为本赛事 `status === 'approved'` 的报名人数，初始为 `0`；每赛事每用户仅一份报名，多张参赛卡片仍计为一人。`pending`、`rejected` 不计入，通过后幂等保存不增加计数；修改或删卡使报名回到待审核时立即扣减，删除用户清理报名后也不再计入。公开赛事对象不返回用户信息、参赛者名单、联系邮箱或审核备注。`voting` 按当前请求身份返回，不包含其他投票人的信息。
+
+#### 公共投票状态 `voting`
+
+`GET /api/contests/:eventKey`、作品详情及投票成功响应使用同一结构：
+
+```js
+{
+  startsAt, endsAt, // 含时区的 ISO 时间；未配置时为 null
+  isOpen,          // 服务端当前时间满足 startsAt <= now < endsAt
+  eligible,        // 当前账号正常可用（active），不要求拥有广场卡片
+  votesUsed,       // 当前账号在本赛事已投票数，0–5
+  votedWorkIds     // 当前账号在本赛事已投过的作品 ID 数组
+}
+```
+
+游客的 `eligible` 为 `false`，`votesUsed` 为 `0`，`votedWorkIds` 为 `[]`；仍可读取投票时段和开放状态。`eligible` 不代表时段已开放或仍有剩余票数，客户端需结合各字段展示状态。无每日投票限制，不返回 `votedToday`。
+
+### GET /api/contests/:eventKey/entry 🔒
+
+仅读取当前用户自己的报名，返回 `{ entry }`，未报名为 `{ entry: null }`。报名包含 `id`、`eventKey`、`userId`、`cardIds`、`cards`、`works`、`contactEmail`、`status`、`reviewReason`、`reviewedBy`、`reviewedAt`、`revision`、`createdAt`、`updatedAt`；`cardIds` 为当前关联的卡片 ID 数组（新提交最多 2 件，历史记录可能超过 2 件），`cards` 为对应的卡片展示信息（卡片被删除后从数组中移除）。`works` 为 `[{ id, cardId, number, description, submittedAt, card }]`，按首次提交时间、编号正序；`cardIds/cards` 从当前作品派生，总 `description` 不再返回，审核相关字段保持不变。每届每卡编号固定，移除后重加恢复原编号及 `submittedAt`；`number` 为整数，客户端可补零显示。联系邮箱仅本人及管理员可见，不修改账号邮箱，不在报名时收集领奖证照。
+
+### PUT /api/contests/:eventKey/entry 🔒
+
+body：`{ works: [{ cardId, description }], contactEmail, expectedRevision? }`，`works` 必须包含 1–2 张不重复的卡片，每张作品的 `description` 必填，去除首尾空白后为 1–2000 个 Unicode 字符，禁止 NUL。不再接收报名总说明或以 `cardIds` 选择作品。首次可省略 `expectedRevision`，更新已有报名必须携带当前版本。服务端逐张检查所选卡片属于当前用户且已通过广场审核，客户端不能指定报名用户、审核状态或审核人。
+
+- 每账号本届仅保留一份报名，数据库唯一约束保护并发请求；待审核、驳回、通过后修改均更新原记录。历史超额作品不自动删除，读取仍完整返回；再次提交须由用户明确调整至最多 2 件，不能由客户端静默截断。
+- 有效修改递增 `revision`、转为 `pending` 并清空旧审核信息；没有实际变化的重复保存不撤销审核结果。
+- 旧版本更新返回 `409`，需重新读取再提交；非法字段为 `400`，未登录为 `401`。
+- 修改作品选择、逐作品说明或联系邮箱，整份报名重新待审核；任一当前作品卡片内容变化或失去广场通过状态时同样重新待审核，仅库存变化不影响赛事审核。删卡清除作品的卡片/报名关联及说明并保留编号墓碑，报名保留；删除用户清理报名及所有作品个人内容，编号不回收。
+- 成功返回 `{ entry }`，首次创建为 `201`，更新为 `200`。作品说明为 1–2000 个字符，联系邮箱为有效邮箱且最多 120 个字符。
+
+### GET /api/contests/:eventKey/works
+
+匿名可读取，支持 `q`、`page`、`limit`（通用分页规则），返回 `{ items: [{ id, number, description, submittedAt, card, voteCount }], page, pages, total, limit }`。`id` 为独立作品 ID，供作品详情与投票使用；`voteCount` 为该作品已获票数（非负整数，无票为 0）。`card` 使用现有 `CardPublic` 序列化，含作者公开摘要、双面图片及比例等展示字段，兼容卡片网格。只公开当前参与、整份报名 approved、卡片 approved 且所有者账号 active 的作品；不返回报名对象、联系邮箱、审核原因、审核人或投票人。按 `submittedAt`、`number` 正序，先筛选再分页，不按票数排序。`q` 去除首尾空白后按卡片呼号大小写不敏感包含匹配；纯数字还精确匹配作品编号（`001` 与 `1` 均匹配编号 1），与呼号匹配取并集。
+
+### GET /api/contests/:eventKey/works/:id
+
+匿名可读取，返回 `{ work: { id, number, description, submittedAt, card, voteCount }, voting }`，作品结构与列表项一致。按作品 ID 查询并执行与公开列表相同的可见性规则，已移除、未通过审核、卡片不可公开或账号不可用的作品返回 404，不通过详情泄露隐藏内容。
+
+### POST /api/contests/:eventKey/works/:id/vote 🔒
+
+body：`{ fingerprint }`，`fingerprint` 为浏览器诊断摘要字符串（最多 8192 字符），不是原始诊断材料；成功 `200 → { work, voting }`，返回最新作品票数与当前账号投票状态。此端点只追加一票，不提供撤回或改投。允许投给自己的作品，但仍须满足相同资格和限额。
+
+未登录为 `401`，账号不可用为 `403`；作品不存在或不可公开为 `404`；请求字段无效为 `400`。不在投票时段、同一作品已投或赛事 5 票已用完为 `409`，分别使用 `VOTING_CLOSED`、`WORK_ALREADY_VOTED`、`TOTAL_VOTE_LIMIT`。服务端在事务内校验并以数据库约束保护并发，不因重复请求多记票。公开响应不返回诊断摘要或其他投票人信息；有关诊断摘要用途、保留及注销处理的用户告知仅置于隐私政策，不在赛事规则或投票弹窗重复展示。
+
+### GET /api/admin/contests/:eventKey/entries 🔒👑
+
+支持 `status=all|pending|approved|rejected`、`page`、`limit`，返回通用分页结构 `{ items, total, page, limit, pages }`。列表包含报名审核所需字段及参赛者简要信息，不通过公开接口暴露。
+
+### GET /api/admin/contests/:eventKey/entries/:id 🔒👑
+
+返回 `{ entry }`，供管理员核对当前卡片双面图片、作品说明、联系邮箱及版本。
+
+### PUT /api/admin/contests/:eventKey/entries/:id/review 🔒👑
+
+body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。驳回必须填写 1–200 个字符的原因；旧版本返回 `409 REVISION_CONFLICT`。实质审核变化递增 `revision`，相同结果与原因的重复审核保持幂等。通过时再次检查所有关联卡片存在、属于报名人、广场状态为 approved，且报名用户可用；没有可用卡片不能通过。审核只改变赛事报名，不代替或改变广场审核。返回 `{ entry }`。
+
+### GET /api/admin/contests/:eventKey/voting 🔒👑
+
+仅管理员，返回 `{ voting }`。包含投票起止时间和公共投票状态字段，并包含当前配置 `revision`，用于后续更新的并发校验；未配置时起止时间为 `null`、`revision` 为 `0`。
+
+### PUT /api/admin/contests/:eventKey/voting 🔒👑
+
+仅管理员，body：`{ startsAt, endsAt, expectedRevision }`。起止时间须为含时区的 ISO 时间，结束须晚于开始；后台以北京时间输入展示，提交前转换为带明确时区的时间，不把浏览器当地时间直接当北京时间。`expectedRevision` 必须为最近读取的配置版本（首次配置为 `0`）；版本过期返回 `409 REVISION_CONFLICT`，非法字段返回 `400`。成功返回 `{ voting }`（含最新 `revision`），不得以旧页面静默覆盖其他管理员更新。未登录为 `401`，非管理员为 `403`；公开读取或投票接口不能修改投票时段。
+
+### GET /api/admin/contests/:eventKey/votes.xlsx 🔒👑
+
+仅管理员，返回真实 XLSX 工作簿二进制，不以 CSV/HTML 改后缀冒充；`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`，`Content-Disposition` 为附件。包含两个工作表：**作品汇总**（作品 ID、固定编号、当前公开/隐藏及报名状态、作者公开资料、提交时间、累计票数）及 **逐票明细**（票 ID、作品 ID/编号、投票账号资料或注销脱敏标记、投票日期与时间，以及仍在保留期内的诊断摘要）。北京时间投票日期与 UTC 时间分别标明时区，保留期已到的摘要不得导出；不导出原始诊断材料。隐藏或删除作品的历史票据仍供计票核对，注销不清空累计票数，相关账号资料须脱敏。未登录为 `401`，非管理员为 `403`，不能仅靠隐藏导出按钮保护。管理操作应记录操作者、赛事及时间的审计信息，不记录原始诊断材料。
+
+### 赛事动态与全站公告隔离
+
+上述公告列表接口默认仅返回 `eventKey: null` 的全站公告；显式传 `?eventKey=qsl-design-2026-11` 只返回比赛动态，按范围和发布状态过滤后分页。公开端不返回草稿。管理员创建公告可附加 `eventKey`，普通更新不可改变范围。
+
+赛事动态不参加全站自动提醒，`reminder=1` 不可与赛事筛选组合（400）；对赛事动态调用 dismiss 返回404。赛事动态正文为纯文本，`displaySeconds` 不影响比赛页面中的展示时长。
 
 ## 7. 静态资源
 - `/uploads/*`：上传的卡片图片，长缓存头。

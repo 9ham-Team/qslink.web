@@ -473,6 +473,14 @@
   transform: rotate(-12deg);
 }
 .f-visual-card-sm { transform: scale(0.86); transform-origin: right bottom; }
+html[lang="en"] .f-visual-card {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  align-self: flex-end;
+  flex: 0 0 120px;
+  margin: 10px 10px 0 0;
+}
 
 /* -------- 右侧表单卡 -------- */
 .f-auth-panel {
@@ -2372,4 +2380,183 @@
   .f-logbook [data-search] { width: 100%; }
   .f-logbook [data-search] label { flex: 1; min-width: 0; }
   .f-logbook [data-search] input { width: 100%; }
+}
+
+/* ---------------- QSL 设计大赛 ---------------- */
+.f-contest { padding-bottom: 42px; }
+.f-contest-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .65fr); align-items: center; gap: 40px; padding: 48px 40px; margin-top: 24px; border: 1px solid var(--line); border-radius: var(--r-xl); background: #fff; box-shadow: var(--shadow-sm); }
+.f-contest-hero { display: flex; align-items: center; min-width: 0; }
+.f-contest-brand { display: inline-block; background: var(--grad-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.f-contest-hero h1 { position: relative; max-width: 900px; margin: 0 0 36px; font-size: clamp(34px, 5.5vw, 70px); line-height: 1.2; letter-spacing: -.04em; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; text-wrap: balance; }
+.f-contest-hero-copy { min-width: 0; }
+.f-contest-hero-figure { display: flex; flex-direction: column; min-width: 0; margin: 0; padding: 24px; border: 1px solid rgba(14, 175, 143, .12); border-radius: var(--r-xl); background: linear-gradient(145deg, #fafffe, #e9faf7); box-shadow: var(--shadow-sm); }
+.f-contest-trophy-label { display: inline-flex; align-items: center; align-self: flex-start; gap: 8px; padding: 7px 12px; border: 1px solid rgba(14, 175, 143, .1); border-radius: 99px; background: #fff; color: var(--ink-2); font-size: 12px; font-weight: 700; }
+.f-contest-trophy-label .icon { color: #aa8743; }
+.f-contest-trophy-stage { position: relative; isolation: isolate; display: grid; place-items: center; flex: 1; padding: 22px 0 12px; }
+.f-contest-trophy-stage::before { content: ''; position: absolute; z-index: -1; width: 100%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #fff 35%, rgba(255, 255, 255, .6) 58%, transparent 72%); }
+.f-contest-hero-figure figcaption { margin-top: 12px; color: var(--muted); font-size: 12px; line-height: 1.7; text-align: center; }
+.f-contest-hero-image { display: block; width: min(100%, 270px); height: auto; border-radius: var(--r-md); }
+/* 仅链接直达的备选首屏，与正式页共用下方赛事内容。 */
+.f-contest-alt-intro { display: grid; grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr); align-items: stretch; gap: 44px; margin-top: 24px; padding: 34px; border: 1px solid #e4eeeb; border-radius: 28px; background: linear-gradient(110deg, #fff 0%, #fbfefd 64%, #effcf8 100%); box-shadow: 0 28px 48px -36px rgba(23, 78, 65, .35); }
+.f-contest-alt-copy { min-width: 0; align-self: center; padding: 12px 0; }
+.f-contest-alt-eyebrow { display: flex; align-items: center; gap: 6px; margin: 0 0 22px; color: #536863; font-size: clamp(7px, .78vw, 10px); font-weight: 700; letter-spacing: .12em; white-space: nowrap; }
+.f-contest-alt-eyebrow::before { content: ''; width: 20px; height: 1px; margin-right: 8px; background: linear-gradient(90deg, transparent, #adab7d, transparent); }
+.f-contest-alt-eyebrow b { color: #1c7363; }
+.f-contest-alt-copy h1 { margin: 0; color: #092e27; font-size: clamp(30px, 4.5vw, 60px); line-height: 1.22; font-weight: 900; letter-spacing: -.045em; }
+.f-contest-alt-copy h1 > span { display: block; }
+.f-contest-alt-copy h1 > span:first-child { white-space: nowrap; }
+.f-contest-alt-copy .f-contest-brand { background-image: linear-gradient(105deg, #008761, #30b6ce); }
+.f-contest-alt-subtitle { margin: 18px 0 24px; color: #52665f; font-size: clamp(12px, 1.3vw, 16px); line-height: 1.8; }
+.f-contest-alt-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.f-contest-alt-actions .btn { min-height: 44px; padding: 11px 24px; border-radius: 999px; gap: 10px; font-size: 13px; }
+.f-contest-alt-actions .btn-primary { background: linear-gradient(110deg, #00866b, #00818b); box-shadow: 0 6px 14px -8px #007d6c; }
+.f-contest-alt-actions .btn-soft { border: 1px solid #dfe9e6; background: #fbfefd; color: #244a41; box-shadow: 0 3px 7px rgba(32, 72, 60, .04); }
+.f-contest-alt-status { display: flex; align-items: center; gap: 7px; margin: 12px 0 0; color: #617970; font-size: 11px; line-height: 1.7; }
+.f-contest-alt-status::before { content: ''; flex: 0 0 5px; height: 5px; border-radius: 50%; background: #10ac85; box-shadow: 0 0 0 3px rgba(16, 172, 133, .07); }
+.f-contest-alt-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 26px 0 0; padding-top: 18px; border-top: 1px solid #e5eeea; }
+.f-contest-alt-stats > div + div { padding-left: 16px; border-left: 1px solid #e9f0ed; }
+.f-contest-alt-stats dt { color: #187866; font-size: 19px; font-weight: 900; line-height: 1.2; letter-spacing: -.04em; }
+.f-contest-alt-stats small { font-size: 11px; font-weight: 500; letter-spacing: 0; }
+.f-contest-alt-stats dd { margin: 5px 0 0; color: #64766f; font-size: 11px; line-height: 1.5; }
+.f-contest-alt-figure { display: flex; flex-direction: column; min-width: 0; margin: 0; padding: 16px; border: 1px solid #e0eeea; border-radius: 22px; background: radial-gradient(ellipse at 50% 70%, #dffaf3, transparent 72%), linear-gradient(145deg, #fafffe, #effbf8); box-shadow: 0 12px 24px -20px rgba(28, 110, 87, .3); }
+.f-contest-alt-figure-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.f-contest-alt-figure .f-contest-trophy-label { gap: 5px; padding: 4px 9px; font-size: 10px; font-weight: 600; }
+.f-contest-alt-figure time { color: #60776f; font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; }
+.f-contest-alt-stage { position: relative; isolation: isolate; display: grid; place-items: center; flex: 1; min-height: 310px; padding: 26px 0 6px; }
+.f-contest-alt-stage::before { content: ''; position: absolute; z-index: -1; width: 86%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.9) 35%, rgba(255,255,255,.38) 68%, transparent 70%); }
+.f-contest-alt-stage img { display: block; width: auto; height: 300px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 16px 18px rgba(49, 83, 66, .2)); }
+.f-contest-alt-figure figcaption { margin: 10px 0 0; color: #6b8177; text-align: center; font-size: 10px; line-height: 1.8; }
+@media (max-width: 1080px) and (min-width: 761px) {
+  .f-contest-alt-intro { gap: 30px; padding: 32px; }
+  .f-contest-alt-stage { min-height: 296px; }
+  .f-contest-alt-stage img { height: 278px; }
+}
+@media (max-width: 760px) {
+  .f-contest-alt-intro { grid-template-columns: minmax(0, 1fr); gap: 28px; margin-top: 16px; padding: 24px; border-radius: 24px; }
+  .f-contest-alt-copy { padding: 4px 0 0; }
+  .f-contest-alt-copy h1 { font-size: clamp(26px, 6.8vw, 48px); }
+  .f-contest-alt-eyebrow { font-size: clamp(6px, 1.45vw, 9px); gap: 4px; letter-spacing: .07em; }
+  .f-contest-alt-eyebrow::before { width: 12px; margin-right: 2px; }
+  .f-contest-alt-subtitle { font-size: 12px; }
+  .f-contest-alt-actions .btn { padding-inline: 20px; }
+  .f-contest-alt-stats > div + div { padding-left: 12px; }
+  .f-contest-alt-figure { min-height: 370px; }
+  .f-contest-alt-stage { min-height: 280px; }
+  .f-contest-alt-stage img { height: 278px; }
+}
+.f-contest-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.f-contest-actions .btn { white-space: normal; text-align: center; }
+.f-contest-section { margin-top: 64px; scroll-margin-top: calc(var(--nav-h) + 24px); }
+.f-contest-section-head { display: flex; gap: 16px; align-items: baseline; margin-bottom: 24px; }
+.f-contest-section-head .eyebrow { color: var(--brand-deep); }
+.f-contest-section-head h2 { font-size: clamp(25px, 3vw, 34px); margin: 0; }
+.f-contest-prizes { margin-bottom: 28px; overflow-wrap: anywhere; }
+.f-contest-prizes > h3 { margin: 0 0 18px; font-size: clamp(24px, 3vw, 34px); font-weight: 800; }
+.f-contest-prizes-champion { padding: clamp(20px, 4vw, 40px); border: 1px solid var(--line); border-radius: var(--r-lg); background: radial-gradient(ellipse at top right, rgba(245, 190, 84, .24), transparent 70%), var(--surface-solid); }
+.f-contest-prizes h4 { margin: 0 0 22px; font-size: 22px; }
+.f-contest-prizes-champion h4 { display: flex; align-items: center; gap: 10px; color: var(--brand-deep); }
+.f-contest-prizes-milestones { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: end; gap: 24px; margin-bottom: 26px; }
+.f-contest-prizes-bubble { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 22px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-solid); }
+.f-contest-prizes-bubble::after { content: ''; position: absolute; left: 24px; bottom: -9px; width: 16px; height: 16px; transform: rotate(45deg); background: var(--surface-solid); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.f-contest-prizes-upgrade { border-color: var(--brand); }
+.f-contest-prizes-upgrade::after { left: auto; right: 24px; border-color: var(--brand); }
+.f-contest-prizes-bubble > span { color: var(--muted); font-size: 14px; }
+.f-contest-prizes-bubble strong { font-size: clamp(26px, 3.8vw, 44px); font-weight: 900; line-height: 1.2; letter-spacing: -.025em; color: var(--ink); }
+.f-contest-prizes-upgrade strong { color: var(--brand-deep); }
+.f-contest-prizes-upgrade b { color: var(--brand-deep); }
+.f-contest-prizes-stat progress { display: block; appearance: none; width: 100%; height: 18px; overflow: hidden; border: 0; border-radius: 20px; background: var(--brand-soft); accent-color: var(--brand); }
+.f-contest-prizes-stat progress::-webkit-progress-bar { background: var(--brand-soft); border-radius: 20px; }
+.f-contest-prizes-stat progress::-webkit-progress-value { background: linear-gradient(90deg, var(--brand), var(--brand-deep)); border-radius: 20px; }
+.f-contest-prizes-stat progress::-moz-progress-bar { background: var(--brand); border-radius: 20px; }
+.f-contest-prizes-scale, .f-contest-prizes-count { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 18px; margin-top: 10px; }
+.f-contest-prizes-scale { font-family: var(--font-mono); color: var(--muted); font-size: 13px; }
+.f-contest-prizes-count { color: var(--brand-deep); font-weight: 700; }
+.f-contest-prizes-note, .f-contest-prizes-runners article > p:last-child { color: var(--ink-2); line-height: 1.8; font-size: 14px; margin: 16px 0 0; }
+.f-contest-prizes-runners { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+.f-contest-prizes-runners article { min-width: 0; padding: 26px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.f-contest-prizes-runners h4 { margin-bottom: 14px; }
+.f-contest-prizes-items { margin: 0; color: var(--ink); font-size: clamp(23px, 2.8vw, 30px); font-weight: 800; line-height: 1.5; }
+.f-contest-news { position: relative; padding: 26px 30px; margin-bottom: 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow-wrap: anywhere; }
+.f-contest-news time { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.f-contest-news h3 { font-size: 20px; margin: 10px 0 12px; }
+.f-contest-news p { white-space: pre-wrap; color: var(--ink-2); line-height: 1.85; margin: 0; }
+.f-contest-more { display: flex; justify-content: center; margin-top: 20px; }
+.f-contest-registration { position: relative; padding: 32px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow-wrap: anywhere; overflow-anchor: none; }
+.f-contest-registration.is-transitioning { overflow: hidden; }
+.f-contest-panel { display: flow-root; min-width: 0; }
+.f-contest-panel-out { position: absolute; pointer-events: none; }
+.f-contest-result { --result-color: #a16207; --result-glow: rgba(245, 158, 11, .15); display: flex; flex-direction: column; align-items: center; padding: 24px 0; text-align: center; }
+.f-contest-result--approved { --result-color: #059669; --result-glow: rgba(16, 185, 129, .16); }
+.f-contest-result--rejected { --result-color: #dc2626; --result-glow: rgba(239, 68, 68, .13); }
+.f-contest-result-icon { position: relative; isolation: isolate; display: grid; place-items: center; width: 120px; height: 120px; margin-bottom: 18px; color: var(--result-color); border-radius: 50%; background: radial-gradient(circle, var(--result-glow), transparent 72%); }
+.f-contest-result-icon::before { content: ''; position: absolute; inset: 4px; z-index: -1; border: 1px solid var(--result-glow); border-radius: inherit; box-shadow: 0 0 0 9px var(--result-glow), 0 14px 42px -12px var(--result-glow); }
+.f-contest-result-icon .icon { width: 88px; height: 88px; }
+.f-contest-result-label { margin: 0 0 6px; color: var(--muted); font-size: 13px; letter-spacing: .08em; }
+.f-contest-result h3 { margin: 0; color: var(--result-color); font-size: clamp(28px, 4vw, 36px); line-height: 1.3; }
+.f-contest-result h3:focus-visible { outline: 2px solid var(--result-color); outline-offset: 6px; border-radius: 4px; }
+.f-contest-result-note { max-width: 580px; margin: 18px 0 0; color: var(--ink-2); white-space: pre-wrap; line-height: 1.8; }
+.f-contest-result .f-contest-actions { justify-content: center; margin-top: 28px; width: 100%; }
+.f-contest-registration form { max-width: 760px; }
+.f-contest-registration .field { display: flex; flex-direction: column; margin-bottom: 22px; }
+.f-contest-registration .textarea { min-height: 150px; resize: vertical; }
+.f-contest-form-intro { margin: 0 0 26px; max-width: 760px; color: var(--ink-2); line-height: 1.8; }
+.f-contest-status { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+.f-contest-status h3 { margin: 0; }
+.f-contest-review, .f-contest-form-error { color: var(--danger); white-space: pre-wrap; margin-bottom: 22px; }
+.f-contest-guest { text-align: center; padding: 24px 0; }
+.f-contest-guest > .icon { color: var(--brand-deep); }
+.f-contest-guest p { color: var(--ink-2); margin: 12px 0 24px; }
+.f-contest-cards { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.f-contest-selected { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.f-contest-selected:empty { display: none; }
+.f-contest-selected-card { min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-solid); }
+.f-contest-selected-card .card-thumb { display: block; margin: 0 auto 8px; max-width: 100%; }
+.f-contest-selected-card img { width: 100%; height: 100%; object-fit: contain; }
+.f-contest-selected-meta { display: flex; align-items: center; gap: 8px; justify-content: space-between; min-width: 0; }
+.f-contest-selected-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.f-contest-work-number { margin: 8px 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.f-contest-work-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.f-contest-description-state { margin: 8px 0; font-size: 12px; color: var(--danger); }
+.f-contest-description-state.is-complete { color: var(--brand-deep); }
+.f-contest-description-preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 8px 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-2); }
+.f-contest-description-editor { overflow-wrap: anywhere; }
+.f-contest-description-editor h3 { margin: 0 0 8px; }
+.f-contest-description-editor .field { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.f-contest-description-editor .textarea { width: 100%; min-height: 180px; resize: vertical; }
+.f-contest-description-editor .hint { display: block; margin: 10px 0; }
+.f-contest-description-editor .is-invalid { color: var(--danger); }
+.f-contest-submitted-works { width: 100%; max-width: 760px; display: grid; gap: 12px; margin-top: 26px; text-align: left; }
+.f-contest-submitted-work { padding: 18px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-solid); min-width: 0; overflow-wrap: anywhere; }
+.f-contest-submitted-work > strong { font-size: 13px; color: var(--brand-deep); }
+.f-contest-submitted-work h4 { margin: 8px 0; }
+.f-contest-submitted-work p { margin: 0; line-height: 1.8; white-space: pre-wrap; color: var(--ink-2); }
+.f-contest-cards-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.f-contest-confirm-list { margin: 12px 0 0; padding-left: 18px; color: var(--ink-2); line-height: 1.8; overflow-wrap: anywhere; }
+.f-contest-notice { padding: 24px; background: var(--brand-soft); border-radius: var(--r-md); color: var(--ink-2); }
+.f-contest-notice p { margin-bottom: 16px; }
+.f-contest-rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.f-contest-rule { padding: 26px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.f-contest-rule-head { display: flex; justify-content: space-between; align-items: center; }
+.f-contest-rule-icon { display: inline-flex; padding: 12px; border-radius: var(--r-sm); color: var(--brand-deep); background: var(--brand-soft); }
+.f-contest-rule h3 { margin: 22px 0 18px; font-size: 22px; }
+.f-contest-rule ul { padding-left: 20px; margin: 0; color: var(--ink-2); line-height: 1.85; font-size: 14px; overflow-wrap: anywhere; }
+.f-contest-rule li + li { margin-top: 14px; }
+@media (max-width: 1000px) {
+  .f-contest-rules { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .f-contest-prizes-milestones { gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .f-contest-prizes-bubble { padding: 16px 12px; }
+  .f-contest-prizes-bubble strong { font-size: clamp(22px, 5.5vw, 32px); }
+  .f-contest-prizes-runners { grid-template-columns: minmax(0, 1fr); }
+  .f-contest-prizes-runners article { padding: 22px 18px; }
+  .f-contest-intro { grid-template-columns: minmax(0, 1fr); gap: 30px; padding: 44px 22px; margin-top: 16px; border-radius: var(--r-lg); }
+  .f-contest-hero-figure { padding: 20px; border-radius: var(--r-lg); }
+  .f-contest-trophy-stage { max-width: 300px; width: 100%; align-self: center; }
+  .f-contest-hero h1 { margin-bottom: 28px; }
+  .f-contest-hero .f-contest-actions { align-items: stretch; }
+  .f-contest-hero .btn { flex: 1 1 130px; padding-inline: 14px; }
+  .f-contest-section { margin-top: 42px; }
+  .f-contest-registration, .f-contest-news, .f-contest-rule { padding: 22px 18px; }
+  .f-contest-registration .f-contest-actions .btn { flex: 1 1 140px; }
 }

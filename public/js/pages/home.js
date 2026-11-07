@@ -19,72 +19,72 @@
     {
       icon: '3d',
       tone: '',
-      title: '真正的 3D 展示',
-      desc: '拖拽旋转、双击翻面，卡片的厚度、金属与全息光泽随指尖流动，像把收藏捧在手心。'
+      title: QSL.t("真正的 3D 展示"),
+      desc: QSL.t("拖拽旋转、双击翻面，卡片的厚度、金属与全息光泽随指尖流动，像把收藏捧在手心。")
     },
     {
       icon: 'send',
       tone: 'sky',
-      title: '双向换卡申请',
-      desc: '在线发起换卡、留言与填写邮寄地址；对方同意后才交换地址，流程清晰又安心。'
+      title: QSL.t("双向换卡申请"),
+      desc: QSL.t("在线发起换卡、留言与填写邮寄地址；对方同意后才交换地址，流程清晰又安心。")
     },
     {
       icon: 'shield',
       tone: 'violet',
-      title: '人工审核与隐私',
-      desc: '每张卡片都经过人工审核，拒绝垃圾内容；地址仅在双方达成交换后可见，守护信任。'
+      title: QSL.t("人工审核与隐私"),
+      desc: QSL.t("每张卡片都经过人工审核，拒绝垃圾内容；地址仅在双方达成交换后可见，守护信任。")
     },
     {
       icon: 'share',
       tone: 'amber',
-      title: '一枚链接即可分享',
-      desc: '自动生成公开分享页，无需登录也能欣赏 3D 卡片，让好作品抵达更远的地方。'
+      title: QSL.t("一枚链接即可分享"),
+      desc: QSL.t("自动生成公开分享页，无需登录也能欣赏 3D 卡片，让好作品抵达更远的地方。")
     }
   ];
 
   const STEPS = [
     {
-      title: '上传双面卡片',
+      title: QSL.t("上传双面卡片"),
       href: '/dashboard/cards/new',
-      desc: '准备卡片的正反面图片，写下这张卡片背后的故事，让它在 3D 中立体呈现。'
+      desc: QSL.t("准备卡片的正反面图片，写下这张卡片背后的故事，让它在 3D 中立体呈现。")
     },
     {
-      title: '等待人工审核',
+      title: QSL.t("等待人工审核"),
       href: '/dashboard/cards?status=pending',
-      desc: '管理员会检查卡片内容；通过后亮相卡片广场，被更多火腿发现与点赞。'
+      desc: QSL.t("管理员会检查卡片内容；通过后亮相卡片广场，被更多火腿发现与点赞。")
     },
     {
-      title: '发起换卡申请',
+      title: QSL.t("发起换卡申请"),
       href: '/explore',
-      desc: '在喜欢的卡片下申请换卡，留下地址与想说的话，等待对方回应。'
+      desc: QSL.t("在喜欢的卡片下申请换卡，留下地址与想说的话，等待对方回应。")
     },
     {
-      title: '互寄，完成交换',
+      title: QSL.t("互寄，完成交换"),
       href: '/dashboard/exchanges',
-      desc: '双方同意后即可查看地址、邮寄卡片，在电波之外留下可触的纪念。'
+      desc: QSL.t("双方同意后即可查看地址、邮寄卡片，在电波之外留下可触的纪念。")
     }
   ];
 
   const FAQS = [
     {
-      q: '什么是 QSL 卡片？',
-      a: 'QSL 卡片是业余无线电爱好者用于确认通联的纸质卡片，通常记录双方呼号、通联时间与信号报告等信息。它既是通联凭证，也是一张可以交换与收藏的「电波明信片」。'
+      q: QSL.t("什么是 QSL 卡片？"),
+      a: QSL.t("QSL 卡片是业余无线电爱好者用于确认通联的纸质卡片，通常记录双方呼号、通联时间与信号报告等信息。它既是通联凭证，也是一张可以交换与收藏的「电波明信片」。")
     },
     {
-      q: '上传卡片需要审核吗？',
-      a: '需要。为了让广场保持干净与可信，每张新上传的卡片都会进入人工审核队列；通过后才会公开展示。审核中的卡片仅你自己可见，可以随时编辑补充内容。'
+      q: QSL.t("上传卡片需要审核吗？"),
+      a: QSL.t("需要。为了让广场保持干净与可信，每张新上传的卡片都会进入人工审核队列；通过后才会公开展示。审核中的卡片仅你自己可见，可以随时编辑补充内容。")
     },
     {
-      q: '换卡时我的地址会公开吗？',
-      a: '不会。地址只会在换卡申请被同意后，对参与交换的双方可见；申请中、被拒绝或取消时都不会展示。请放心填写准确的收件信息，以便顺利寄卡。'
+      q: QSL.t("换卡时我的地址会公开吗？"),
+      a: QSL.t("不会。地址只会在换卡申请被同意后，对参与交换的双方可见；申请中、被拒绝或取消时都不会展示。请放心填写准确的收件信息，以便顺利寄卡。")
     },
     {
-      q: '可以把卡片分享给朋友吗？',
-      a: '可以。每张卡片都有独立的分享链接，朋友无需登录即可通过 3D 查看器欣赏；他们也可以注册账号，回过头来向你申请换卡。'
+      q: QSL.t("可以把卡片分享给朋友吗？"),
+      a: QSL.t("可以。每张卡片都有独立的分享链接，朋友无需登录即可通过 3D 查看器欣赏；他们也可以注册账号，回过头来向你申请换卡。")
     },
     {
-      q: 'QSLink 收费吗？',
-      a: '不收费。QSLink 由业余无线电爱好者共同建设与维护，用于展示、收藏与交换 QSL 卡片。你只需要注册一个账号，就可以免费使用全部功能。'
+      q: QSL.t("QSLink 收费吗？"),
+      a: QSL.t("不收费。QSLink 由业余无线电爱好者共同建设与维护，用于展示、收藏与交换 QSL 卡片。你只需要注册一个账号，就可以免费使用全部功能。")
     }
   ];
 
@@ -112,7 +112,7 @@
       '<img ' + QSL.images.attributes(card.frontImage || QSL.PLACEHOLDER_IMAGE) + ' alt="' + esc(card.title || '') + '" loading="lazy">' +
       '</span></a></div>' +
       '<div class="qsl-tile-info"><a class="qsl-tile-title" href="' + esc(href) + '" data-link>' +
-      esc(card.title || '未命名卡片') + '</a><div class="qsl-tile-meta">' +
+      esc(card.title || QSL.t("未命名卡片")) + '</a><div class="qsl-tile-meta">' +
       (QSL.ownerLine ? QSL.ownerLine(card.owner) : '') + '</div></div>';
     return el;
   }
@@ -120,17 +120,17 @@
   /* ---------------- 页面骨架 ---------------- */
   function heroHtml(user) {
     const primaryHref = user ? '/dashboard/cards/new' : '/register';
-    const primaryLabel = user ? '上传我的卡片' : '开始交换';
+    const primaryLabel = user ? QSL.t("上传我的卡片") : QSL.t("开始交换");
     const secondaryHref = user ? '/dashboard' : '/explore';
-    const secondaryLabel = user ? '进入个人中心' : '逛逛卡片广场';
+    const secondaryLabel = user ? QSL.t("进入个人中心") : QSL.t("逛逛卡片广场");
     return (
       '<section class="g-hero">' +
       '<div class="g-hero__bg" aria-hidden="true"></div>' +
       '<div class="container g-hero__grid">' +
       '<div class="g-hero__copy">' +
-      '<p class="eyebrow" data-reveal>QSL CARD EXCHANGE · 业余无线电</p>' +
-      '<h1 class="g-hero__title" data-reveal data-reveal-delay="60">让每一张 QSL 卡片<br>在指尖<span class="g-hero__title-em">立体发光</span></h1>' +
-      '<p class="g-hero__lede" data-reveal data-reveal-delay="120">上传你的双面 QSL 卡片，生成可翻转的 3D 展示；和电波那端的火腿点赞、交换，让每一次通联都有迹可循。</p>' +
+      ("<p class=\"eyebrow\" data-reveal>" + QSL.escapeHtml(QSL.t("QSL CARD EXCHANGE · 业余无线电")) + "</p>") +
+      ("<h1 class=\"g-hero__title\" data-reveal data-reveal-delay=\"60\">" + QSL.escapeHtml(QSL.t("让每一张 QSL 卡片")) + "<br>" + QSL.escapeHtml(QSL.t("在指尖")) + "<span class=\"g-hero__title-em\">" + QSL.escapeHtml(QSL.t("立体发光")) + "</span></h1>") +
+      ("<p class=\"g-hero__lede\" data-reveal data-reveal-delay=\"120\">" + QSL.escapeHtml(QSL.t("上传你的双面 QSL 卡片，生成可翻转的 3D 展示；和电波那端的火腿点赞、交换，让每一次通联都有迹可循。")) + "</p>") +
       '<div class="g-hero__actions" data-reveal data-reveal-delay="180">' +
       '<a class="btn btn-primary btn-lg" href="' + primaryHref + '" data-link data-magnetic="10">' +
       esc(primaryLabel) + ic('arrow-right', 18) + '</a>' +
@@ -138,11 +138,11 @@
       '<span>' + esc(secondaryLabel) + '</span></a>' +
       '</div>' +
       '<p class="g-hero__trust" data-reveal data-reveal-delay="220">' + ic('check-circle', 15) +
-      '<span>已收录 <b data-g-stat-text="cards">—</b> 张 QSL 卡片 · 地址只在双方同意后可见</span></p>' +
+      ("<span>" + QSL.escapeHtml(QSL.t("已收录")) + " <b data-g-stat-text=\"cards\">—</b> " + QSL.escapeHtml(QSL.t("张 QSL 卡片 · 地址只在双方同意后可见")) + "</span></p>") +
       '<dl class="g-hero__stats" data-reveal data-reveal-delay="260">' +
-      '<div class="g-stat"><dt>收录卡片</dt><dd><span data-g-stat="cards">—</span><small>张</small></dd></div>' +
-      '<div class="g-stat"><dt>独立呼号</dt><dd><span data-g-stat="callsigns">—</span><small>位</small></dd></div>' +
-      '<div class="g-stat"><dt>累计点赞</dt><dd><span data-g-stat="likes">—</span><small>次</small></dd></div>' +
+      ("<div class=\"g-stat\"><dt>" + QSL.escapeHtml(QSL.t("收录卡片")) + "</dt><dd><span data-g-stat=\"cards\">—</span><small>" + QSL.escapeHtml(QSL.t("张")) + "</small></dd></div>") +
+      ("<div class=\"g-stat\"><dt>" + QSL.escapeHtml(QSL.t("用户数")) + "</dt><dd><span data-g-stat=\"users\">—</span><small>" + QSL.escapeHtml(QSL.t("位")) + "</small></dd></div>") +
+      ("<div class=\"g-stat\"><dt>" + QSL.escapeHtml(QSL.t("累计点赞")) + "</dt><dd><span data-g-stat=\"likes\">—</span><small>" + QSL.escapeHtml(QSL.t("次")) + "</small></dd></div>") +
       '</dl>' +
       '</div>' +
       '<div class="g-hero__stage" data-reveal data-reveal-delay="140">' +
@@ -150,15 +150,15 @@
       '<span class="g-hero__glow" aria-hidden="true"></span>' +
       '<span class="g-hero__orbit g-hero__orbit--a" aria-hidden="true"></span>' +
       '<span class="g-hero__orbit g-hero__orbit--b" aria-hidden="true"></span>' +
-      '<div class="g-hero__stage-mount" data-g-hero-mount aria-label="QSL 卡片 3D 展示"></div>' +
+      ("<div class=\"g-hero__stage-mount\" data-g-hero-mount aria-label=\"" + QSL.escapeHtml(QSL.t("QSL 卡片 3D 展示")) + "\"></div>") +
       '<span class="g-float-tag g-float-tag--band" data-g-tag="type">' + ic('3d', 15) + '<span>QSL · 3D</span></span>' +
-      '<span class="g-float-tag g-float-tag--like" data-g-tag="like">' + ic('heart', 15) + '<b>—</b><span>次点赞</span></span>' +
-      '<span class="g-float-tag g-float-tag--owner" data-g-tag="owner">' + ic('user', 14) + '<span>呼号</span></span>' +
+      '<span class="g-float-tag g-float-tag--like" data-g-tag="like">' + ic('heart', 15) + ("<b>—</b><span>" + QSL.escapeHtml(QSL.t("次点赞")) + "</span></span>") +
+      '<span class="g-float-tag g-float-tag--owner" data-g-tag="owner">' + ic('user', 14) + ("<span>" + QSL.escapeHtml(QSL.t("呼号")) + "</span></span>") +
       '<span class="g-float-tag g-float-tag--73">73!</span>' +
       '<span class="g-hero__spark g-hero__spark--a" aria-hidden="true">' + ic('sparkles', 20) + '</span>' +
       '<span class="g-hero__spark g-hero__spark--b" aria-hidden="true">' + ic('sparkles', 16) + '</span>' +
       '<span class="g-hero__spark g-hero__spark--c" aria-hidden="true">' + ic('sparkles', 13) + '</span>' +
-      '<p class="g-hero__hint">拖拽旋转 · 双击翻面</p>' +
+      ("<p class=\"g-hero__hint\">" + QSL.escapeHtml(QSL.t("拖拽旋转 · 双击翻面")) + "</p>") +
       '</div>' +
       '</div>' +
       '</section>'
@@ -171,9 +171,9 @@
       '<div class="container">' +
       '<div class="g-sec-head" data-reveal>' +
       '<div><p class="eyebrow">SHOWCASE</p>' +
-      '<h2 class="g-sec-title">近期精选卡片</h2>' +
-      '<p class="g-sec-desc">来自各地火腿的 QSL 卡片，每一张都记录着一次跨越电波的相遇。</p></div>' +
-      '<a class="g-sec-link" href="/explore" data-link>查看全部' + ic('arrow-right', 16) + '</a>' +
+      ("<h2 class=\"g-sec-title\">" + QSL.escapeHtml(QSL.t("近期精选卡片")) + "</h2>") +
+      ("<p class=\"g-sec-desc\">" + QSL.escapeHtml(QSL.t("来自各地火腿的 QSL 卡片，每一张都记录着一次跨越电波的相遇。")) + "</p></div>") +
+      ("<a class=\"g-sec-link\" href=\"/explore\" data-link>" + QSL.escapeHtml(QSL.t("查看全部"))) + ic('arrow-right', 16) + '</a>' +
       '</div>' +
       '<div class="g-showcase__grid" data-g-showcase aria-live="polite">' + skeletonCards(8) + '</div>' +
       '</div>' +
@@ -196,8 +196,8 @@
       '<div class="container">' +
       '<div class="g-sec-head g-sec-head--center" data-reveal>' +
       '<p class="eyebrow">WHY QSLINK</p>' +
-      '<h2 class="g-sec-title">为 QSL 收藏而生的细节</h2>' +
-      '<p class="g-sec-desc">从展示到交换，每个环节都认真对待 —— 就像你对待每一张卡片那样。</p>' +
+      ("<h2 class=\"g-sec-title\">" + QSL.escapeHtml(QSL.t("为 QSL 收藏而生的细节")) + "</h2>") +
+      ("<p class=\"g-sec-desc\">" + QSL.escapeHtml(QSL.t("从展示到交换，每个环节都认真对待 —— 就像你对待每一张卡片那样。")) + "</p>") +
       '</div>' +
       '<div class="g-features__grid">' + cards + '</div>' +
       '</div>' +
@@ -211,7 +211,7 @@
         '<li class="g-step" data-reveal data-reveal-delay="' + i * 70 + '">' +
         '<span class="g-step__no">' + String(i + 1).padStart(2, '0') + '</span>' +
         '<div class="g-step__body"><h3><a class="g-step__link" href="' + QSL.escapeAttr(step.href) + '" data-link>' + esc(step.title) +
-        (i === 1 ? '<span class="badge badge-amber">人工审核</span>' : '') +
+        (i === 1 ? ("<span class=\"badge badge-amber\">" + QSL.escapeHtml(QSL.t("人工审核")) + "</span>") : '') +
         (i === 3 ? '<span class="badge badge-mint">73!</span>' : '') +
         '</a></h3><p>' + esc(step.desc) + '</p></div>' +
         '</li>'
@@ -222,9 +222,9 @@
       '<div class="container g-how__grid">' +
       '<div class="g-how__intro" data-reveal>' +
       '<p class="eyebrow">HOW IT WORKS</p>' +
-      '<h2 class="g-sec-title">四步，让一张卡片<br>完成一次旅行</h2>' +
-      '<p>从上传到互寄，QSLink 把换卡流程变得清晰可循；你只需要专注于挑选那张想交换的卡片。</p>' +
-      '<a class="btn btn-primary" href="/register" data-link data-magnetic="8">' + ic('arrow-right', 17) + '<span>免费开始</span></a>' +
+      ("<h2 class=\"g-sec-title\">" + QSL.escapeHtml(QSL.t("四步，让一张卡片")) + "<br>" + QSL.escapeHtml(QSL.t("完成一次旅行")) + "</h2>") +
+      ("<p>" + QSL.escapeHtml(QSL.t("从上传到互寄，QSLink 把换卡流程变得清晰可循；你只需要专注于挑选那张想交换的卡片。")) + "</p>") +
+      '<a class="btn btn-primary" href="/register" data-link data-magnetic="8">' + ic('arrow-right', 17) + ("<span>" + QSL.escapeHtml(QSL.t("免费开始")) + "</span></a>") +
       '</div>' +
       '<ol class="g-steps">' + steps + '</ol>' +
       '</div>' +
@@ -246,8 +246,8 @@
       '<div class="container g-faq__layout">' +
       '<div class="g-how__intro" data-reveal>' +
       '<p class="eyebrow">FAQ</p>' +
-      '<h2 class="g-sec-title">关于换卡，<br>你可能想知道</h2>' +
-      '<p>还有其它疑问？欢迎在卡片留言里找到我们，或者在换卡申请中直接询问卡片的主人。</p>' +
+      ("<h2 class=\"g-sec-title\">" + QSL.escapeHtml(QSL.t("关于换卡，")) + "<br>" + QSL.escapeHtml(QSL.t("你可能想知道")) + "</h2>") +
+      ("<p>" + QSL.escapeHtml(QSL.t("还有其它疑问？欢迎在卡片留言里找到我们，或者在换卡申请中直接询问卡片的主人。")) + "</p>") +
       '</div>' +
       '<div class="g-faq__list">' + items + '</div>' +
       '</div>' +
@@ -257,17 +257,17 @@
 
   function joinHtml(user) {
     const primaryHref = user ? '/dashboard/cards/new' : '/register';
-    const primaryLabel = user ? '上传一张新卡片' : '免费注册';
+    const primaryLabel = user ? QSL.t("上传一张新卡片") : QSL.t("免费注册");
     const secondaryHref = user ? '/explore' : '/explore';
-    const secondaryLabel = user ? '发现更多卡片' : '先逛逛广场';
+    const secondaryLabel = user ? QSL.t("发现更多卡片") : QSL.t("先逛逛广场");
     return (
       '<section class="section g-join" id="join">' +
       '<div class="container">' +
       '<div class="g-join__panel" data-reveal>' +
       '<div class="g-join__copy">' +
       '<p class="eyebrow">JOIN THE AIRWAVE</p>' +
-      '<h2 class="g-join__title">下一张被收藏的卡片，<br>也许就是你的</h2>' +
-      '<p class="g-join__desc">把抽屉里的 QSL 卡片分享给更多火腿，让它从一次私人的通联纪念，变成一段被看见的故事。</p>' +
+      ("<h2 class=\"g-join__title\">" + QSL.escapeHtml(QSL.t("下一张被收藏的卡片，")) + "<br>" + QSL.escapeHtml(QSL.t("也许就是你的")) + "</h2>") +
+      ("<p class=\"g-join__desc\">" + QSL.escapeHtml(QSL.t("把抽屉里的 QSL 卡片分享给更多火腿，让它从一次私人的通联纪念，变成一段被看见的故事。")) + "</p>") +
       '<div class="g-join__actions">' +
       '<a class="btn btn-primary btn-lg" href="' + primaryHref + '" data-link data-magnetic="8">' +
       esc(primaryLabel) + ic('arrow-right', 17) + '</a>' +
@@ -361,15 +361,11 @@
   }
 
   function applyStats(root, items, total) {
-    const callSignSet = new Set();
     let likes = 0;
     items.forEach(function (card) {
-      const call = (card.owner && card.owner.callSign) || card.callSign || '';
-      if (call) callSignSet.add(String(call).toUpperCase());
       likes += Number(card.likeCount) || 0;
     });
     setStat(root, 'cards', total || items.length, true);
-    setStat(root, 'callsigns', callSignSet.size, false);
     setStat(root, 'likes', likes, true);
     const textEl = root.querySelector('[data-g-stat-text="cards"]');
     if (textEl) textEl.textContent = QSL.formatNumber(total || items.length);
@@ -381,7 +377,7 @@
   function updateFloatTags(root, hero) {
     const likeTag = root.querySelector('[data-g-tag="like"]');
     if (likeTag) {
-      likeTag.innerHTML = ic('heart', 15) + '<b>' + esc(QSL.formatNumber(hero.likeCount || 0)) + '</b><span>次点赞</span>';
+      likeTag.innerHTML = ic('heart', 15) + '<b>' + esc(QSL.formatNumber(hero.likeCount || 0)) + ("</b><span>" + QSL.escapeHtml(QSL.t("次点赞")) + "</span>");
     }
     const ownerTag = root.querySelector('[data-g-tag="owner"]');
     const owner = hero.owner || {};
@@ -418,9 +414,9 @@
       if (typeof QSL.emptyState === 'function') {
         wrap.appendChild(QSL.emptyState({
           icon: 'cards',
-          title: '广场还在等第一张卡片',
-          desc: '成为第一个分享 QSL 卡片的人吧，让你的通联纪念被更多火腿看见。',
-          actionLabel: '上传我的第一张卡片',
+          title: QSL.t("广场还在等第一张卡片"),
+          desc: QSL.t("成为第一个分享 QSL 卡片的人吧，让你的通联纪念被更多火腿看见。"),
+          actionLabel: QSL.t("上传我的第一张卡片"),
           onAction: function () {
             const user = QSL.state && QSL.state.user;
             QSL.navigate(user ? '/dashboard/cards/new' : '/login?next=' + encodeURIComponent('/dashboard/cards/new'));
@@ -456,10 +452,10 @@
     wrap.innerHTML =
       '<div class="g-error-panel">' +
       '<span class="empty-state-icon">' + ic('alert', 30) + '</span>' +
-      '<h3>卡片加载失败</h3>' +
-      '<p>电波暂时有点杂音，请稍后重试。你仍然可以先去卡片广场看看。</p>' +
-      '<div class="btn-group"><button class="btn btn-primary" type="button" data-retry>重新加载</button>' +
-      '<a class="btn btn-ghost" href="/explore" data-link>前往广场</a></div>' +
+      ("<h3>" + QSL.escapeHtml(QSL.t("卡片加载失败")) + "</h3>") +
+      ("<p>" + QSL.escapeHtml(QSL.t("电波暂时有点杂音，请稍后重试。你仍然可以先去卡片广场看看。")) + "</p>") +
+      ("<div class=\"btn-group\"><button class=\"btn btn-primary\" type=\"button\" data-retry>" + QSL.escapeHtml(QSL.t("重新加载")) + "</button>") +
+      ("<a class=\"btn btn-ghost\" href=\"/explore\" data-link>" + QSL.escapeHtml(QSL.t("前往广场")) + "</a></div>") +
       '</div>';
     grid.appendChild(wrap);
     const btn = wrap.querySelector('[data-retry]');
@@ -492,7 +488,7 @@
     state.viewer = instance;
     mount.setAttribute(
       'aria-label',
-      'QSL 卡片 3D 展示：' + (hero.title || 'QSL 卡片') + (hero.owner && hero.owner.callSign ? '（' + hero.owner.callSign + '）' : '')
+      QSL.t("QSL 卡片 3D 展示：") + (hero.title || QSL.t("QSL 卡片")) + (hero.owner && hero.owner.callSign ? '（' + hero.owner.callSign + '）' : '')
     );
   }
 
@@ -525,14 +521,26 @@
       if (state.cancelled) return;
       mountHero(root, state, { ratio: { w: 104, h: 154 } });
       renderShowcaseError(root, function () { loadData(root, state); });
-      if (QSL.toast) QSL.toast((err && err.message) || '卡片加载失败，请稍后重试', 'error');
+      if (QSL.toast) QSL.toast((err && err.message) || QSL.t("卡片加载失败，请稍后重试"), 'error');
+    });
+  }
+
+  function loadUserCount(root, state) {
+    return QSL.api.stats().then(function (res) {
+      if (state.cancelled || !res || !Number.isInteger(res.userCount) || res.userCount < 0) return;
+      setStat(root, 'users', res.userCount, false);
+      if (QSL.fx && typeof QSL.fx.enhance === 'function') {
+        QSL.fx.enhance(root.querySelector('.g-hero__stats'));
+      }
+    }).catch(function () {
+      // Keep the unknown count as a dash; stats failures must not block cards.
     });
   }
 
   function mountAnnouncements(root, state) {
     const entry = document.createElement('div');
     entry.className = 'container g-announcement-entry';
-    entry.innerHTML = '<button class="btn btn-ghost btn-sm" type="button">' + ic('info', 16) + '公告板 · 查看全部</button>';
+    entry.innerHTML = '<button class="btn btn-ghost btn-sm" type="button">' + ic('info', 16) + (QSL.escapeHtml(QSL.t("公告板 · 查看全部")) + "</button>");
     root.querySelector('.g-hero').after(entry);
     let notice = null;
     let noticeFrame = 0, noticeTimer = 0, noticeClosing = false;
@@ -572,14 +580,14 @@
         list.setAttribute('aria-busy', 'true');
         pageButtons.forEach(function (entry) { entry.btn.disabled = true; });
       } else {
-        modal.body.innerHTML = '<p class="muted">正在加载公告…</p>';
+        modal.body.innerHTML = ("<p class=\"muted\">" + QSL.escapeHtml(QSL.t("正在加载公告…")) + "</p>");
       }
       try {
         const res = await QSL.api.get('/api/announcements?page=' + page + '&limit=8');
         if (state.cancelled || modalClosed || job !== modalJob) return;
         modal.body.innerHTML = '<div class="g-announcement-list">' + (res.items.length ? res.items.map(function (item) {
           return '<article><h3>' + esc(item.title) + '</h3><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p></article>';
-        }).join('') : '<p class="muted">暂无已发布公告</p>') + '</div><div class="g-announcement-pager"><button type="button" class="btn btn-ghost btn-sm" data-ann-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + '>上一页</button><span>' + page + ' / ' + Math.max(1, res.pages) + '</span><button type="button" class="btn btn-ghost btn-sm" data-ann-page="' + (page + 1) + '"' + (page >= res.pages ? ' disabled' : '') + '>下一页</button></div>';
+        }).join('') : ("<p class=\"muted\">" + QSL.escapeHtml(QSL.t("暂无已发布公告")) + "</p>")) + '</div><div class="g-announcement-pager"><button type="button" class="btn btn-ghost btn-sm" data-ann-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + (">" + QSL.escapeHtml(QSL.t("上一页")) + "</button><span>") + page + ' / ' + Math.max(1, res.pages) + '</span><button type="button" class="btn btn-ghost btn-sm" data-ann-page="' + (page + 1) + '"' + (page >= res.pages ? ' disabled' : '') + (">" + QSL.escapeHtml(QSL.t("下一页")) + "</button></div>");
         modal.body.scrollTop = 0;
       } catch (err) {
         if (state.cancelled || modalClosed || job !== modalJob) return;
@@ -587,15 +595,15 @@
           list.removeAttribute('aria-busy');
           pageButtons.forEach(function (entry) { entry.btn.disabled = entry.disabled; });
         } else {
-          modal.body.innerHTML = '<p>公告加载失败，请关闭后重试。</p>';
+          modal.body.innerHTML = ("<p>" + QSL.escapeHtml(QSL.t("公告加载失败，请关闭后重试。")) + "</p>");
         }
-        QSL.toast(err.message || '公告加载失败', 'error');
+        QSL.toast(err.message || QSL.t("公告加载失败"), 'error');
       }
     }
     function openAll() {
       closeModal();
       modalClosed = false;
-      modal = QSL.modal({ title: '公告板', size: 'lg', content: '', onClose: function () {
+      modal = QSL.modal({ title: QSL.t("公告板"), size: 'lg', content: '', onClose: function () {
         modalClosed = true;
         modalJob++;
         const overlay = modal && modal.el.closest('.modal-overlay');
@@ -614,14 +622,14 @@
       notice = document.createElement('aside');
       notice.className = 'g-announcement-notice qsl-notification toast-info';
       notice.setAttribute('aria-labelledby', 'home-announcement-title');
-      notice.innerHTML = '<div class="g-announcement-head"><span class="g-announcement-label"><span class="toast-icon">' + ic('info', 18) + '</span>最新公告</span><button class="toast-close" type="button" data-ann-close aria-label="关闭公告">' + ic('close', 14) + '</button></div><h2 id="home-announcement-title">' + esc(item.title) + '</h2><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + '</p><button type="button" class="btn btn-soft btn-sm" data-ann-all>查看全部公告</button>';
+      notice.innerHTML = '<div class="g-announcement-head"><span class="g-announcement-label"><span class="toast-icon">' + ic('info', 18) + ("</span>" + QSL.escapeHtml(QSL.t("最新公告")) + "</span><button class=\"toast-close\" type=\"button\" data-ann-close aria-label=\"" + QSL.escapeHtml(QSL.t("关闭公告")) + "\">") + ic('close', 14) + '</button></div><h2 id="home-announcement-title">' + esc(item.title) + '</h2><time class="muted">' + esc(QSL.formatDateTime(item.publishedAt)) + '</time><p class="g-announcement-body">' + esc(item.body) + ("</p><button type=\"button\" class=\"btn btn-soft btn-sm\" data-ann-all>" + QSL.escapeHtml(QSL.t("查看全部公告")) + "</button>");
       const allButton = notice.querySelector('[data-ann-all]');
       const actions = document.createElement('div');
       actions.className = 'g-announcement-actions';
       allButton.replaceWith(actions);
       actions.appendChild(allButton);
-      actions.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-ghost btn-sm" data-ann-dismiss>' + (QSL.state.user ? '不再提醒' : '登录后不再提醒') + '</button>');
-      notice.insertAdjacentHTML('beforeend', '<div class="g-announcement-countdown"><span data-ann-seconds></span><div class="g-announcement-progress" role="progressbar" aria-label="公告剩余停留时间" aria-valuemin="0"><span></span></div></div>');
+      actions.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-ghost btn-sm" data-ann-dismiss>' + (QSL.state.user ? QSL.t("不再提醒") : QSL.t("登录后不再提醒")) + '</button>');
+      notice.insertAdjacentHTML('beforeend', ("<div class=\"g-announcement-countdown\"><span data-ann-seconds></span><div class=\"g-announcement-progress\" role=\"progressbar\" aria-label=\"" + QSL.escapeHtml(QSL.t("公告剩余停留时间")) + "\" aria-valuemin=\"0\"><span></span></div></div>"));
       const duration = (Number.isInteger(item.displaySeconds) && item.displaySeconds >= 1 && item.displaySeconds <= 3600 ? item.displaySeconds : 30) * 1000;
       let remaining = duration, lastTick = performance.now(), saving = false;
       const progress = notice.querySelector('.g-announcement-progress');
@@ -635,7 +643,7 @@
         if (!paused) remaining = Math.max(0, remaining - (now - lastTick));
         lastTick = now;
         const seconds = Math.ceil(remaining / 1000);
-        secondsLabel.textContent = seconds + ' 秒后关闭' + (paused ? ' · 已暂停' : '');
+        secondsLabel.textContent = seconds + (" " + QSL.t("秒后关闭")) + (paused ? (" " + QSL.t("· 已暂停")) : '');
         progress.setAttribute('aria-valuenow', seconds);
         bar.style.transform = 'scaleX(' + (remaining / duration) + ')';
         if (!remaining) dismissNotice();
@@ -666,7 +674,7 @@
           await QSL.api.post('/api/announcements/' + encodeURIComponent(item.id) + '/dismiss', {});
           if (!state.cancelled) dismissNotice();
         } catch (err) {
-          if (!state.cancelled) QSL.toast(err.message || '保存失败，请重试', 'error');
+          if (!state.cancelled) QSL.toast(err.message || QSL.t("保存失败，请重试"), 'error');
         } finally {
           saving = false;
           button.disabled = false;
@@ -688,7 +696,7 @@
         if (!state.cancelled && !noticeClosing && notice) notice.classList.add('is-show');
       });
     }).catch(function (err) {
-      if (!state.cancelled) QSL.toast(err.message || '公告加载失败', 'error');
+      if (!state.cancelled) QSL.toast(err.message || QSL.t("公告加载失败"), 'error');
     });
     return function () {
       eventController.abort();
@@ -704,7 +712,7 @@
 
   /* ---------------- 页面注册 ---------------- */
   QSL.registerPage('home', {
-    title: '首页',
+    title: QSL.t("首页"),
     render: function (container) {
       const user = QSL.state ? QSL.state.user : null;
       const state = { viewer: null, cancelled: false };
@@ -712,6 +720,7 @@
       container.innerHTML = pageHtml(user);
       const cleanupFaq = mountFaq(container);
       const cleanupAnnouncements = mountAnnouncements(container, state);
+      loadUserCount(container, state);
 
       // 先创建 3D 卡片（使用品牌占位面），卡片图片到达后再替换，避免空白等待
       mountHero(container, state, { ratio: { w: 104, h: 154 } });

@@ -90,7 +90,55 @@ export async function testAnnouncements() {
       assert.equal(db.data.announcementDismissals.length, 1);
       assert.equal(db.data.announcementDismissals[0].userId, member.id);
     });
-    console.log('[announcements] 公告路由、权限、校验、发布撤下、分页与数据库持久化通过');
+    const eventKey = 'qsl-design-2026-11';
+    const eventQuery = 'eventKey=' + eventKey;
+    assert.equal(draft.eventKey, null, 'legacy and default announcements stay site-wide');
+    for (const eventKey of ['', 'unknown-event', 123, {}, []]) {
+      await rejects(call('POST', adminPath, { body: { title: '非法范围', body: '公告', eventKey } }), 400);
+    }
+    for (const pattern of [publicPath, adminPath]) {
+      await rejects(call('GET', pattern, { query: 'eventKey=unknown-event' }), 400);
+      await rejects(call('GET', pattern, { query: eventQuery + '&reminder=1', user: pattern === adminPath ? admin : member }), 400);
+    }
+    const eventDraft = (await call('POST', adminPath, { body: { title: '赛事草稿', body: '<img src=x onerror=alert(1)>', eventKey } })).body.announcement;
+    assert.equal(eventDraft.eventKey, eventKey);
+    assert.equal((await call('GET', publicPath, { query: eventQuery + '&status=all', user: null })).body.total, 0);
+    const eventOne = (await call('POST', adminPath, { body: { title: '赛事动态一', body: '已发布赛事动态', status: 'published', eventKey, displaySeconds: 1 } })).body.announcement;
+    const eventTwo = (await call('POST', adminPath, { body: { title: '赛事动态二', body: '第二条赛事动态', status: 'published', eventKey } })).body.announcement;
+    await database.db.transaction(db => {
+      db.find('announcements', item => item.id === eventOne.id).publishedAt = '2026-11-01T00:00:00.000Z';
+      db.find('announcements', item => item.id === eventTwo.id).publishedAt = '2026-11-02T00:00:00.000Z';
+    }, { write: true });
+    for (const pattern of [publicPath, adminPath]) {
+      const site = (await call('GET', pattern, { query: 'limit=1' })).body;
+      assert.equal(site.total, 2, 'scope filtering happens before pagination');
+      assert.ok(site.items.every(item => item.eventKey === null));
+    }
+    const eventList = (await call('GET', publicPath, { query: eventQuery + '&limit=1', user: null })).body;
+    assert.equal(eventList.total, 2);
+    assert.equal(eventList.pages, 2);
+    assert.equal(eventList.items[0].id, eventTwo.id);
+    assert.equal((await call('GET', publicPath, { query: eventQuery + '&limit=1&page=2' })).body.items[0].id, eventOne.id);
+    assert.equal((await call('GET', adminPath, { query: eventQuery })).body.total, 3);
+    assert.equal((await call('GET', adminPath, { query: eventQuery + '&status=draft' })).body.items[0].id, eventDraft.id);
+    assert.equal((await call('GET', adminPath, { query: eventQuery + '&status=published' })).body.total, 2);
+    assert.equal((await call('GET', publicPath, { query: 'reminder=1', user: member })).body.total, 1, 'event news never enters site reminders');
+    await rejects(call('POST', dismissPath, { id: eventOne.id, user: member }), 404);
+    await rejects(call('POST', dismissPath, { id: eventDraft.id, user: member }), 404);
+    await rejects(call('PUT', updatePath, { id: eventOne.id, body: { eventKey: null } }), 400);
+    await rejects(call('PUT', updatePath, { id: draft.id, body: { eventKey } }), 400);
+    await rejects(call('PUT', updatePath, { id: eventOne.id, body: { eventKey: 'unknown-event' } }), 400);
+    const editedEvent = (await call('PUT', updatePath, { id: eventOne.id, body: { title: '赛事更新' } })).body.announcement;
+    assert.equal(editedEvent.eventKey, eventKey);
+    await call('PUT', updatePath, { id: eventTwo.id, body: { status: 'draft' } });
+    assert.equal((await call('GET', publicPath, { query: eventQuery })).body.total, 1);
+    assert.equal((await call('GET', publicPath)).body.total, 2);
+    await database.db.transaction(db => {
+      assert.equal(db.find('announcements', item => item.id === eventOne.id).eventKey, eventKey);
+      assert.equal(db.find('announcements', item => item.id === draft.id).eventKey, null);
+      assert.equal(db.data.announcementDismissals.length, 1, 'event dismiss failures never insert dismissals');
+    });
+    console.log('[announcements] 公告路由、权限、校验、发布撤下、分页、赛事范围及提醒隔离与数据库持久化通过');
   } finally {
     await database.cleanup();
   }

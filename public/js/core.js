@@ -5,6 +5,8 @@
 (function () {
   'use strict';
   const QSL = (window.QSL = window.QSL || {});
+  QSL.t = QSL.t || (source => source);
+  QSL.i18n = QSL.i18n || { language: 'zh-CN' };
   QSL.version = '1.0.0';
 
   /* ---------------- 事件总线 ---------------- */
@@ -59,6 +61,11 @@
   QSL.routes = [
     { path: '/', page: 'home' },
     { path: '/explore', page: 'explore' },
+    { path: '/events/qsl-design-2026-11', page: 'qsl-design-contest' },
+    { path: '/events/qsl-design-2026-11/alternate', page: 'qsl-design-contest' },
+    { path: '/events/qsl-design-2026-11/registration', page: 'qsl-design-registration' },
+    { path: '/events/qsl-design-2026-11/works', page: 'qsl-design-works' },
+    { path: '/events/qsl-design-2026-11/works/:id', page: 'qsl-design-work-detail' },
     { path: '/space/:uid', page: 'space' },
     { path: '/card/:id', page: 'card-detail' },
     { path: '/share/:token', page: 'share' },
@@ -164,7 +171,7 @@
       '<section class="container section route-placeholder" data-reveal>' +
       '<div class="skeleton skeleton-title" style="width:min(320px,60%)"></div>' +
       '<div class="skeleton skeleton-block" style="height:220px;margin-top:24px;border-radius:24px"></div>' +
-      '<p class="muted" style="margin-top:18px">页面模块加载中…</p>' +
+      ("<p class=\"muted\" style=\"margin-top:18px\">" + QSL.escapeHtml(QSL.t("页面模块加载中…")) + "</p>") +
       '</section>'
     );
   }
@@ -174,9 +181,9 @@
       '<section class="container section route-forbidden" data-reveal>' +
       '<div class="empty-state" style="margin:8vh auto 0">' +
       '<div class="empty-state-icon">' + (QSL.icon ? QSL.icon('shield', 34) : '') + '</div>' +
-      '<h2>没有访问权限</h2>' +
-      '<p>此页面仅限管理员访问。如需管理权限，请联系站点管理员。</p>' +
-      '<a class="btn btn-primary" href="/" data-link>返回首页</a>' +
+      ("<h2>" + QSL.escapeHtml(QSL.t("没有访问权限")) + "</h2>") +
+      ("<p>" + QSL.escapeHtml(QSL.t("此页面仅限管理员访问。如需管理权限，请联系站点管理员。")) + "</p>") +
+      ("<a class=\"btn btn-primary\" href=\"/\" data-link>" + QSL.escapeHtml(QSL.t("返回首页")) + "</a>") +
       '</div></section>'
     );
   }
@@ -189,9 +196,9 @@
       '<section class="container section route-notfound" data-reveal>' +
       '<div class="empty-state" style="margin:8vh auto 0">' +
       '<div class="empty-state-emoji">404</div>' +
-      '<h2>这里没有信号</h2>' +
-      '<p>你访问的页面不存在，或卡片已被移除。</p>' +
-      '<a class="btn btn-primary" href="/" data-link>返回首页</a>' +
+      ("<h2>" + QSL.escapeHtml(QSL.t("这里没有信号")) + "</h2>") +
+      ("<p>" + QSL.escapeHtml(QSL.t("你访问的页面不存在，或卡片已被移除。")) + "</p>") +
+      ("<a class=\"btn btn-primary\" href=\"/\" data-link>" + QSL.escapeHtml(QSL.t("返回首页")) + "</a>") +
       '</div></section>'
     );
   }
@@ -217,7 +224,7 @@
 
     if (!matched) {
       root.innerHTML = renderNotFound(payloadBase);
-      document.title = '页面不存在 · QSLink';
+      document.title = QSL.t("页面不存在 · QSLink");
       finishRoute(payloadBase, opts);
       return;
     }
@@ -241,7 +248,7 @@
     // 守卫：管理员
     if (route.admin && (!QSL.state.user || QSL.state.user.role !== 'admin')) {
       root.innerHTML = renderForbidden(payload);
-      document.title = '没有访问权限 · QSLink';
+      document.title = QSL.t("没有访问权限 · QSLink");
       finishRoute(payload, opts);
       return;
     }
@@ -254,7 +261,7 @@
 
     if (!page) {
       root.innerHTML = renderPendingPage(route.page);
-      document.title = '加载中 · QSLink';
+      document.title = QSL.t("加载中 · QSLink");
       finishRoute(payload, opts);
       return;
     }
@@ -263,11 +270,11 @@
       const cleanup = await page.render(root, payload);
       if (token !== routeToken) return; // 已被更新的路由取代
       QSL.router.cleanup = typeof cleanup === 'function' ? cleanup : null;
-      document.title = page.title ? page.title + ' · QSLink' : 'QSLink · QSL 卡片交换站';
+      document.title = page.title ? page.title + ' · QSLink' : QSL.t("QSLink · QSL 卡片交换站");
     } catch (err) {
       console.error('[QSL] page render error:', route.page, err);
       if (err && err.status === 401) {
-        QSL.toast && QSL.toast('登录已过期，请重新登录', 'error');
+        QSL.toast && QSL.toast(QSL.t("登录已过期，请重新登录"), 'error');
         QSL.navigate('/login?next=' + encodeURIComponent(location.pathname));
         return;
       }
@@ -275,12 +282,12 @@
         '<section class="container section route-error" data-reveal>' +
         '<div class="empty-state" style="margin:8vh auto 0">' +
         '<div class="empty-state-icon">' + (QSL.icon ? QSL.icon('alert', 34) : '') + '</div>' +
-        '<h2>页面加载失败</h2><p>' + QSL.escapeHtml((err && err.message) || '未知错误') + '</p>' +
-        '<button class="btn btn-primary" data-retry>重试</button>' +
-        '<a class="btn btn-ghost" href="/" data-link>返回首页</a></div></section>';
+        ("<h2>" + QSL.escapeHtml(QSL.t("页面加载失败")) + "</h2><p>") + QSL.escapeHtml((err && err.message) || QSL.t("未知错误")) + '</p>' +
+        ("<button class=\"btn btn-primary\" data-retry>" + QSL.escapeHtml(QSL.t("重试")) + "</button>") +
+        ("<a class=\"btn btn-ghost\" href=\"/\" data-link>" + QSL.escapeHtml(QSL.t("返回首页")) + "</a></div></section>");
       const retry = root.querySelector('[data-retry]');
       if (retry) retry.addEventListener('click', () => renderRoute());
-      document.title = '出错了 · QSLink';
+      document.title = QSL.t("出错了 · QSLink");
     }
     finishRoute(payload, opts);
   }
@@ -322,8 +329,8 @@
   };
   QSL.escapeAttr = QSL.escapeHtml;
 
-  const dateFmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-  const dateTimeFmt = new Intl.DateTimeFormat('zh-CN', {
+  const dateFmt = new Intl.DateTimeFormat(QSL.i18n.language, { year: 'numeric', month: 'long', day: 'numeric' });
+  const dateTimeFmt = new Intl.DateTimeFormat(QSL.i18n.language, {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
   });
   QSL.formatDate = function (iso) {
@@ -344,15 +351,21 @@
     if (isNaN(d)) return '—';
     const diff = Math.max(0, Date.now() - d);
     const min = 60 * 1000, hour = 60 * min, day = 24 * hour;
-    if (diff < min) return '刚刚';
-    if (diff < hour) return Math.floor(diff / min) + ' 分钟前';
-    if (diff < day) return Math.floor(diff / hour) + ' 小时前';
-    if (diff < 30 * day) return Math.floor(diff / day) + ' 天前';
-    if (diff < 365 * day) return Math.floor(diff / (30 * day)) + ' 个月前';
-    return Math.floor(diff / (365 * day)) + ' 年前';
+    if (diff < min) return QSL.t("刚刚");
+    if (QSL.i18n.language === 'en') {
+      const [size, unit] = diff < hour ? [min, 'minute'] : diff < day ? [hour, 'hour'] :
+        diff < 30 * day ? [day, 'day'] : diff < 365 * day ? [30 * day, 'month'] : [365 * day, 'year'];
+      return new Intl.RelativeTimeFormat('en', { numeric: 'always' }).format(-Math.floor(diff / size), unit);
+    }
+    if (diff < hour) return Math.floor(diff / min) + (" " + QSL.t("分钟前"));
+    if (diff < day) return Math.floor(diff / hour) + (" " + QSL.t("小时前"));
+    if (diff < 30 * day) return Math.floor(diff / day) + (" " + QSL.t("天前"));
+    if (diff < 365 * day) return Math.floor(diff / (30 * day)) + (" " + QSL.t("个月前"));
+    return Math.floor(diff / (365 * day)) + (" " + QSL.t("年前"));
   };
   QSL.formatNumber = function (n) {
     const num = Number(n) || 0;
+    if (QSL.i18n.language === 'en') return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(num);
     if (num >= 10000) return (num / 10000).toFixed(num >= 100000 ? 0 : 1).replace(/\.0$/, '') + 'w';
     if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
     return String(num);
@@ -411,18 +424,18 @@
     if (!build || typeof build.revision !== 'string' || typeof build.created !== 'string' ||
         !/^[a-f0-9]{40}$/.test(build.revision) ||
         !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(build.created)) {
-      return '开发版 · 镜像构建时间未知';
+      return QSL.t("开发版 · 镜像构建时间未知");
     }
     const date = new Date(build.created);
     if (!Number.isFinite(date.getTime()) || date.toISOString() !== build.created.replace('Z', '.000Z')) {
-      return '开发版 · 镜像构建时间未知';
+      return QSL.t("开发版 · 镜像构建时间未知");
     }
     const parts = new Intl.DateTimeFormat('en-GB', {
       timeZone: 'Asia/Hong_Kong', year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
     }).formatToParts(date);
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    return '版本 ' + build.revision.slice(0, 7) + ' · 镜像构建于 ' + values.year + '-' + values.month + '-' +
+    return (QSL.t("版本") + " ") + build.revision.slice(0, 7) + (" " + QSL.t("· 镜像构建于") + " ") + values.year + '-' + values.month + '-' +
       values.day + ' ' + values.hour + ':' + values.minute + ' HKT';
   };
 

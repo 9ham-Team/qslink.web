@@ -96,7 +96,7 @@ export async function testShortTokens() {
     await f.cleanup();
   }
 
-  const QSL = { escapeHtml: value => String(value), escapeAttr: value => String(value) };
+  const QSL = { t: source => source, escapeHtml: value => String(value), escapeAttr: value => String(value) };
   const context = { window: { QSL }, location: { origin: 'https://example.test' }, document: { addEventListener() {} }, navigator: {}, console, setTimeout, clearTimeout };
   vm.runInNewContext(await fs.readFile(new URL('../public/js/ui.js', import.meta.url), 'utf8'), context);
   let copied;

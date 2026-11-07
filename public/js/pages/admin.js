@@ -1,7 +1,7 @@
 /* ============================================================
  * QSLink · 管理后台 Admin（admin-ui）
  * 依赖：core.js / api.js / ui.js / card3d.js（可选）
- * 路由：/admin?tab=overview|users|cards|exchanges
+ * 路由：/admin?tab=overview|users|cards|exchanges|announcements|contest
  * 数据：GET /api/admin/stats、/users、/cards、/exchanges
  * 说明：仅写 public/js/pages/admin.js、public/css/admin.css；共享层只使用不修改。
  * ============================================================ */
@@ -14,28 +14,33 @@
   const escAttr = (v) => (typeof QSL.escapeAttr === 'function' ? QSL.escapeAttr(v) : esc(v));
   const ico = (name, size) => (typeof QSL.icon === 'function' ? QSL.icon(name, size || 18) : '');
 
-  const TABS = ['overview', 'users', 'cards', 'exchanges', 'announcements'];
+  const CONTEST_KEY = 'qsl-design-2026-11';
+  const CONTEST_API = '/api/admin/contests/' + CONTEST_KEY + '/entries';
+  const CONTEST_VOTING_API = '/api/admin/contests/' + CONTEST_KEY + '/voting';
+  let contestDownloadBusy = false;
+  const TABS = ['overview', 'users', 'cards', 'exchanges', 'announcements', 'contest'];
   const TAB_META = {
-    overview: { label: '概览', icon: 'layout' },
-    users: { label: '用户管理', icon: 'users' },
-    cards: { label: '卡片审核', icon: 'cards' },
-    exchanges: { label: '换卡记录', icon: 'send' },
-    announcements: { label: '公告管理', icon: 'info' }
+    overview: { label: QSL.t("概览"), icon: 'layout' },
+    users: { label: QSL.t("用户管理"), icon: 'users' },
+    cards: { label: QSL.t("卡片审核"), icon: 'cards' },
+    exchanges: { label: QSL.t("换卡记录"), icon: 'send' },
+    announcements: { label: QSL.t("公告管理"), icon: 'info' },
+    contest: { label: QSL.t("比赛审核"), icon: 'trophy' }
   };
   const LIMITS = { users: 10, cards: 8, exchanges: 12 };
   const CARD_STATUS_TABS = [
-    { key: 'all', label: '全部' },
-    { key: 'pending', label: '待审核' },
-    { key: 'approved', label: '已通过' },
-    { key: 'rejected', label: '已拒绝' }
+    { key: 'all', label: QSL.t("全部") },
+    { key: 'pending', label: QSL.t("待审核") },
+    { key: 'approved', label: QSL.t("已通过") },
+    { key: 'rejected', label: QSL.t("已拒绝") }
   ];
   const EXCHANGE_STATUS_OPTIONS = [
-    { key: '', label: '全部状态' },
-    { key: 'pending', label: '待处理' },
-    { key: 'approved', label: '已同意' },
-    { key: 'rejected', label: '已拒绝' },
-    { key: 'completed', label: '已完成' },
-    { key: 'cancelled', label: '已取消' }
+    { key: '', label: QSL.t("全部状态") },
+    { key: 'pending', label: QSL.t("待处理") },
+    { key: 'approved', label: QSL.t("已同意") },
+    { key: 'rejected', label: QSL.t("已拒绝") },
+    { key: 'completed', label: QSL.t("已完成") },
+    { key: 'cancelled', label: QSL.t("已取消") }
   ];
   const COLOR_LIST = (QSL.AVATAR_COLORS && QSL.AVATAR_COLORS.slice()) || ['#0eaf8f', '#14b8a6', '#38bdf8', '#6366f1', '#8b5cf6', '#ec4899', '#fb7185', '#f59e0b', '#84cc16', '#0ea5e9'];
 
@@ -46,7 +51,7 @@
     if (typeof QSL.toast === 'function') QSL.toast(message, type || 'success');
   }
   function toastError(err) {
-    const msg = err && err.message ? err.message : '操作失败，请稍后重试';
+    const msg = err && err.message ? err.message : QSL.t("操作失败，请稍后重试");
     toast(msg, 'error');
   }
   function enhanceScope(scope) {
@@ -77,39 +82,39 @@
   function exchangeBadge(status) { return typeof QSL.exchangeBadge === 'function' ? QSL.exchangeBadge(status) : badge(status, 'slate'); }
   function exchangeText(status) {
     if (typeof QSL.exchangeText === 'function') return QSL.exchangeText(status);
-    const map = { pending: '待处理', approved: '已同意', rejected: '已拒绝', completed: '已完成', cancelled: '已取消' };
-    return map[status] || status || '未知';
+    const map = { pending: QSL.t("待处理"), approved: QSL.t("已同意"), rejected: QSL.t("已拒绝"), completed: QSL.t("已完成"), cancelled: QSL.t("已取消") };
+    return map[status] || status || QSL.t("未知");
   }
   function statusText(status) {
     if (typeof QSL.statusText === 'function') return QSL.statusText(status);
-    const map = { pending: '审核中', approved: '已通过', rejected: '已拒绝' };
-    return map[status] || status || '未知';
+    const map = { pending: QSL.t("审核中"), approved: QSL.t("已通过"), rejected: QSL.t("已拒绝") };
+    return map[status] || status || QSL.t("未知");
   }
   function roleBadge(role) {
-    return role === 'admin' ? badge('管理员', 'violet') : badge('普通用户', 'slate');
+    return role === 'admin' ? badge(QSL.t("管理员"), 'violet') : badge(QSL.t("普通用户"), 'slate');
   }
   function accountBadge(status) {
-    return status === 'banned' ? badge('已禁用', 'rose') : badge('正常', 'mint');
+    return status === 'banned' ? badge(QSL.t("已禁用"), 'rose') : badge(QSL.t("正常"), 'mint');
   }
   function imageSrc(src) { return src || QSL.PLACEHOLDER_IMAGE || ''; }
 
   function userCell(user, isSelf) {
     const u = user || {};
-    const name = u.displayName || u.username || '未知用户';
+    const name = u.displayName || u.username || QSL.t("未知用户");
     return (
       '<div class="cell-user a-user-cell">' + QSL.avatar(u, 38) +
       '<div class="a-user-cell-text"><b>' + esc(name) +
-      (isSelf ? ' <span class="badge badge-sky a-self-badge">本人</span>' : '') + '</b>' +
+      (isSelf ? (" <span class=\"badge badge-sky a-self-badge\">" + QSL.escapeHtml(QSL.t("本人")) + "</span>") : '') + '</b>' +
       '<small>@' + esc(u.username || '—') + '</small></div></div>'
     );
   }
 
   function userInline(user, size) {
-    if (!user) return '<span class="muted">用户已删除</span>';
+    if (!user) return ("<span class=\"muted\">" + QSL.escapeHtml(QSL.t("用户已删除")) + "</span>");
     const u = user;
     return (
       '<span class="a-user-inline">' + QSL.avatar(u, size || 30) +
-      '<span class="a-user-inline-text"><b>' + esc(u.displayName || u.username || '未知用户') + '</b>' +
+      '<span class="a-user-inline-text"><b>' + esc(u.displayName || u.username || QSL.t("未知用户")) + '</b>' +
       '<small>@' + esc(u.username || '') + '</small></span></span>'
     );
   }
@@ -128,18 +133,18 @@
     return (
       '<div class="a-thumbs' + extraCls + '">' +
       '<figure class="a-thumb" style="--ar:' + ar + '">' +
-      '<img ' + QSL.images.attributes(front, '240px') + ' alt="' + escAttr((c.title || '卡片') + ' 正面') + '" loading="lazy" decoding="async">' +
-      '<figcaption>正面</figcaption></figure>' +
+      '<img ' + QSL.images.attributes(front, o.sizes || '240px') + ' alt="' + escAttr((c.title || QSL.t("卡片")) + (" " + QSL.t("正面"))) + '" loading="lazy" decoding="async">' +
+      ("<figcaption>" + QSL.escapeHtml(QSL.t("正面")) + "</figcaption></figure>") +
       '<figure class="a-thumb' + (back ? '' : ' a-thumb--empty') + '" style="--ar:' + ar + '">' +
       (back
-        ? '<img ' + QSL.images.attributes(back, '240px') + ' alt="' + escAttr((c.title || '卡片') + ' 背面') + '" loading="lazy" decoding="async"><figcaption>背面</figcaption>'
-        : '<span class="a-thumb-none">' + ico('image', 16) + '<span>无背面</span></span>') +
+        ? '<img ' + QSL.images.attributes(back, o.sizes || '240px') + ' alt="' + escAttr((c.title || QSL.t("卡片")) + (" " + QSL.t("背面"))) + ("\" loading=\"lazy\" decoding=\"async\"><figcaption>" + QSL.escapeHtml(QSL.t("背面")) + "</figcaption>")
+        : '<span class="a-thumb-none">' + ico('image', 16) + ("<span>" + QSL.escapeHtml(QSL.t("无背面")) + "</span></span>")) +
       '</figure></div>'
     );
   }
 
   function miniThumb(src, title) {
-    return '<span class="a-mini-thumb"><img ' + QSL.images.attributes(imageSrc(src), '56px') + ' alt="' + escAttr(title || '卡片缩略图') + '" loading="lazy" decoding="async"></span>';
+    return '<span class="a-mini-thumb"><img ' + QSL.images.attributes(imageSrc(src), '56px') + ' alt="' + escAttr(title || QSL.t("卡片缩略图")) + '" loading="lazy" decoding="async"></span>';
   }
 
   function emptyInto(container, options) {
@@ -155,9 +160,9 @@
     const forbidden = err && (err.status === 403 || err.code === 'FORBIDDEN');
     emptyInto(container, {
       icon: forbidden ? 'shield' : 'alert',
-      title: forbidden ? '没有访问权限' : '数据加载失败',
-      desc: forbidden ? '当前账号没有管理权限，请使用管理员账号登录。' : ((err && err.message) || '网络异常，请稍后重试。'),
-      actionLabel: forbidden ? '' : '重新加载',
+      title: forbidden ? QSL.t("没有访问权限") : QSL.t("数据加载失败"),
+      desc: forbidden ? QSL.t("当前账号没有管理权限，请使用管理员账号登录。") : ((err && err.message) || QSL.t("网络异常，请稍后重试。")),
+      actionLabel: forbidden ? '' : QSL.t("重新加载"),
       onAction: forbidden ? undefined : retry
     });
   }
@@ -170,14 +175,14 @@
     let end = Math.min(pages, start + 4);
     start = Math.max(1, end - 4);
     let btns = '';
-    btns += '<button type="button" data-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + ' aria-label="上一页">' + ico('arrow-left', 15) + '</button>';
+    btns += '<button type="button" data-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + (" aria-label=\"" + QSL.escapeHtml(QSL.t("上一页")) + "\">") + ico('arrow-left', 15) + '</button>';
     for (let i = start; i <= end; i++) {
       btns += '<button type="button" data-page="' + i + '" class="' + (i === page ? 'is-active' : '') + '"' +
         (i === page ? ' aria-current="page"' : '') + '>' + i + '</button>';
     }
-    btns += '<button type="button" data-page="' + (page + 1) + '"' + (page >= pages ? ' disabled' : '') + ' aria-label="下一页">' + ico('arrow-right', 15) + '</button>';
+    btns += '<button type="button" data-page="' + (page + 1) + '"' + (page >= pages ? ' disabled' : '') + (" aria-label=\"" + QSL.escapeHtml(QSL.t("下一页")) + "\">") + ico('arrow-right', 15) + '</button>';
     return (
-      '<span class="a-pager-info">共 <b>' + total + '</b> 条 · 第 ' + page + ' / ' + pages + ' 页</span>' +
+      ("<span class=\"a-pager-info\">" + QSL.escapeHtml(QSL.t("共")) + " <b>") + total + ("</b> " + QSL.escapeHtml(QSL.t("条 · 第")) + " ") + page + ' / ' + pages + (" " + QSL.escapeHtml(QSL.t("页")) + "</span>") +
       '<span class="a-pager-btns">' + btns + '</span>'
     );
   }
@@ -215,7 +220,9 @@
       stats: null,
       announcementPage: 1,
       announcementModal: null,
-      jobs: { overview: 0, users: 0, cards: 0, exchanges: 0, announcements: 0, stats: 0 },
+      contestModal: null,
+      contest: { status: 'pending', page: 1, announcementPage: 1, detailJob: 0, votingTimer: null },
+      jobs: { overview: 0, users: 0, cards: 0, exchanges: 0, announcements: 0, contest: 0, stats: 0 },
       users: { q: '', status: '', role: '', page: 1, data: null, map: Object.create(null) },
       cards: { status: 'all', q: '', page: 1, data: null, map: Object.create(null) },
       exchanges: { status: '', page: 1, data: null, map: Object.create(null) }
@@ -255,13 +262,13 @@
       '<div class="a-page container a-denied-wrap">' +
       '<section class="a-denied glass" data-reveal>' +
       '<span class="a-denied-seal">' + ico(guest ? 'lock' : 'shield', 34) + '</span>' +
-      '<h1 class="a-denied-title">' + (guest ? '请先登录' : '没有访问权限') + '</h1>' +
+      '<h1 class="a-denied-title">' + (guest ? QSL.t("请先登录") : QSL.t("没有访问权限")) + '</h1>' +
       '<p class="a-denied-desc">' + (guest
-        ? '管理后台需要管理员账号登录后访问。'
-        : '当前账号不是管理员，无法进入管理后台。如需管理权限，请联系站点管理员。') + '</p>' +
+        ? QSL.t("管理后台需要管理员账号登录后访问。")
+        : QSL.t("当前账号不是管理员，无法进入管理后台。如需管理权限，请联系站点管理员。")) + '</p>' +
       '<div class="a-denied-actions">' +
-      (guest ? '<a class="btn btn-primary" href="/login?next=' + encodeURIComponent('/admin') + '">去登录</a>' : '') +
-      '<a class="btn btn-ghost" href="/">返回首页</a>' +
+      (guest ? '<a class="btn btn-primary" href="/login?next=' + encodeURIComponent('/admin') + ("\">" + QSL.escapeHtml(QSL.t("去登录")) + "</a>") : '') +
+      ("<a class=\"btn btn-ghost\" href=\"/\">" + QSL.escapeHtml(QSL.t("返回首页")) + "</a>") +
       '</div></section></div>';
   }
 
@@ -273,19 +280,19 @@
       '<span class="a-hero-seal">' + ico('shield', 30) + '</span>' +
       '<div class="a-hero-text">' +
       '<p class="eyebrow">ADMIN CONSOLE</p>' +
-      '<h1 class="a-hero-title">管理后台</h1>' +
-      '<p class="a-hero-desc">审核卡片、管理用户、查看换卡记录 · 以 <b>' + esc(me.displayName || me.username || '管理员') + '</b> 身份登录</p>' +
+      ("<h1 class=\"a-hero-title\">" + QSL.escapeHtml(QSL.t("管理后台")) + "</h1>") +
+      ("<p class=\"a-hero-desc\">" + QSL.escapeHtml(QSL.t("审核卡片、管理用户、查看换卡记录 · 以")) + " <b>") + esc(me.displayName || me.username || QSL.t("管理员")) + ("</b> " + QSL.escapeHtml(QSL.t("身份登录")) + "</p>") +
       '</div></div>' +
       '<div class="a-hero-actions">' +
-      '<button class="btn btn-ghost btn-sm" type="button" data-act="admin-refresh">' + ico('refresh', 16) + '刷新数据</button>' +
-      '<a class="btn btn-soft btn-sm" href="/">' + ico('arrow-left', 16) + '返回前台</a>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-act="admin-refresh">' + ico('refresh', 16) + (QSL.escapeHtml(QSL.t("刷新数据")) + "</button>") +
+      '<a class="btn btn-soft btn-sm" href="/">' + ico('arrow-left', 16) + (QSL.escapeHtml(QSL.t("返回前台")) + "</a>") +
       '</div></header>'
     );
   }
 
   function tabsHtml(active) {
     return (
-      '<nav class="a-tabs-wrap" aria-label="管理后台导航"><div class="tabs tabs-lg a-tabs" role="tablist">' +
+      ("<nav class=\"a-tabs-wrap\" aria-label=\"" + QSL.escapeHtml(QSL.t("管理后台导航")) + "\"><div class=\"tabs tabs-lg a-tabs\" role=\"tablist\">") +
       TABS.map(function (key) {
         const meta = TAB_META[key];
         const on = key === active;
@@ -306,7 +313,7 @@
     container.innerHTML =
       '<div class="a-page container">' +
       heroHtml() + tabsHtml(tab) +
-      '<section class="a-panel" id="a-panel" role="tabpanel" aria-label="管理后台内容"></section>' +
+      ("<section class=\"a-panel\" id=\"a-panel\" role=\"tabpanel\" aria-label=\"" + QSL.escapeHtml(QSL.t("管理后台内容")) + "\"></section>") +
       '</div>';
     S.pageEl = container.querySelector('.a-page');
     bindShell(S.pageEl);
@@ -330,7 +337,7 @@
         if (!S) return;
         redrawTab();
         refreshStatsQuiet();
-        toast('数据已刷新', 'info');
+        toast(QSL.t("数据已刷新"), 'info');
       });
     }
   }
@@ -366,11 +373,15 @@
 
   function drawTab(tab, panel) {
     closeAnnouncementModal();
+    closeContestModal();
+    clearInterval(S.contest.votingTimer);
+    S.contest.votingTimer = null;
     S.root = null;
     if (tab === 'overview') drawOverview(panel);
     else if (tab === 'users') drawUsers(panel);
     else if (tab === 'cards') drawCards(panel);
     else if (tab === 'announcements') drawAnnouncements(panel);
+    else if (tab === 'contest') drawContest(panel);
     else drawExchanges(panel);
   }
 
@@ -383,15 +394,17 @@
     S.announcementModal = null;
   }
 
-  function editAnnouncement(root, item) {
+  function editAnnouncement(root, item, eventKey) {
+    closeContestModal();
     closeAnnouncementModal();
     const owner = S;
+    const tab = eventKey ? 'contest' : 'announcements';
     let closed = false;
     let busy = false;
     const modal = QSL.modal({
-      title: item ? '编辑公告' : '新建公告',
+      title: eventKey ? (item ? QSL.t("编辑赛事动态") : QSL.t("新建赛事动态")) : (item ? QSL.t("编辑公告") : QSL.t("新建公告")),
       size: 'lg',
-      content: '<form class="a-announcement-form"><div class="a-announcement-field"><label>标题<input class="input" name="title" required aria-describedby="a-ann-count-title" value="' + escAttr(item ? item.title : '') + '"></label><small class="muted a-announcement-count" id="a-ann-count-title" data-count-for="title" data-max="120"></small></div><div class="a-announcement-field"><label>正文（纯文本）<textarea class="textarea" name="body" required aria-describedby="a-ann-count-body">' + esc(item ? item.body : '') + '</textarea></label><small class="muted a-announcement-count" id="a-ann-count-body" data-count-for="body" data-max="10000"></small></div><label>弹窗停留时长（秒）<input class="input" type="number" name="displaySeconds" min="1" max="3600" step="1" required value="' + escAttr(item ? item.displaySeconds : 30) + '"></label><small class="muted">默认 30 秒，可设置 1–3600 秒；读条结束后自动关闭。</small><label>状态<select class="select" name="status"><option value="draft">草稿 / 已撤下</option><option value="published"' + (item && item.status === 'published' ? ' selected' : '') + '>已发布</option></select></label><p class="a-hint-error" data-error role="alert"></p><button class="btn btn-primary" type="submit">保存公告</button></form>',
+      content: ("<form class=\"a-announcement-form\"><div class=\"a-announcement-field\"><label>" + QSL.escapeHtml(QSL.t("标题")) + "<input class=\"input\" name=\"title\" required aria-describedby=\"a-ann-count-title\" value=\"") + escAttr(item ? item.title : '') + ("\"></label><small class=\"muted a-announcement-count\" id=\"a-ann-count-title\" data-count-for=\"title\" data-max=\"120\"></small></div><div class=\"a-announcement-field\"><label>" + QSL.escapeHtml(QSL.t("正文（纯文本）")) + "<textarea class=\"textarea\" name=\"body\" required aria-describedby=\"a-ann-count-body\">") + esc(item ? item.body : '') + ("</textarea></label><small class=\"muted a-announcement-count\" id=\"a-ann-count-body\" data-count-for=\"body\" data-max=\"10000\"></small></div><label>" + QSL.escapeHtml(QSL.t("弹窗停留时长（秒）")) + "<input class=\"input\" type=\"number\" name=\"displaySeconds\" min=\"1\" max=\"3600\" step=\"1\" required value=\"") + escAttr(item ? item.displaySeconds : 30) + ("\"></label><small class=\"muted\">" + QSL.escapeHtml(QSL.t("默认 30 秒，可设置 1–3600 秒；读条结束后自动关闭。")) + "</small><label>" + QSL.escapeHtml(QSL.t("状态")) + "<select class=\"select\" name=\"status\"><option value=\"draft\">" + QSL.escapeHtml(QSL.t("草稿 / 已撤下")) + "</option><option value=\"published\"") + (item && item.status === 'published' ? ' selected' : '') + (">" + QSL.escapeHtml(QSL.t("已发布")) + "</option></select></label><p class=\"a-hint-error\" data-error role=\"alert\"></p><button class=\"btn btn-primary\" type=\"submit\">" + QSL.escapeHtml(QSL.t("保存公告")) + "</button></form>"),
       onClose: function () {
         closed = true;
         const overlay = modal.el.closest('.modal-overlay');
@@ -401,6 +414,12 @@
     });
     owner.announcementModal = modal;
     const form = modal.body.querySelector('form');
+    if (eventKey) {
+      const durationLabel = form.elements.displaySeconds.closest('label');
+      durationLabel.nextElementSibling.remove();
+      durationLabel.remove();
+      form.querySelector('[type="submit"]').textContent = QSL.t("保存赛事动态");
+    }
     form.querySelectorAll('[data-count-for]').forEach(function (counter) {
       const field = form.elements[counter.dataset.countFor];
       const max = Number(counter.dataset.max);
@@ -414,23 +433,24 @@
     });
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
-      if (busy || closed || S !== owner || !isLive(root, 'announcements')) return;
+      if (busy || closed || S !== owner || !isLive(root, tab)) return;
       busy = true;
       const btn = form.querySelector('[type="submit"]');
       animateBusy(btn, true);
       form.querySelector('[data-error]').textContent = '';
       const values = Object.fromEntries(new FormData(form));
-      values.displaySeconds = Number(values.displaySeconds);
+      if (!eventKey) values.displaySeconds = Number(values.displaySeconds);
+      if (eventKey && !item) values.eventKey = eventKey;
       try {
         if (item) await QSL.api.put('/api/admin/announcements/' + encodeURIComponent(item.id), values);
         else await QSL.api.post('/api/admin/announcements', values);
-        if (closed || S !== owner || !isLive(root, 'announcements')) return;
+        if (closed || S !== owner || !isLive(root, tab)) return;
         modal.close();
-        toast('公告已保存');
+        toast(eventKey ? QSL.t("赛事动态已保存") : QSL.t("公告已保存"));
         redrawTab();
       } catch (err) {
-        if (!closed && S === owner && isLive(root, 'announcements')) {
-          form.querySelector('[data-error]').textContent = err.message || '保存失败';
+        if (!closed && S === owner && isLive(root, tab)) {
+          form.querySelector('[data-error]').textContent = err.message || QSL.t("保存失败");
           if (err.fields) QSL.showFieldErrors(form, err.fields);
         }
       } finally {
@@ -440,48 +460,380 @@
     });
   }
 
-  function drawAnnouncements(panel) {
+  function drawAnnouncements(panel, eventKey, host) {
     const owner = S;
-    const root = tabRoot(panel, '<div class="toolbar a-toolbar"><h2>公告管理</h2><span class="a-toolbar-spacer"></span><button class="btn btn-primary btn-sm" data-ann-new type="button">新建公告</button></div><div data-ann-list>正在加载公告…</div><div class="pagination a-pager" data-ann-pager></div>');
+    const tab = eventKey ? 'contest' : 'announcements';
+    const html = ("<div class=\"toolbar a-toolbar\"><h2>" + QSL.escapeHtml(QSL.t("公告管理")) + "</h2><span class=\"a-toolbar-spacer\"></span><button class=\"btn btn-primary btn-sm\" data-ann-new type=\"button\">" + QSL.escapeHtml(QSL.t("新建公告")) + "</button></div><div data-ann-list>" + QSL.escapeHtml(QSL.t("正在加载公告…")) + "</div><div class=\"pagination a-pager\" data-ann-pager></div>");
+    const root = host || tabRoot(panel, html);
+    if (host) host.innerHTML = html;
+    if (eventKey) {
+      root.querySelector('h2').textContent = QSL.t("赛事动态");
+      root.querySelector('[data-ann-new]').textContent = QSL.t("新建赛事动态");
+      root.querySelector('[data-ann-list]').textContent = QSL.t("正在加载赛事动态…");
+    }
     const job = ++S.jobs.announcements;
-    const page = S.announcementPage;
-    root.querySelector('[data-ann-new]').addEventListener('click', function () { editAnnouncement(root); });
-    QSL.api.get('/api/admin/announcements?page=' + page + '&limit=8').then(function (res) {
-      if (S !== owner || !aliveRoot(root, 'announcements', job)) return;
+    const page = eventKey ? S.contest.announcementPage : S.announcementPage;
+    const live = function () { return S === owner && isLive(root, tab) && S.jobs.announcements === job; };
+    root.querySelector('[data-ann-new]').addEventListener('click', function () { editAnnouncement(root, null, eventKey); });
+    QSL.api.get('/api/admin/announcements?page=' + page + '&limit=8' + (eventKey ? '&eventKey=' + encodeURIComponent(eventKey) : '')).then(function (res) {
+      if (!live()) return;
       const list = root.querySelector('[data-ann-list]');
       list.innerHTML = res.items.length ? res.items.map(function (item) {
-        return '<article class="a-announcement-row"><h3>' + esc(item.title) + '</h3>' + badge(item.status === 'published' ? '已发布' : '草稿 / 已撤下', item.status === 'published' ? 'mint' : 'slate') + '<p class="a-announcement-body">' + esc(item.body) + '</p><small class="muted">更新：' + esc(fmtDateTime(item.updatedAt)) + ' · 停留：' + esc(item.displaySeconds) + ' 秒 · 发布时间：' + esc(item.publishedAt ? fmtDateTime(item.publishedAt) : '未发布') + '</small><div class="a-announcement-actions"><button class="btn btn-ghost btn-sm" type="button" data-ann-edit="' + escAttr(item.id) + '">编辑</button><button class="btn btn-soft btn-sm" type="button" data-ann-toggle="' + escAttr(item.id) + '">' + (item.status === 'published' ? '撤下' : '发布') + '</button></div></article>';
-      }).join('') : '<p class="muted">暂无公告，点击「新建公告」开始。</p>';
+        return '<article class="a-announcement-row"><h3>' + esc(item.title) + '</h3>' + badge(item.status === 'published' ? QSL.t("已发布") : QSL.t("草稿 / 已撤下"), item.status === 'published' ? 'mint' : 'slate') + '<p class="a-announcement-body">' + esc(item.body) + ("</p><small class=\"muted\">" + QSL.escapeHtml(QSL.t("更新："))) + esc(fmtDateTime(item.updatedAt)) + (eventKey ? (' · ' + esc(QSL.t("发布时间："))) : (" " + esc(QSL.t("· 停留："))) + esc(item.displaySeconds) + (" " + esc(QSL.t("秒 · 发布时间：")))) + esc(item.publishedAt ? fmtDateTime(item.publishedAt) : QSL.t("未发布")) + '</small><div class="a-announcement-actions"><button class="btn btn-ghost btn-sm" type="button" data-ann-edit="' + escAttr(item.id) + ("\">" + QSL.escapeHtml(QSL.t("编辑")) + "</button><button class=\"btn btn-soft btn-sm\" type=\"button\" data-ann-toggle=\"") + escAttr(item.id) + '">' + (item.status === 'published' ? QSL.t("撤下") : QSL.t("发布")) + '</button></div></article>';
+      }).join('') : ("<p class=\"muted\">" + esc(eventKey ? QSL.t("暂无赛事动态，点击「新建赛事动态」开始。") : QSL.t("暂无公告，点击「新建公告」开始。")) + "</p>");
       list.onclick = async function (event) {
         const btn = event.target.closest('[data-ann-edit], [data-ann-toggle]');
-        if (!btn || btn.disabled) return;
+        if (!btn || btn.disabled || !live()) return;
         const item = res.items.find(function (row) { return row.id === (btn.dataset.annEdit || btn.dataset.annToggle); });
         if (!item) return;
-        if (btn.dataset.annEdit) { editAnnouncement(root, item); return; }
+        if (btn.dataset.annEdit) { editAnnouncement(root, item, eventKey); return; }
         if (item.status === 'published') {
           const ok = await QSL.confirm({
-            title: '撤下公告',
-            message: '确定撤下公告「' + item.title + '」吗？撤下后首页不再显示，可稍后重新发布。',
-            confirmText: '撤下',
-            cancelText: '取消',
+            title: eventKey ? QSL.t("撤下赛事动态") : QSL.t("撤下公告"),
+            message: eventKey ? QSL.t("确定撤下这条赛事动态吗？可稍后重新发布。") : QSL.t("确定撤下公告「") + item.title + QSL.t("」吗？撤下后首页不再显示，可稍后重新发布。"),
+            confirmText: QSL.t("撤下"),
+            cancelText: QSL.t("取消"),
             danger: true
           });
-          if (!ok || S !== owner || !isLive(root, 'announcements')) return;
+          if (!ok || S !== owner || !isLive(root, tab)) return;
         }
         animateBusy(btn, true);
         try {
           await QSL.api.put('/api/admin/announcements/' + encodeURIComponent(item.id), { status: item.status === 'published' ? 'draft' : 'published' });
-          if (S === owner && isLive(root, 'announcements')) { toast('公告状态已更新'); redrawTab(); }
+          if (S === owner && isLive(root, tab)) { toast(eventKey ? QSL.t("赛事动态状态已更新") : QSL.t("公告状态已更新")); redrawTab(); }
         } catch (err) {
-          if (S === owner && isLive(root, 'announcements')) { toastError(err); animateBusy(btn, false); }
+          if (S === owner && isLive(root, tab)) { toastError(err); animateBusy(btn, false); }
         }
       };
       renderPager(root.querySelector('[data-ann-pager]'), res, function (next) {
-        owner.announcementPage = next;
+        if (!live()) return;
+        if (eventKey) owner.contest.announcementPage = next;
+        else owner.announcementPage = next;
         redrawTab();
       });
     }).catch(function (err) {
-      if (S === owner && aliveRoot(root, 'announcements', job)) renderLoadError(root.querySelector('[data-ann-list]'), err, redrawTab);
+      if (live()) renderLoadError(root.querySelector('[data-ann-list]'), err, redrawTab);
+    });
+  }
+
+  function closeContestModal() {
+    if (!S) return;
+    S.contest.detailJob++;
+    if (!S.contestModal) return;
+    const modal = S.contestModal;
+    const overlay = modal.el.closest('.modal-overlay');
+    modal.close();
+    if (overlay) overlay.remove();
+    S.contestModal = null;
+  }
+
+  function contestBeijingInput(iso) {
+    if (!iso) return '';
+    const time = Date.parse(iso);
+    return Number.isFinite(time) ? new Date(time + 8 * 3600000).toISOString().slice(0, 23) : '';
+  }
+
+  function contestVotingStatus(voting) {
+    const start = Date.parse(voting.startsAt);
+    const end = Date.parse(voting.endsAt);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) return QSL.t("未设置（投票未开放）");
+    if (Date.now() < start) return QSL.t("未开始");
+    return Date.now() < end ? QSL.t("投票进行中") : QSL.t("已结束");
+  }
+
+  async function downloadContestVotes(live) {
+    if (contestDownloadBusy) return;
+    contestDownloadBusy = true;
+    let objectUrl = null;
+    let link = null;
+    try {
+      const token = QSL.api.token();
+      let response;
+      try {
+        response = await fetch('/api/admin/contests/' + CONTEST_KEY + '/votes.xlsx', {
+          headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+          cache: 'no-store'
+        });
+      } catch (err) {
+        throw new QSL.ApiError(QSL.t("网络连接失败，请确认服务已启动"), { isNetwork: true });
+      }
+      if (!response.ok) {
+        let data = null;
+        try { data = await response.json(); } catch (err) { /* 非 JSON 错误使用状态提示 */ }
+        const info = (data && data.error) || {};
+        if (response.status === 401 && token && QSL.api.token() === token) {
+          QSL.api.setToken(null);
+          QSL.state.user = null;
+          QSL.emit('auth', null);
+          toast(QSL.t("登录已过期，请重新登录"), 'error');
+        }
+        const messages = { 401: QSL.t("请先登录后再操作"), 403: QSL.t("没有权限执行此操作"), 404: QSL.t("内容不存在或已被删除"), 429: QSL.t("操作太频繁，请稍后再试"), 500: QSL.t("服务器开小差了，请稍后再试") };
+        throw new QSL.ApiError((info.message && QSL.i18n.error(info.message)) || messages[response.status] || QSL.t("下载失败，请稍后重试"), { status: response.status, code: info.code });
+      }
+      const blob = await response.blob();
+      if (!live()) return;
+      objectUrl = URL.createObjectURL(blob);
+      link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = CONTEST_KEY + '-votes.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      await new Promise(function (resolve) { setTimeout(resolve, 1000); });
+    } catch (err) {
+      if (live()) toastError(err);
+    } finally {
+      if (link) link.remove();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      contestDownloadBusy = false;
+    }
+  }
+
+  function drawContestVoting(root, owner, live) {
+    const section = root.querySelector('[data-contest-voting]');
+    let voting = null;
+    let busy = false;
+    let stale = false;
+    section.innerHTML = '<h2>' + esc(QSL.t("投票管理")) + '</h2><div data-voting-body></div>';
+    const body = section.querySelector('[data-voting-body]');
+    function load() {
+      if (!live() || busy) return;
+      busy = true;
+      clearInterval(owner.contest.votingTimer);
+      owner.contest.votingTimer = null;
+      QSL.loading(body);
+      QSL.api.get(CONTEST_VOTING_API).then(function (res) {
+        busy = false;
+        if (!live()) return;
+        voting = res.voting;
+        stale = false;
+        body.innerHTML = '<form class="a-contest-voting-form" novalidate>' +
+          '<p class="a-contest-voting-status" role="status" data-voting-status></p>' +
+          '<p class="muted">' + esc(QSL.t("所有输入均为北京时间（UTC+08:00 / Asia/Shanghai），不使用设备当地时区。两项均留空并保存可关闭投票；开始时间必须早于结束时间。")) + '</p>' +
+          '<div class="a-contest-voting-times"><label>' + esc(QSL.t("开始时间（北京时间 UTC+08:00）")) + '<input class="input" type="datetime-local" step="0.001" name="startsAt"></label>' +
+          '<label>' + esc(QSL.t("结束时间（北京时间 UTC+08:00）")) + '<input class="input" type="datetime-local" step="0.001" name="endsAt"></label></div>' +
+          '<p class="a-hint-error" role="alert" data-voting-error></p><div class="a-announcement-actions">' +
+          '<button class="btn btn-primary" type="submit">' + esc(QSL.t("保存投票时间")) + '</button>' +
+          '<button class="btn btn-ghost" type="button" data-voting-reload>' + esc(QSL.t("刷新投票配置")) + '</button>' +
+          '<button class="btn btn-ghost" type="button" data-voting-download>' + esc(QSL.t("下载当前投票 XLSX")) + '</button></div></form>';
+        const form = body.querySelector('form');
+        const error = form.querySelector('[data-voting-error]');
+        const save = form.querySelector('[type="submit"]');
+        const reload = form.querySelector('[data-voting-reload]');
+        const download = form.querySelector('[data-voting-download]');
+        function showVoting() {
+          form.elements.startsAt.value = contestBeijingInput(voting.startsAt);
+          form.elements.endsAt.value = contestBeijingInput(voting.endsAt);
+        }
+        function updateStatus() {
+          if (!live()) return;
+          form.querySelector('[data-voting-status]').textContent = QSL.t("当前状态") + '：' + contestVotingStatus(voting);
+          download.disabled = contestDownloadBusy;
+        }
+        showVoting();
+        updateStatus();
+        clearInterval(owner.contest.votingTimer);
+        owner.contest.votingTimer = setInterval(updateStatus, 1000);
+        reload.onclick = load;
+        download.onclick = async function () {
+          if (!live() || contestDownloadBusy) return;
+          animateBusy(download, true);
+          try { await downloadContestVotes(live); }
+          finally { if (live()) animateBusy(download, false); }
+        };
+        form.onsubmit = async function (event) {
+          event.preventDefault();
+          if (!live() || busy || stale) return;
+          error.textContent = '';
+          const startValue = form.elements.startsAt.value;
+          const endValue = form.elements.endsAt.value;
+          if (!!startValue !== !!endValue) {
+            error.textContent = QSL.t("请同时填写开始和结束时间，或将两项均留空以关闭投票。");
+            return;
+          }
+          const start = startValue ? new Date(startValue + '+08:00') : null;
+          const end = endValue ? new Date(endValue + '+08:00') : null;
+          if (!form.checkValidity() || (start && (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end))) {
+            error.textContent = QSL.t("请输入有效的北京时间，且开始时间必须早于结束时间。");
+            return;
+          }
+          busy = true;
+          animateBusy(save, true);
+          reload.disabled = true;
+          form.elements.startsAt.disabled = true;
+          form.elements.endsAt.disabled = true;
+          try {
+            const res = await QSL.api.put(CONTEST_VOTING_API, {
+              startsAt: start ? start.toISOString() : null,
+              endsAt: end ? end.toISOString() : null,
+              expectedRevision: voting.revision
+            });
+            if (!live()) return;
+            voting = res.voting;
+            showVoting();
+            updateStatus();
+            toast(QSL.t("投票时间已更新"));
+          } catch (err) {
+            if (!live()) return;
+            stale = err.status === 409;
+            error.textContent = stale ? QSL.t("投票配置已更新，请刷新投票配置后重新保存。") : (err.message || QSL.t("操作失败，请稍后重试"));
+            if (err.fields) QSL.showFieldErrors(form, err.fields);
+          } finally {
+            busy = false;
+            if (live()) {
+              animateBusy(save, false);
+              save.disabled = stale;
+              reload.disabled = false;
+              form.elements.startsAt.disabled = false;
+              form.elements.endsAt.disabled = false;
+            }
+          }
+        };
+      }).catch(function (err) {
+        busy = false;
+        if (live()) renderLoadError(body, err, load);
+      });
+    }
+    load();
+  }
+
+  function drawContest(panel) {
+    const owner = S;
+    const state = owner.contest;
+    const root = tabRoot(panel,
+      '<section class="a-contest-section" data-contest-voting></section>' +
+      '<section class="a-contest-section"><div class="toolbar a-toolbar"><h2>' + esc(QSL.t("报名审核")) +
+      '</h2><span class="a-toolbar-spacer"></span><label class="a-filter">' + esc(QSL.t("报名状态")) +
+      '<select class="select a-select" data-contest-status>' + CARD_STATUS_TABS.map(function (item) {
+        return '<option value="' + item.key + '"' + (item.key === state.status ? ' selected' : '') + '>' + esc(item.label) + '</option>';
+      }).join('') + '</select></label></div><p class="muted">' + esc(QSL.t("比赛审核与广场卡片审核独立；作品变更后需重新审核。")) +
+      '</p><div class="a-cardlist" data-contest-list></div><div class="pagination a-pager" data-contest-pager></div></section>' +
+      '<section class="a-contest-section" data-contest-announcements></section>');
+    const job = ++owner.jobs.contest;
+    const live = function () { return S === owner && aliveRoot(root, 'contest', job); };
+    root.querySelector('[data-contest-status]').addEventListener('change', function (event) {
+      if (!live()) return;
+      state.status = event.target.value;
+      state.page = 1;
+      redrawTab();
+    });
+    const list = root.querySelector('[data-contest-list]');
+    QSL.loading(list);
+    QSL.api.get(CONTEST_API + '?status=' + encodeURIComponent(state.status) + '&page=' + state.page + '&limit=8').then(function (res) {
+      if (!live()) return;
+      list.innerHTML = res.items.length ? res.items.map(function (entry) {
+        const entryCards = entry.cards || [];
+        return '<article class="a-cardrow"><div class="a-cardrow-thumbs">' + (entryCards.length ? entryCards.map(function (card) { return thumbPair(card); }).join('') : '<p class="muted">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
+          '</div><div class="a-cardrow-main"><div class="a-cardrow-head"><h3 class="a-cardrow-title">' + esc(entryCards.length ? entryCards.map(function (card) { return card.title; }).join('、') : QSL.t("未关联卡片")) +
+          '</h3>' + statusBadge(entry.status) + '</div>' + userInline(entry.user) + '<p class="a-contest-excerpt">' + esc((entry.works || []).map(function (work) { return '#' + String(work.number).padStart(3, '0') + ' ' + work.description; }).join(' / ')) +
+          '</p><span class="a-time">' + esc(fmtDateTime(entry.updatedAt)) + '</span></div><div class="a-cardrow-actions"><button class="a-act a-act--wide" type="button" data-contest-detail="' +
+          escAttr(entry.id) + '">' + ico('eye', 16) + esc(QSL.t("查看报名 / 审核")) + '</button></div></article>';
+      }).join('') : '<p class="a-inline-empty">' + esc(QSL.t("暂无符合条件的报名。")) + '</p>';
+      list.onclick = function (event) {
+        const btn = event.target.closest('[data-contest-detail]');
+        if (!btn || btn.disabled || !live()) return;
+        openContestEntry(root, btn.dataset.contestDetail);
+      };
+      renderPager(root.querySelector('[data-contest-pager]'), res, function (page) {
+        if (!live()) return;
+        state.page = page;
+        redrawTab();
+      });
+    }).catch(function (err) {
+      if (live()) renderLoadError(list, err, redrawTab);
+    });
+    drawContestVoting(root, owner, live);
+    drawAnnouncements(panel, CONTEST_KEY, root.querySelector('[data-contest-announcements]'));
+  }
+
+  function openContestEntry(root, id) {
+    closeAnnouncementModal();
+    closeContestModal();
+    const owner = S;
+    const job = ++owner.contest.detailJob;
+    let closed = false;
+    let busy = false;
+    let stale = false;
+    const live = function () {
+      return !closed && S === owner && isLive(root, 'contest') && owner.contest.detailJob === job;
+    };
+    const modal = QSL.modal({
+      title: QSL.t("比赛报名详情"),
+      size: 'lg',
+      content: '<div data-contest-detail-body></div>',
+      onClose: function () {
+        closed = true;
+        const overlay = modal.el.closest('.modal-overlay');
+        if (overlay) document.removeEventListener('keydown', overlay._onKey);
+        if (owner.contestModal === modal) owner.contestModal = null;
+      }
+    });
+    owner.contestModal = modal;
+    const body = modal.body.querySelector('[data-contest-detail-body]');
+    QSL.loading(body);
+    QSL.api.get(CONTEST_API + '/' + encodeURIComponent(id)).then(function (res) {
+      if (!live()) return;
+      const entry = res.entry;
+      const cards = entry.cards || [];
+      const canApprove = cards.length > 0 && cards.every(function (item) { return item.status === 'approved'; });
+      body.innerHTML = '<div class="a-contest-detail">' + (cards.length ? (entry.works || []).map(function (work) {
+        const card = work.card;
+        if (!card) return '';
+        return '<h3>#' + esc(String(work.number).padStart(3, '0')) + ' · ' + esc(card.title) + '</h3><div class="a-contest-artwork">' + thumbPair(card, { sizes: '(max-width: 620px) 90vw, 380px' }) + '</div><div>' +
+          esc(QSL.t("广场审核状态")) + ' ' + statusBadge(card.status) + '</div><div class="a-info-block"><h4>' + esc(QSL.t("作品说明")) + '</h4><p class="a-quote a-contest-text">' + esc(work.description) + '</p></div>';
+      }).join('') : '<p class="a-reject-note">' + esc(QSL.t("关联卡片已删除，请等待参赛者重新选卡。")) + '</p>') +
+        '<div class="a-cardrow-meta">' + userInline(entry.user) + statusBadge(entry.status) + '<span class="a-time">' + esc(fmtDateTime(entry.updatedAt)) + '</span></div>' +
+        '<div class="a-info-block"><h4>' + esc(QSL.t("联系邮箱")) + '</h4><p class="a-contest-text">' + esc(entry.contactEmail) + '</p><small class="muted">' + esc(QSL.t("仅参赛者本人及管理员可见，不修改账号邮箱。")) + '</small></div>' +
+        (entry.reviewReason ? '<div class="a-info-block"><h4>' + esc(QSL.t("审核原因")) + '</h4><p class="a-quote a-contest-text">' + esc(entry.reviewReason) + '</p></div>' : '') +
+        '<form class="a-announcement-form" novalidate><label>' + esc(QSL.t("审核原因（驳回必填）")) + '<textarea class="textarea" name="reviewReason" maxlength="200"></textarea></label>' +
+        (!canApprove ? '<p class="a-hint-error">' + esc(QSL.t("关联卡片未通过广场审核，不能批准报名。")) + '</p>' : '') +
+        '<p class="a-hint-error" data-error role="alert"></p><div class="a-announcement-actions"><button class="btn btn-primary" type="submit" value="approved"' + (!canApprove ? ' disabled' : '') + '>' +
+        esc(QSL.t("通过报名")) + '</button><button class="btn btn-danger" type="submit" value="rejected">' + esc(QSL.t("驳回报名")) +
+        '</button><button class="btn btn-ghost" type="button" data-contest-reload>' + esc(QSL.t("刷新详情")) + '</button></div></form></div>';
+      body.querySelector('[data-contest-reload]').addEventListener('click', function () {
+        if (live() && !busy) openContestEntry(root, id);
+      });
+      const form = body.querySelector('form');
+      form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (busy || stale || !live() || !event.submitter) return;
+        const status = event.submitter.value;
+        if (status !== 'approved' && status !== 'rejected') return;
+        const reason = form.elements.reviewReason.value.trim();
+        const error = form.querySelector('[data-error]');
+        error.textContent = '';
+        if (status === 'rejected' && !reason) {
+          error.textContent = QSL.t("请填写驳回原因。");
+          form.elements.reviewReason.focus();
+          return;
+        }
+        busy = true;
+        const buttons = form.querySelectorAll('button');
+        buttons.forEach(function (btn) { btn.disabled = true; });
+        animateBusy(event.submitter, true);
+        try {
+          await QSL.api.put(CONTEST_API + '/' + encodeURIComponent(id) + '/review', {
+            status: status, reviewReason: reason, expectedRevision: entry.revision
+          });
+          if (!live()) return;
+          modal.close();
+          toast(QSL.t("报名审核已更新"));
+          redrawTab();
+        } catch (err) {
+          if (!live()) return;
+          stale = err.status === 409;
+          error.textContent = stale ? QSL.t("报名已更新，请刷新详情后重新审核。") : (err.message || QSL.t("操作失败，请稍后重试"));
+          if (err.fields) QSL.showFieldErrors(form, err.fields);
+        } finally {
+          busy = false;
+          if (live()) {
+            animateBusy(event.submitter, false);
+            buttons.forEach(function (btn) { btn.disabled = stale && btn.type === 'submit'; });
+            form.querySelector('[value="approved"]').disabled = stale || !canApprove;
+          }
+        }
+      });
+    }).catch(function (err) {
+      if (live()) renderLoadError(body, err, function () { if (live()) openContestEntry(root, id); });
     });
   }
 
@@ -609,15 +961,15 @@
     const activeRate = total > 0 ? Math.round((active / total) * 100) : 0;
     const items = [
       {
-        label: '用户总数', value: total, icon: 'users', tone: 'mint', hero: true,
-        foot: '活跃 ' + active + ' · 禁用 ' + (Number(users.banned) || 0) + ' · 本周新增 ' + (Number(users.newThisWeek) || 0)
+        label: QSL.t("用户总数"), value: total, icon: 'users', tone: 'mint', hero: true,
+        foot: (QSL.t("活跃") + " ") + active + (" " + QSL.t("· 禁用") + " ") + (Number(users.banned) || 0) + (" " + QSL.t("· 本周新增") + " ") + (Number(users.newThisWeek) || 0)
       },
-      { label: '活跃用户', value: active, icon: 'radio', tone: 'sky', foot: '活跃率 ' + activeRate + '% · 正常账号' },
-      { label: '卡片总数', value: Number(cards.total) || 0, icon: 'cards', tone: 'violet', foot: '已通过 ' + (Number(cards.approved) || 0) + ' · 待审核 ' + (Number(cards.pending) || 0) },
-      { label: '待审核卡片', value: Number(cards.pending) || 0, icon: 'clock', tone: 'amber', foot: '需要管理员处理的卡片' },
-      { label: '待处理换卡', value: Number(exchanges.pending) || 0, icon: 'send', tone: 'rose', foot: '累计 ' + (Number(exchanges.total) || 0) + ' 条换卡申请' },
-      { label: '点赞总数', value: Number(stats.likes) || 0, icon: 'heart', tone: 'rose', foot: '来自广场访客的喜欢' },
-      { label: '本周新增用户', value: Number(users.newThisWeek) || 0, icon: 'sparkles', tone: 'mint', foot: '最近 7 天注册的爱好者' }
+      { label: QSL.t("活跃用户"), value: active, icon: 'radio', tone: 'sky', foot: (QSL.t("活跃率") + " ") + activeRate + QSL.t("% · 正常账号") },
+      { label: QSL.t("卡片总数"), value: Number(cards.total) || 0, icon: 'cards', tone: 'violet', foot: (QSL.t("已通过") + " ") + (Number(cards.approved) || 0) + (" " + QSL.t("· 待审核") + " ") + (Number(cards.pending) || 0) },
+      { label: QSL.t("待审核卡片"), value: Number(cards.pending) || 0, icon: 'clock', tone: 'amber', foot: QSL.t("需要管理员处理的卡片") },
+      { label: QSL.t("待处理换卡"), value: Number(exchanges.pending) || 0, icon: 'send', tone: 'rose', foot: (QSL.t("累计") + " ") + (Number(exchanges.total) || 0) + (" " + QSL.t("条换卡申请")) },
+      { label: QSL.t("点赞总数"), value: Number(stats.likes) || 0, icon: 'heart', tone: 'rose', foot: QSL.t("来自广场访客的喜欢") },
+      { label: QSL.t("本周新增用户"), value: Number(users.newThisWeek) || 0, icon: 'sparkles', tone: 'mint', foot: QSL.t("最近 7 天注册的爱好者") }
     ];
     return '<div class="stats-grid a-stats">' + items.map(statCardHtml).join('') + '</div>';
   }
@@ -626,14 +978,14 @@
     return (
       '<div class="a-all-clear">' +
       '<span class="a-all-clear-ico">' + ico('check-circle', 26) + '</span>' +
-      '<div><b>审核队列已清空</b><p class="muted">当前没有待审核的卡片，新的上传会出现在这里。</p></div>' +
+      ("<div><b>" + QSL.escapeHtml(QSL.t("审核队列已清空")) + "</b><p class=\"muted\">" + QSL.escapeHtml(QSL.t("当前没有待审核的卡片，新的上传会出现在这里。")) + "</p></div>") +
       '</div>'
     );
   }
 
   function pendingCardHtml(card) {
     const id = card.id || '';
-    const title = card.title || '未命名卡片';
+    const title = card.title || QSL.t("未命名卡片");
     return (
       '<article class="a-pending" data-card-id="' + escAttr(id) + '">' +
       '<div class="a-pending-thumbs">' + thumbPair(card) +
@@ -642,14 +994,14 @@
       '<h3 class="a-pending-title" title="' + escAttr(title) + '">' + esc(title) + '</h3>' +
       '<div class="a-pending-owner">' + QSL.ownerLine(card.owner) + '</div>' +
       '<div class="a-pending-meta">' +
-      '<span class="a-meta-item">' + ico('clock', 14) + '提交于 ' + esc(timeAgo(card.createdAt)) + '</span>' +
+      '<span class="a-meta-item">' + ico('clock', 14) + (QSL.t("提交于") + " ") + esc(timeAgo(card.createdAt)) + '</span>' +
       (card.callSign ? badge(card.callSign, 'slate') : '') +
       '</div>' +
       '<div class="a-pending-actions">' +
       '<button class="btn btn-primary btn-sm" type="button" data-act="approve-card" data-id="' + escAttr(id) + '">' +
-      ico('check', 15) + '通过</button>' +
+      ico('check', 15) + (QSL.escapeHtml(QSL.t("通过")) + "</button>") +
       '<button class="a-act a-act--danger" type="button" data-act="reject-card" data-id="' + escAttr(id) + '">' +
-      ico('x', 15) + '拒绝</button>' +
+      ico('x', 15) + (QSL.escapeHtml(QSL.t("拒绝")) + "</button>") +
       '</div></div></article>'
     );
   }
@@ -658,14 +1010,14 @@
     const list = Array.isArray(cards) ? cards : [];
     const pendingTotal = Number(total) || list.length;
     const desc = pendingTotal > 0
-      ? '共 <b data-role="pending-count">' + pendingTotal + '</b> 张卡片等待审核 · 通过后将立即出现在卡片广场'
-      : '当前没有等待审核的卡片';
+      ? (QSL.escapeHtml(QSL.t("共")) + " <b data-role=\"pending-count\">") + pendingTotal + ("</b> " + QSL.escapeHtml(QSL.t("张卡片等待审核 · 通过后将立即出现在卡片广场")))
+      : QSL.t("当前没有等待审核的卡片");
     return (
       '<section class="a-block glass">' +
       '<div class="section-head a-block-head"><div>' +
-      '<h2 class="section-title">待审核卡片</h2>' +
+      ("<h2 class=\"section-title\">" + QSL.escapeHtml(QSL.t("待审核卡片")) + "</h2>") +
       '<p class="section-desc">' + desc + '</p></div>' +
-      '<button class="section-link" type="button" data-goto="cards" data-goto-status="pending">查看全部' + ico('arrow-right', 16) + '</button>' +
+      ("<button class=\"section-link\" type=\"button\" data-goto=\"cards\" data-goto-status=\"pending\">" + QSL.escapeHtml(QSL.t("查看全部"))) + ico('arrow-right', 16) + '</button>' +
       '</div>' +
       (list.length
         ? '<div class="a-pending-row" data-role="pending-row">' + list.map(pendingCardHtml).join('') + '</div>'
@@ -678,10 +1030,10 @@
     const users = Array.isArray(stats.recentUsers) ? stats.recentUsers.slice(0, 5) : [];
     let body;
     if (!users.length) {
-      body = '<div class="a-inline-empty">' + ico('users', 20) + '<span>最近还没有新用户注册</span></div>';
+      body = '<div class="a-inline-empty">' + ico('users', 20) + ("<span>" + QSL.escapeHtml(QSL.t("最近还没有新用户注册")) + "</span></div>");
     } else {
       body = '<ul class="a-list">' + users.map(function (u) {
-        const name = u.displayName || u.username || '未知用户';
+        const name = u.displayName || u.username || QSL.t("未知用户");
         return (
           '<li class="a-list-row">' +
           '<span class="a-list-user">' + QSL.avatar(u, 34) +
@@ -692,14 +1044,14 @@
         );
       }).join('') + '</ul>';
     }
-    return blockHtml('最近注册用户', '刚刚加入 QSLink 的业余无线电爱好者', 'users', '', body);
+    return blockHtml(QSL.t("最近注册用户"), QSL.t("刚刚加入 QSLink 的业余无线电爱好者"), 'users', '', body);
   }
 
   function recentExchangesBlock(stats) {
     const items = Array.isArray(stats.recentExchanges) ? stats.recentExchanges.slice(0, 5) : [];
     let body;
     if (!items.length) {
-      body = '<div class="a-inline-empty">' + ico('send', 20) + '<span>最近还没有换卡申请</span></div>';
+      body = '<div class="a-inline-empty">' + ico('send', 20) + ("<span>" + QSL.escapeHtml(QSL.t("最近还没有换卡申请")) + "</span></div>");
     } else {
       body = '<ul class="a-list">' + items.map(function (item) {
         const card = item.card || {};
@@ -707,14 +1059,14 @@
         const to = item.toUser || {};
         return (
           '<li class="a-list-row a-list-row--exch">' + miniThumb(card.frontImage, card.title) +
-          '<span class="a-list-main"><b>' + esc(card.title || '卡片已删除') + '</b>' +
-          '<small>' + esc(from.displayName || from.username || '未知') + ' → ' +
-          esc(to.displayName || to.username || '未知') + ' · ' + esc(timeAgo(item.createdAt)) + '</small></span>' +
+          '<span class="a-list-main"><b>' + esc(card.title || QSL.t("卡片已删除")) + '</b>' +
+          '<small>' + esc(from.displayName || from.username || QSL.t("未知")) + ' → ' +
+          esc(to.displayName || to.username || QSL.t("未知")) + ' · ' + esc(timeAgo(item.createdAt)) + '</small></span>' +
           '<span class="a-list-side">' + exchangeBadge(item.status) + '</span></li>'
         );
       }).join('') + '</ul>';
     }
-    return blockHtml('最近换卡申请', '最新发生的 QSL 卡片交换动态', 'exchanges', '', body);
+    return blockHtml(QSL.t("最近换卡申请"), QSL.t("最新发生的 QSL 卡片交换动态"), 'exchanges', '', body);
   }
 
   function blockHtml(title, desc, gotoTab, gotoStatus, body) {
@@ -724,7 +1076,7 @@
       '<h2 class="section-title">' + esc(title) + '</h2>' +
       '<p class="section-desc">' + esc(desc) + '</p></div>' +
       '<button class="section-link" type="button" data-goto="' + escAttr(gotoTab) + '"' +
-      (gotoStatus ? ' data-goto-status="' + escAttr(gotoStatus) + '"' : '') + '>查看全部' + ico('arrow-right', 16) + '</button>' +
+      (gotoStatus ? ' data-goto-status="' + escAttr(gotoStatus) + '"' : '') + (">" + QSL.escapeHtml(QSL.t("查看全部"))) + ico('arrow-right', 16) + '</button>' +
       '</div>' + body + '</section>'
     );
   }
@@ -760,10 +1112,10 @@
   async function auditPendingCard(root, card, act, btn) {
     if (act === 'approve-card') {
       if (btn.disabled) return;
-      animateBusy(btn, true, '通过中…');
+      animateBusy(btn, true, QSL.t("通过中…"));
       try {
         await QSL.api.admin.updateCard(card.id, { status: 'approved' });
-        toast('「' + (card.title || '卡片') + '」已通过审核', 'success');
+        toast('「' + (card.title || QSL.t("卡片")) + QSL.t("」已通过审核"), 'success');
         celebrate(btn);
         removePendingTile(root, card.id, 'approved');
         refreshStatsQuiet();
@@ -773,13 +1125,13 @@
       }
       return;
     }
-    const reason = await askRejectReason({ title: '拒绝卡片', cardTitle: card.title || '未命名卡片', confirmText: '确认拒绝' });
+    const reason = await askRejectReason({ title: QSL.t("拒绝卡片"), cardTitle: card.title || QSL.t("未命名卡片"), confirmText: QSL.t("确认拒绝") });
     if (!reason) return;
     if (btn.disabled) return;
-    animateBusy(btn, true, '拒绝中…');
+    animateBusy(btn, true, QSL.t("拒绝中…"));
     try {
       await QSL.api.admin.updateCard(card.id, { status: 'rejected', rejectReason: reason });
-      toast('已拒绝「' + (card.title || '卡片') + '」', 'info');
+      toast(QSL.t("已拒绝「") + (card.title || QSL.t("卡片")) + '」', 'info');
       removePendingTile(root, card.id, 'rejected');
       refreshStatsQuiet();
     } catch (err) {
@@ -846,22 +1198,22 @@
       const content =
         '<div class="modal-form a-reason-form">' +
         '<p class="modal-text">' + (opts.cardTitle
-          ? '即将拒绝卡片「<b>' + esc(opts.cardTitle) + '</b>」，请填写原因，卡片作者会看到这段说明。'
-          : '请填写拒绝原因，申请人会看到这段说明。') + '</p>' +
-        '<div class="field"><span class="label">拒绝原因<i class="req">*</i></span>' +
+          ? (QSL.escapeHtml(QSL.t("即将拒绝卡片「")) + "<b>") + esc(opts.cardTitle) + ("</b>" + QSL.escapeHtml(QSL.t("」，请填写原因，卡片作者会看到这段说明。")))
+          : QSL.t("请填写拒绝原因，申请人会看到这段说明。")) + '</p>' +
+        ("<div class=\"field\"><span class=\"label\">" + QSL.escapeHtml(QSL.t("拒绝原因")) + "<i class=\"req\">*</i></span>") +
         '<textarea class="textarea" name="rejectReason" rows="3" maxlength="200" ' +
-        'placeholder="例如：正反面图片不够清晰，或呼号信息与卡片不一致。"></textarea>' +
-        '<span class="hint" data-role="reason-hint">至少 2 个字，请尽量说明具体原因。</span></div>' +
+        ("placeholder=\"" + QSL.escapeHtml(QSL.t("例如：正反面图片不够清晰，或呼号信息与卡片不一致。")) + "\"></textarea>") +
+        ("<span class=\"hint\" data-role=\"reason-hint\">" + QSL.escapeHtml(QSL.t("至少 2 个字，请尽量说明具体原因。")) + "</span></div>") +
         '</div>';
       QSL.modal({
-        title: opts.title || '填写拒绝原因',
+        title: opts.title || QSL.t("填写拒绝原因"),
         size: 'sm',
         content: content,
         onClose: function () { finish(null); },
         actions: [
-          { label: '取消', type: 'ghost', onClick: function () { finish(null); } },
+          { label: QSL.t("取消"), type: 'ghost', onClick: function () { finish(null); } },
           {
-            label: opts.confirmText || '确认拒绝',
+            label: opts.confirmText || QSL.t("确认拒绝"),
             type: 'danger',
             closeOnClick: false,
             onClick: function (inst) {
@@ -870,7 +1222,7 @@
               const value = ta ? ta.value.trim() : '';
               if (value.length < 2) {
                 if (ta) { ta.classList.add('is-invalid'); ta.focus(); }
-                if (hint) { hint.textContent = '拒绝原因至少需要 2 个字'; hint.classList.add('a-hint-error'); }
+                if (hint) { hint.textContent = QSL.t("拒绝原因至少需要 2 个字"); hint.classList.add('a-hint-error'); }
                 return false;
               }
               finish(value);
@@ -894,34 +1246,34 @@
 
   function usersShellHtml() {
     const statusOptions = [
-      { key: '', label: '全部状态' },
-      { key: 'active', label: '正常' },
-      { key: 'banned', label: '已禁用' }
+      { key: '', label: QSL.t("全部状态") },
+      { key: 'active', label: QSL.t("正常") },
+      { key: 'banned', label: QSL.t("已禁用") }
     ];
     const roleOptions = [
-      { key: '', label: '全部角色' },
-      { key: 'user', label: '普通用户' },
-      { key: 'admin', label: '管理员' }
+      { key: '', label: QSL.t("全部角色") },
+      { key: 'user', label: QSL.t("普通用户") },
+      { key: 'admin', label: QSL.t("管理员") }
     ];
     return (
       '<div class="toolbar a-toolbar">' +
       '<div class="search-box a-search">' + ico('search', 18) +
-      '<input class="input" type="search" data-role="users-q" aria-label="搜索用户" ' +
-      'placeholder="搜索用户名 / 显示名 / 呼号 / 邮箱" value="' + escAttr(S.users.q) + '"></div>' +
-      '<label class="a-filter"><span>状态</span><select class="select a-select" data-role="users-status" aria-label="按状态筛选">' +
+      ("<input class=\"input\" type=\"search\" data-role=\"users-q\" aria-label=\"" + QSL.escapeHtml(QSL.t("搜索用户")) + "\" ") +
+      ("placeholder=\"" + QSL.t("搜索用户名 / 显示名 / 呼号 / 邮箱") + "\" value=\"") + escAttr(S.users.q) + '"></div>' +
+      ("<label class=\"a-filter\"><span>" + QSL.escapeHtml(QSL.t("状态")) + "</span><select class=\"select a-select\" data-role=\"users-status\" aria-label=\"" + QSL.escapeHtml(QSL.t("按状态筛选")) + "\">") +
       statusOptions.map(function (o) {
         return '<option value="' + escAttr(o.key) + '"' + (S.users.status === o.key ? ' selected' : '') + '>' + esc(o.label) + '</option>';
       }).join('') + '</select></label>' +
-      '<label class="a-filter"><span>角色</span><select class="select a-select" data-role="users-role" aria-label="按角色筛选">' +
+      ("<label class=\"a-filter\"><span>" + QSL.escapeHtml(QSL.t("角色")) + "</span><select class=\"select a-select\" data-role=\"users-role\" aria-label=\"" + QSL.escapeHtml(QSL.t("按角色筛选")) + "\">") +
       roleOptions.map(function (o) {
         return '<option value="' + escAttr(o.key) + '"' + (S.users.role === o.key ? ' selected' : '') + '>' + esc(o.label) + '</option>';
       }).join('') + '</select></label>' +
       '<span class="a-toolbar-spacer"></span>' +
       '<span class="a-toolbar-count" data-role="users-count">—</span>' +
-      '<button class="btn btn-ghost btn-sm" type="button" data-act="users-refresh">' + ico('refresh', 16) + '刷新</button>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-act="users-refresh">' + ico('refresh', 16) + (QSL.escapeHtml(QSL.t("刷新")) + "</button>") +
       '</div>' +
       '<section class="a-table-shell glass">' +
-      '<p class="a-scroll-hint">' + ico('arrow-right', 14) + '<span>左右滑动查看完整表格</span></p>' +
+      '<p class="a-scroll-hint">' + ico('arrow-right', 14) + ("<span>" + QSL.escapeHtml(QSL.t("左右滑动查看完整表格")) + "</span></p>") +
       '<div class="table-wrap a-table-wrap" data-role="users-area">' + QSL.skeletonTable(6, 6) + '</div>' +
       '<div class="pagination a-pager" data-role="users-pager"></div>' +
       '</section>'
@@ -1008,14 +1360,14 @@
     const area = root.querySelector('[data-role="users-area"]');
     const pager = root.querySelector('[data-role="users-pager"]');
     const countEl = root.querySelector('[data-role="users-count"]');
-    if (countEl) countEl.textContent = '共 ' + (res.total != null ? res.total : items.length) + ' 位用户';
+    if (countEl) countEl.textContent = (QSL.t("共") + " ") + (res.total != null ? res.total : items.length) + (" " + QSL.t("位用户"));
     if (!items.length) {
       const filtered = !!(S.users.q || S.users.status || S.users.role);
       emptyInto(area, {
         icon: filtered ? 'search' : 'users',
-        title: filtered ? '没有找到匹配的用户' : '还没有注册用户',
-        desc: filtered ? '试试更换搜索关键词，或调整状态 / 角色筛选。' : '平台暂时还没有注册用户。',
-        actionLabel: filtered ? '清空筛选条件' : '',
+        title: filtered ? QSL.t("没有找到匹配的用户") : QSL.t("还没有注册用户"),
+        desc: filtered ? QSL.t("试试更换搜索关键词，或调整状态 / 角色筛选。") : QSL.t("平台暂时还没有注册用户。"),
+        actionLabel: filtered ? QSL.t("清空筛选条件") : '',
         onAction: filtered ? function () {
           S.users.q = '';
           S.users.status = '';
@@ -1028,7 +1380,7 @@
     }
     area.innerHTML =
       '<table class="table a-table a-users-table"><thead><tr>' +
-      '<th>用户</th><th>邮箱</th><th>呼号</th><th>角色</th><th>状态</th><th class="a-col-num">卡片数</th><th>注册时间</th><th class="a-col-actions">操作</th>' +
+      ("<th>" + QSL.escapeHtml(QSL.t("用户")) + "</th><th>" + QSL.escapeHtml(QSL.t("邮箱")) + "</th><th>" + QSL.escapeHtml(QSL.t("呼号")) + "</th><th>" + QSL.escapeHtml(QSL.t("角色")) + "</th><th>" + QSL.escapeHtml(QSL.t("状态")) + "</th><th class=\"a-col-num\">" + QSL.escapeHtml(QSL.t("卡片数")) + "</th><th>" + QSL.escapeHtml(QSL.t("注册时间")) + "</th><th class=\"a-col-actions\">" + QSL.escapeHtml(QSL.t("操作")) + "</th>") +
       '</tr></thead><tbody>' + items.map(userRowHtml).join('') + '</tbody></table>';
     renderPager(pager, res, function (target) { loadUsers(root, target); });
     enhanceScope(area);
@@ -1040,11 +1392,11 @@
     const cardCount = u.cardCount != null ? u.cardCount : ((u.stats && u.stats.cards) || 0);
     const name = u.displayName || u.username || '';
     const toggleAttr = isSelf
-      ? ' disabled title="不能操作自己的账号"'
-      : ' data-act="user-toggle" data-id="' + escAttr(u.id) + '" title="' + (banned ? '启用用户' : '禁用用户') + '"';
+      ? (" disabled title=\"" + QSL.t("不能操作自己的账号") + "\"")
+      : ' data-act="user-toggle" data-id="' + escAttr(u.id) + '" title="' + (banned ? QSL.t("启用用户") : QSL.t("禁用用户")) + '"';
     const deleteAttr = isSelf
-      ? ' disabled title="不能删除自己"'
-      : ' data-act="user-delete" data-id="' + escAttr(u.id) + '" title="删除用户"';
+      ? (" disabled title=\"" + QSL.t("不能删除自己") + "\"")
+      : ' data-act="user-delete" data-id="' + escAttr(u.id) + ("\" title=\"" + QSL.t("删除用户") + "\"");
     return (
       '<tr data-user-id="' + escAttr(u.id) + '">' +
       '<td>' + userCell(u, isSelf) + '</td>' +
@@ -1055,9 +1407,9 @@
       '<td class="a-col-num">' + esc(String(cardCount)) + '</td>' +
       '<td><span class="a-time" title="' + escAttr(fmtDateTime(u.createdAt || u.joinedAt)) + '">' + esc(fmtDate(u.createdAt || u.joinedAt)) + '</span></td>' +
       '<td class="a-col-actions"><div class="a-row-actions">' +
-      '<button class="a-icon-btn" type="button" data-act="user-edit" data-id="' + escAttr(u.id) + '" title="编辑用户" aria-label="编辑用户 ' + escAttr(name) + '">' + ico('edit', 16) + '</button>' +
-      '<button class="a-icon-btn' + (banned ? '' : ' a-icon-btn--warn') + '" type="button"' + toggleAttr + ' aria-label="' + (banned ? '启用用户' : '禁用用户') + ' ' + escAttr(name) + '">' + ico(banned ? 'check' : 'lock', 16) + '</button>' +
-      '<button class="a-icon-btn a-icon-btn--danger" type="button"' + deleteAttr + ' aria-label="删除用户 ' + escAttr(name) + '">' + ico('trash', 16) + '</button>' +
+      '<button class="a-icon-btn" type="button" data-act="user-edit" data-id="' + escAttr(u.id) + ("\" title=\"" + QSL.t("编辑用户") + "\" aria-label=\"" + QSL.t("编辑用户") + " ") + escAttr(name) + '">' + ico('edit', 16) + '</button>' +
+      '<button class="a-icon-btn' + (banned ? '' : ' a-icon-btn--warn') + '" type="button"' + toggleAttr + ' aria-label="' + (banned ? QSL.t("启用用户") : QSL.t("禁用用户")) + ' ' + escAttr(name) + '">' + ico(banned ? 'check' : 'lock', 16) + '</button>' +
+      '<button class="a-icon-btn a-icon-btn--danger" type="button"' + deleteAttr + (" aria-label=\"" + QSL.t("删除用户") + " ") + escAttr(name) + '">' + ico('trash', 16) + '</button>' +
       '</div></td></tr>'
     );
   }
@@ -1076,49 +1428,49 @@
       callSign: user.callSign,
       avatarColor: currentColor
     };
-    const roleOptions = [{ key: 'user', label: '普通用户' }, { key: 'admin', label: '管理员' }];
-    const statusOptions = [{ key: 'active', label: '正常' }, { key: 'banned', label: '已禁用' }];
+    const roleOptions = [{ key: 'user', label: QSL.t("普通用户") }, { key: 'admin', label: QSL.t("管理员") }];
+    const statusOptions = [{ key: 'active', label: QSL.t("正常") }, { key: 'banned', label: QSL.t("已禁用") }];
 
     const content =
       '<form class="modal-form" data-form novalidate>' +
       '<div class="a-avatar-row">' +
       '<span class="a-avatar-preview" data-role="avatar-preview">' + QSL.avatar(previewUser, 54) + '</span>' +
       '<div class="a-avatar-meta"><b>@' + esc(user.username || '') + '</b>' +
-      '<span class="muted">注册于 ' + esc(fmtDate(user.createdAt || user.joinedAt)) + '</span>' +
-      (isSelf ? '<span class="badge badge-sky">当前登录账号</span>' : '') + '</div></div>' +
+      ("<span class=\"muted\">" + QSL.escapeHtml(QSL.t("注册于")) + " ") + esc(fmtDate(user.createdAt || user.joinedAt)) + '</span>' +
+      (isSelf ? ("<span class=\"badge badge-sky\">" + QSL.escapeHtml(QSL.t("当前登录账号")) + "</span>") : '') + '</div></div>' +
       '<div class="form-grid">' +
-      QSL.field({ label: '显示名称', required: true, input: '<input class="input" name="displayName" type="text" maxlength="30" value="' + escAttr(user.displayName || '') + '" autocomplete="off">' }) +
-      QSL.field({ label: '呼号', input: '<input class="input" name="callSign" type="text" maxlength="20" value="' + escAttr(user.callSign || '') + '" autocomplete="off">' }) +
-      QSL.field({ label: '邮箱', input: '<input class="input" name="email" type="email" value="' + escAttr(user.email || '') + '" autocomplete="off">' }) +
-      QSL.field({ label: '角色', hint: isSelf ? '不能修改自己的角色' : '管理员可访问管理后台', input: '<select class="select" name="role"' + (isSelf ? ' disabled' : '') + '>' + roleOptions.map(function (o) {
+      QSL.field({ label: QSL.t("显示名称"), required: true, input: '<input class="input" name="displayName" type="text" maxlength="30" value="' + escAttr(user.displayName || '') + '" autocomplete="off">' }) +
+      QSL.field({ label: QSL.t("呼号"), input: '<input class="input" name="callSign" type="text" maxlength="20" value="' + escAttr(user.callSign || '') + '" autocomplete="off">' }) +
+      QSL.field({ label: QSL.t("邮箱"), input: '<input class="input" name="email" type="email" value="' + escAttr(user.email || '') + '" autocomplete="off">' }) +
+      QSL.field({ label: QSL.t("角色"), hint: isSelf ? QSL.t("不能修改自己的角色") : QSL.t("管理员可访问管理后台"), input: '<select class="select" name="role"' + (isSelf ? ' disabled' : '') + '>' + roleOptions.map(function (o) {
         return '<option value="' + o.key + '"' + (o.key === (user.role || 'user') ? ' selected' : '') + '>' + o.label + '</option>';
       }).join('') + '</select>' }) +
-      QSL.field({ label: '状态', hint: isSelf ? '不能修改自己的账号状态' : '禁用后该用户将无法登录', input: '<select class="select" name="status"' + (isSelf ? ' disabled' : '') + '>' + statusOptions.map(function (o) {
+      QSL.field({ label: QSL.t("状态"), hint: isSelf ? QSL.t("不能修改自己的账号状态") : QSL.t("禁用后该用户将无法登录"), input: '<select class="select" name="status"' + (isSelf ? ' disabled' : '') + '>' + statusOptions.map(function (o) {
         return '<option value="' + o.key + '"' + (o.key === (user.status || 'active') ? ' selected' : '') + '>' + o.label + '</option>';
       }).join('') + '</select>' }) +
-      '<div class="span-2">' + QSL.field({ label: '个人简介', input: '<textarea class="textarea" name="bio" rows="3" maxlength="200">' + esc(user.bio || '') + '</textarea>' }) + '</div>' +
+      '<div class="span-2">' + QSL.field({ label: QSL.t("个人简介"), input: '<textarea class="textarea" name="bio" rows="3" maxlength="200">' + esc(user.bio || '') + '</textarea>' }) + '</div>' +
       '<div class="span-2">' + QSL.field({
-        label: '头像颜色',
-        hint: '用于生成渐变头像',
+        label: QSL.t("头像颜色"),
+        hint: QSL.t("用于生成渐变头像"),
         input: '<div class="avatar-picker" data-role="avatar-picker">' + palette.map(function (c) {
-          return '<button class="avatar-swatch' + (c === currentColor ? ' is-active' : '') + '" type="button" data-color="' + escAttr(c) + '" style="background:' + escAttr(c) + '" aria-label="选择颜色 ' + escAttr(c) + '" aria-pressed="' + (c === currentColor ? 'true' : 'false') + '"></button>';
+          return '<button class="avatar-swatch' + (c === currentColor ? ' is-active' : '') + '" type="button" data-color="' + escAttr(c) + '" style="background:' + escAttr(c) + ("\" aria-label=\"" + QSL.t("选择颜色") + " ") + escAttr(c) + '" aria-pressed="' + (c === currentColor ? 'true' : 'false') + '"></button>';
         }).join('') + '</div><input type="hidden" name="avatarColor" value="' + escAttr(currentColor) + '">'
       }) + '</div>' +
       '<div class="span-2">' + QSL.field({
-        label: '重置密码',
-        hint: '留空则不修改；至少 8 位，需同时包含字母与数字',
-        input: '<input class="input" name="newPassword" type="password" autocomplete="new-password" placeholder="不修改请留空">'
+        label: QSL.t("重置密码"),
+        hint: QSL.t("留空则不修改；至少 8 位，需同时包含字母与数字"),
+        input: ("<input class=\"input\" name=\"newPassword\" type=\"password\" autocomplete=\"new-password\" placeholder=\"" + QSL.escapeHtml(QSL.t("不修改请留空")) + "\">")
       }) + '</div>' +
       '</div></form>';
 
     const modal = QSL.modal({
-      title: '编辑用户 · ' + (user.displayName || user.username || ''),
+      title: (QSL.t("编辑用户 ·") + " ") + (user.displayName || user.username || ''),
       size: 'lg',
       content: content,
       actions: [
-        { label: '取消', type: 'ghost' },
+        { label: QSL.t("取消"), type: 'ghost' },
         {
-          label: '保存修改',
+          label: QSL.t("保存修改"),
           type: 'primary',
           closeOnClick: false,
           onClick: async function () {
@@ -1138,10 +1490,10 @@
             }
             if (data.newPassword) body.newPassword = data.newPassword;
             const problems = {};
-            if (!body.displayName) problems.displayName = '请填写显示名称';
+            if (!body.displayName) problems.displayName = QSL.t("请填写显示名称");
             if (data.newPassword) {
-              if (data.newPassword.length < 8) problems.newPassword = '新密码至少 8 位，且需包含字母与数字';
-              else if (!/[A-Za-z]/.test(data.newPassword) || !/[0-9]/.test(data.newPassword)) problems.newPassword = '新密码需同时包含字母和数字';
+              if (data.newPassword.length < 8) problems.newPassword = QSL.t("新密码至少 8 位，且需包含字母与数字");
+              else if (!/[A-Za-z]/.test(data.newPassword) || !/[0-9]/.test(data.newPassword)) problems.newPassword = QSL.t("新密码需同时包含字母和数字");
             }
             if (Object.keys(problems).length) {
               QSL.showFieldErrors(form, problems);
@@ -1150,7 +1502,7 @@
             }
             try {
               await QSL.api.admin.updateUser(user.id, body);
-              toast('用户信息已更新', 'success');
+              toast(QSL.t("用户信息已更新"), 'success');
               refreshStatsQuiet();
               if (isLive(S.root, 'users')) loadUsers(S.root, S.users.page);
               modal.close();
@@ -1203,23 +1555,23 @@
     const me = S.me || {};
     const banned = user.status === 'banned';
     if (!banned && user.id === me.id) {
-      toast('不能禁用自己的账号', 'error');
+      toast(QSL.t("不能禁用自己的账号"), 'error');
       return;
     }
     if (!banned) {
       const ok = await QSL.confirm({
-        title: '禁用用户',
-        message: '禁用后「' + (user.displayName || user.username || '该用户') + '」将无法登录，其卡片会从卡片广场隐藏。确定继续吗？',
-        confirmText: '禁用账号',
-        cancelText: '取消',
+        title: QSL.t("禁用用户"),
+        message: QSL.t("禁用后「") + (user.displayName || user.username || QSL.t("该用户")) + QSL.t("」将无法登录，其卡片会从卡片广场隐藏。确定继续吗？"),
+        confirmText: QSL.t("禁用账号"),
+        cancelText: QSL.t("取消"),
         danger: true
       });
       if (!ok) return;
     }
-    animateBusy(btn, true, banned ? '启用中…' : '禁用中…');
+    animateBusy(btn, true, banned ? QSL.t("启用中…") : QSL.t("禁用中…"));
     try {
       await QSL.api.admin.updateUser(user.id, { status: banned ? 'active' : 'banned' });
-      toast(banned ? '用户已启用' : '用户已禁用', 'success');
+      toast(banned ? QSL.t("用户已启用") : QSL.t("用户已禁用"), 'success');
       refreshStatsQuiet();
       if (isLive(S.root, 'users')) loadUsers(S.root, S.users.page);
     } catch (err) {
@@ -1232,20 +1584,20 @@
     if (!user || !S) return;
     const me = S.me || {};
     if (user.id === me.id) {
-      toast('不能删除自己的账号', 'error');
+      toast(QSL.t("不能删除自己的账号"), 'error');
       return;
     }
     const ok = await QSL.confirm({
-      title: '删除用户',
-      message: '确定删除用户「' + (user.displayName || user.username || '该用户') + '」吗？该用户的卡片、换卡申请与点赞会被一并删除，操作不可恢复。',
-      confirmText: '删除用户',
-      cancelText: '取消',
+      title: QSL.t("删除用户"),
+      message: QSL.t("确定删除用户「") + (user.displayName || user.username || QSL.t("该用户")) + QSL.t("」吗？该用户的卡片、换卡申请与点赞会被一并删除，操作不可恢复。"),
+      confirmText: QSL.t("删除用户"),
+      cancelText: QSL.t("取消"),
       danger: true
     });
     if (!ok) return;
     try {
       await QSL.api.admin.deleteUser(user.id);
-      toast('用户已删除', 'success');
+      toast(QSL.t("用户已删除"), 'success');
       refreshStatsQuiet();
       if (S.users.data && S.users.data.items && S.users.data.items.length === 1 && S.users.page > 1) {
         S.users.page -= 1;
@@ -1268,7 +1620,7 @@
   function cardsShellHtml() {
     return (
       '<div class="toolbar a-toolbar">' +
-      '<div class="segmented a-seg" role="tablist" aria-label="卡片状态筛选">' +
+      ("<div class=\"segmented a-seg\" role=\"tablist\" aria-label=\"" + QSL.escapeHtml(QSL.t("卡片状态筛选")) + "\">") +
       CARD_STATUS_TABS.map(function (t) {
         const on = S.cards.status === t.key;
         const key = t.key === 'all' ? 'cards.total' : 'cards.' + t.key;
@@ -1277,10 +1629,10 @@
           '<b class="a-seg-count" data-count-key="' + escAttr(key) + '" hidden></b></button>';
       }).join('') + '</div>' +
       '<div class="search-box a-search">' + ico('search', 18) +
-      '<input class="input" type="search" data-role="cards-q" aria-label="搜索卡片" ' +
-      'placeholder="搜索标题 / 呼号 / 用户名" value="' + escAttr(S.cards.q) + '"></div>' +
+      ("<input class=\"input\" type=\"search\" data-role=\"cards-q\" aria-label=\"" + QSL.escapeHtml(QSL.t("搜索卡片")) + "\" ") +
+      ("placeholder=\"" + QSL.t("搜索标题 / 呼号 / 用户名") + "\" value=\"") + escAttr(S.cards.q) + '"></div>' +
       '<span class="a-toolbar-spacer"></span>' +
-      '<button class="btn btn-ghost btn-sm" type="button" data-act="cards-refresh">' + ico('refresh', 16) + '刷新</button>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-act="cards-refresh">' + ico('refresh', 16) + (QSL.escapeHtml(QSL.t("刷新")) + "</button>") +
       '</div>' +
       '<div class="a-cardlist" data-role="cards-area">' + cardsSkeletonHtml() + '</div>' +
       '<div class="pagination a-pager" data-role="cards-pager"></div>'
@@ -1370,9 +1722,9 @@
       if (!aliveRoot(root, 'cards', job)) return;
       emptyInto(area, {
         icon: (err && err.status === 403) ? 'shield' : 'alert',
-        title: (err && err.status === 403) ? '没有访问权限' : '卡片加载失败',
-        desc: (err && err.message) || '网络异常，请稍后重试。',
-        actionLabel: '重新加载',
+        title: (err && err.status === 403) ? QSL.t("没有访问权限") : QSL.t("卡片加载失败"),
+        desc: (err && err.message) || QSL.t("网络异常，请稍后重试。"),
+        actionLabel: QSL.t("重新加载"),
         onAction: function () { loadCards(root, S.cards.page); }
       });
       if (pager) pager.innerHTML = '';
@@ -1385,23 +1737,23 @@
     if (S.cards.status === 'pending' && !S.cards.q) {
       return {
         icon: 'check-circle',
-        title: '待审核队列已清空',
-        desc: '当前没有等待审核的卡片，新的上传会出现在这里。',
-        actionLabel: '查看全部卡片',
+        title: QSL.t("待审核队列已清空"),
+        desc: QSL.t("当前没有等待审核的卡片，新的上传会出现在这里。"),
+        actionLabel: QSL.t("查看全部卡片"),
         onAction: function () { S.cards.status = 'all'; redrawTab(); }
       };
     }
     const map = {
-      approved: { title: '还没有已通过的卡片', desc: '没有任何卡片处于已通过状态。' },
-      rejected: { title: '没有被拒绝的卡片', desc: '所有卡片都审核通过了，真是好消息。' },
-      all: { title: '还没有卡片', desc: '站点暂时还没有上传任何 QSL 卡片。' }
+      approved: { title: QSL.t("还没有已通过的卡片"), desc: QSL.t("没有任何卡片处于已通过状态。") },
+      rejected: { title: QSL.t("没有被拒绝的卡片"), desc: QSL.t("所有卡片都审核通过了，真是好消息。") },
+      all: { title: QSL.t("还没有卡片"), desc: QSL.t("站点暂时还没有上传任何 QSL 卡片。") }
     };
     const preset = map[S.cards.status] || map.all;
     return {
       icon: filtered ? 'search' : 'cards',
-      title: filtered && S.cards.q ? '没有找到匹配的卡片' : preset.title,
-      desc: filtered && S.cards.q ? '试试更换搜索关键词，或切换状态筛选。' : preset.desc,
-      actionLabel: filtered ? '清空筛选' : '',
+      title: filtered && S.cards.q ? QSL.t("没有找到匹配的卡片") : preset.title,
+      desc: filtered && S.cards.q ? QSL.t("试试更换搜索关键词，或切换状态筛选。") : preset.desc,
+      actionLabel: filtered ? QSL.t("清空筛选") : '',
       onAction: filtered ? function () {
         S.cards.q = '';
         S.cards.status = 'all';
@@ -1426,19 +1778,19 @@
 
   function cardRowHtml(card) {
     const id = card.id || '';
-    const title = card.title || '未命名卡片';
+    const title = card.title || QSL.t("未命名卡片");
     const owner = card.owner || {};
     const status = card.status || 'pending';
     const actions = [];
     if (status !== 'approved') {
-      actions.push('<button class="a-act a-act--primary" type="button" data-act="approve-card" data-id="' + escAttr(id) + '">' + ico('check', 15) + '通过</button>');
+      actions.push('<button class="a-act a-act--primary" type="button" data-act="approve-card" data-id="' + escAttr(id) + '">' + ico('check', 15) + (QSL.escapeHtml(QSL.t("通过")) + "</button>"));
     }
     if (status !== 'rejected') {
-      actions.push('<button class="a-act a-act--danger" type="button" data-act="reject-card" data-id="' + escAttr(id) + '">' + ico('x', 15) + '拒绝</button>');
+      actions.push('<button class="a-act a-act--danger" type="button" data-act="reject-card" data-id="' + escAttr(id) + '">' + ico('x', 15) + (QSL.escapeHtml(QSL.t("拒绝")) + "</button>"));
     }
-    actions.push('<button class="a-act" type="button" data-act="edit-card" data-id="' + escAttr(id) + '">' + ico('edit', 15) + '编辑</button>');
-    actions.push('<button class="a-act" type="button" data-act="view-card" data-id="' + escAttr(id) + '">' + ico('external', 15) + '前台查看</button>');
-    actions.push('<button class="a-act a-act--danger a-act--wide" type="button" data-act="delete-card" data-id="' + escAttr(id) + '">' + ico('trash', 15) + '删除</button>');
+    actions.push('<button class="a-act" type="button" data-act="edit-card" data-id="' + escAttr(id) + '">' + ico('edit', 15) + (QSL.escapeHtml(QSL.t("编辑")) + "</button>"));
+    actions.push('<button class="a-act" type="button" data-act="view-card" data-id="' + escAttr(id) + '">' + ico('external', 15) + (QSL.escapeHtml(QSL.t("前台查看")) + "</button>"));
+    actions.push('<button class="a-act a-act--danger a-act--wide" type="button" data-act="delete-card" data-id="' + escAttr(id) + '">' + ico('trash', 15) + (QSL.escapeHtml(QSL.t("删除")) + "</button>"));
 
     return (
       '<article class="a-cardrow" data-card-id="' + escAttr(id) + '">' +
@@ -1452,10 +1804,10 @@
       '<span class="a-meta-item">' + ico('antenna', 14) + esc(card.callSign || '—') + '</span>' +
       '<span class="a-meta-item">' + ico('flip', 14) + esc(ratioLabel(card.ratio)) + '</span>' +
       '<span class="a-meta-item">' + ico('heart', 14) + esc(String(card.likeCount || 0)) + '</span>' +
-      '<span class="a-meta-item">' + ico('clock', 14) + '提交于 ' + esc(fmtDateTime(card.createdAt)) + '</span>' +
+      '<span class="a-meta-item">' + ico('clock', 14) + (QSL.t("提交于") + " ") + esc(fmtDateTime(card.createdAt)) + '</span>' +
       '</div>' +
       (status === 'rejected' && card.rejectReason
-        ? '<p class="a-reject-note">' + ico('info', 14) + '<span>拒绝原因：' + esc(card.rejectReason) + '</span></p>'
+        ? '<p class="a-reject-note">' + ico('info', 14) + ("<span>" + QSL.escapeHtml(QSL.t("拒绝原因："))) + esc(card.rejectReason) + '</span></p>'
         : '') +
       '</div>' +
       '<div class="a-cardrow-actions">' + actions.join('') + '</div>' +
@@ -1466,10 +1818,10 @@
   async function auditListCard(root, card, act, btn) {
     if (act === 'approve-card') {
       if (btn.disabled) return;
-      animateBusy(btn, true, '通过中…');
+      animateBusy(btn, true, QSL.t("通过中…"));
       try {
         await QSL.api.admin.updateCard(card.id, { status: 'approved' });
-        toast('「' + (card.title || '卡片') + '」已通过审核', 'success');
+        toast('「' + (card.title || QSL.t("卡片")) + QSL.t("」已通过审核"), 'success');
         celebrate(btn);
         if (isLive(root, 'cards')) loadCards(root, S.cards.page);
         refreshStatsQuiet();
@@ -1479,13 +1831,13 @@
       }
       return;
     }
-    const reason = await askRejectReason({ title: '拒绝卡片', cardTitle: card.title || '未命名卡片', confirmText: '确认拒绝' });
+    const reason = await askRejectReason({ title: QSL.t("拒绝卡片"), cardTitle: card.title || QSL.t("未命名卡片"), confirmText: QSL.t("确认拒绝") });
     if (!reason) return;
     if (btn.disabled) return;
-    animateBusy(btn, true, '拒绝中…');
+    animateBusy(btn, true, QSL.t("拒绝中…"));
     try {
       await QSL.api.admin.updateCard(card.id, { status: 'rejected', rejectReason: reason });
-      toast('已拒绝「' + (card.title || '卡片') + '」', 'info');
+      toast(QSL.t("已拒绝「") + (card.title || QSL.t("卡片")) + '」', 'info');
       if (isLive(root, 'cards')) loadCards(root, S.cards.page);
       refreshStatsQuiet();
     } catch (err) {
@@ -1496,16 +1848,16 @@
 
   async function deleteCard(card) {
     const ok = await QSL.confirm({
-      title: '删除卡片',
-      message: '确定删除「' + (card.title || '未命名卡片') + '」吗？删除后不可恢复，相关点赞与换卡申请会被一并移除。',
-      confirmText: '删除卡片',
-      cancelText: '取消',
+      title: QSL.t("删除卡片"),
+      message: QSL.t("确定删除「") + (card.title || QSL.t("未命名卡片")) + QSL.t("」吗？删除后不可恢复，相关点赞与换卡申请会被一并移除。"),
+      confirmText: QSL.t("删除卡片"),
+      cancelText: QSL.t("取消"),
       danger: true
     });
     if (!ok) return;
     try {
       await QSL.api.admin.deleteCard(card.id);
-      toast('卡片已删除', 'success');
+      toast(QSL.t("卡片已删除"), 'success');
       refreshStatsQuiet();
       if (isLive(S.root, 'cards')) loadCards(S.root, S.cards.page);
     } catch (err) {
@@ -1520,30 +1872,30 @@
     const content =
       '<form class="modal-form" data-form novalidate>' +
       '<div class="a-editor-preview">' + thumbPair(card) +
-      '<div class="a-editor-hint">' + ico('info', 15) + '<span>如需更换正反面图片，请由卡片作者在「我的卡片」中重新上传。</span></div></div>' +
+      '<div class="a-editor-hint">' + ico('info', 15) + ("<span>" + QSL.escapeHtml(QSL.t("如需更换正反面图片，请由卡片作者在「我的卡片」中重新上传。")) + "</span></div></div>") +
       '<div class="form-grid">' +
-      '<div class="span-2">' + QSL.field({ label: '标题', required: true, input: '<input class="input" name="title" type="text" maxlength="60" value="' + escAttr(card.title || '') + '">' }) + '</div>' +
-      QSL.field({ label: '呼号', input: '<input class="input" name="callSign" type="text" maxlength="20" value="' + escAttr(card.callSign || '') + '">' }) +
-      QSL.field({ label: '宽高比', hint: '整数 1–1000，常见 3:2 / 2:3 / 4:5', input: '<div class="a-ratio-inputs"><input class="input" name="ratioW" type="number" min="1" max="1000" value="' + escAttr(String(ratio.w || 3)) + '" aria-label="宽">' + '<span class="a-ratio-sep">:</span>' + '<input class="input" name="ratioH" type="number" min="1" max="1000" value="' + escAttr(String(ratio.h || 2)) + '" aria-label="高"></div>' }) +
+      '<div class="span-2">' + QSL.field({ label: QSL.t("标题"), required: true, input: '<input class="input" name="title" type="text" maxlength="60" value="' + escAttr(card.title || '') + '">' }) + '</div>' +
+      QSL.field({ label: QSL.t("呼号"), input: '<input class="input" name="callSign" type="text" maxlength="20" value="' + escAttr(card.callSign || '') + '">' }) +
+      QSL.field({ label: QSL.t("宽高比"), hint: QSL.t("整数 1–1000，常见 3:2 / 2:3 / 4:5"), input: '<div class="a-ratio-inputs"><input class="input" name="ratioW" type="number" min="1" max="1000" value="' + escAttr(String(ratio.w || 3)) + ("\" aria-label=\"" + QSL.escapeHtml(QSL.t("宽")) + "\">") + '<span class="a-ratio-sep">:</span>' + '<input class="input" name="ratioH" type="number" min="1" max="1000" value="' + escAttr(String(ratio.h || 2)) + ("\" aria-label=\"" + QSL.escapeHtml(QSL.t("高")) + "\"></div>") }) +
       '<div class="span-2 a-editor-row' + (status === 'rejected' ? '' : ' is-single') + '" data-role="status-row">' +
-      QSL.field({ label: '审核状态', hint: '设为「已通过」时会自动清空拒绝原因', input: '<select class="select" name="status">' +
-        [['pending', '待审核'], ['approved', '已通过'], ['rejected', '已拒绝']].map(function (pair) {
+      QSL.field({ label: QSL.t("审核状态"), hint: QSL.t("设为「已通过」时会自动清空拒绝原因"), input: '<select class="select" name="status">' +
+        [['pending', QSL.t("待审核")], ['approved', QSL.t("已通过")], ['rejected', QSL.t("已拒绝")]].map(function (pair) {
           return '<option value="' + pair[0] + '"' + (status === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>';
         }).join('') + '</select>' }) +
       '<div data-role="reject-wrap"' + (status === 'rejected' ? '' : ' hidden') + '>' +
-      QSL.field({ label: '拒绝原因', hint: '会展示给卡片作者', input: '<input class="input" name="rejectReason" type="text" maxlength="200" value="' + escAttr(card.rejectReason || '') + '">' }) +
+      QSL.field({ label: QSL.t("拒绝原因"), hint: QSL.t("会展示给卡片作者"), input: '<input class="input" name="rejectReason" type="text" maxlength="200" value="' + escAttr(card.rejectReason || '') + '">' }) +
       '</div></div>' +
-      '<div class="span-2">' + QSL.field({ label: '卡片简介', input: '<textarea class="textarea" name="notes" rows="3" maxlength="300">' + esc(card.notes || '') + '</textarea>' }) + '</div>' +
+      '<div class="span-2">' + QSL.field({ label: QSL.t("卡片简介"), input: '<textarea class="textarea" name="notes" rows="3" maxlength="300">' + esc(card.notes || '') + '</textarea>' }) + '</div>' +
       '</div></form>';
 
     const modal = QSL.modal({
-      title: '编辑卡片 · ' + (card.title || ''),
+      title: (QSL.t("编辑卡片 ·") + " ") + (card.title || ''),
       size: 'lg',
       content: content,
       actions: [
-        { label: '取消', type: 'ghost' },
+        { label: QSL.t("取消"), type: 'ghost' },
         {
-          label: '保存修改',
+          label: QSL.t("保存修改"),
           type: 'primary',
           closeOnClick: false,
           onClick: async function () {
@@ -1553,9 +1905,9 @@
             const w = parseInt(data.ratioW, 10);
             const h = parseInt(data.ratioH, 10);
             const problems = {};
-            if (!data.title) problems.title = '请填写卡片标题';
-            if (!w || w < 1 || w > 1000) problems.ratioW = '宽度需为 1–1000 的整数';
-            if (!h || h < 1 || h > 1000) problems.ratioH = '高度需为 1–1000 的整数';
+            if (!data.title) problems.title = QSL.t("请填写卡片标题");
+            if (!w || w < 1 || w > 1000) problems.ratioW = QSL.t("宽度需为 1–1000 的整数");
+            if (!h || h < 1 || h > 1000) problems.ratioH = QSL.t("高度需为 1–1000 的整数");
             if (Object.keys(problems).length) {
               QSL.showFieldErrors(form, problems);
               toast(Object.keys(problems).map(function (k) { return problems[k]; })[0], 'error');
@@ -1571,7 +1923,7 @@
             if (data.status === 'rejected') body.rejectReason = data.rejectReason || '';
             try {
               await QSL.api.admin.updateCard(card.id, body);
-              toast('卡片信息已更新', 'success');
+              toast(QSL.t("卡片信息已更新"), 'success');
               refreshStatsQuiet();
               if (isLive(S.root, 'cards')) loadCards(S.root, S.cards.page);
               modal.close();
@@ -1610,17 +1962,17 @@
   function exchangesShellHtml() {
     return (
       '<div class="toolbar a-toolbar">' +
-      '<label class="a-filter"><span>' + ico('filter', 15) + '状态</span>' +
-      '<select class="select a-select" data-role="exchanges-status" aria-label="换卡状态筛选">' +
+      '<label class="a-filter"><span>' + ico('filter', 15) + (QSL.escapeHtml(QSL.t("状态")) + "</span>") +
+      ("<select class=\"select a-select\" data-role=\"exchanges-status\" aria-label=\"" + QSL.escapeHtml(QSL.t("换卡状态筛选")) + "\">") +
       EXCHANGE_STATUS_OPTIONS.map(function (o) {
         return '<option value="' + escAttr(o.key) + '"' + (S.exchanges.status === o.key ? ' selected' : '') + '>' + esc(o.label) + '</option>';
       }).join('') + '</select></label>' +
       '<span class="a-toolbar-spacer"></span>' +
-      '<span class="a-toolbar-note">' + ico('info', 15) + '只读视图 · 状态由参与双方操作</span>' +
-      '<button class="btn btn-ghost btn-sm" type="button" data-act="exchanges-refresh">' + ico('refresh', 16) + '刷新</button>' +
+      '<span class="a-toolbar-note">' + ico('info', 15) + (QSL.escapeHtml(QSL.t("只读视图 · 状态由参与双方操作")) + "</span>") +
+      '<button class="btn btn-ghost btn-sm" type="button" data-act="exchanges-refresh">' + ico('refresh', 16) + (QSL.escapeHtml(QSL.t("刷新")) + "</button>") +
       '</div>' +
       '<section class="a-table-shell glass">' +
-      '<p class="a-scroll-hint">' + ico('arrow-right', 14) + '<span>左右滑动查看完整表格</span></p>' +
+      '<p class="a-scroll-hint">' + ico('arrow-right', 14) + ("<span>" + QSL.escapeHtml(QSL.t("左右滑动查看完整表格")) + "</span></p>") +
       '<div class="table-wrap a-table-wrap" data-role="exchanges-area">' + QSL.skeletonTable(6, 6) + '</div>' +
       '<div class="pagination a-pager" data-role="exchanges-pager"></div>' +
       '</section>'
@@ -1685,9 +2037,9 @@
       if (!aliveRoot(root, 'exchanges', job)) return;
       emptyInto(area, {
         icon: (err && err.status === 403) ? 'shield' : 'alert',
-        title: (err && err.status === 403) ? '没有访问权限' : '换卡记录加载失败',
-        desc: (err && err.message) || '网络异常，请稍后重试。',
-        actionLabel: '重新加载',
+        title: (err && err.status === 403) ? QSL.t("没有访问权限") : QSL.t("换卡记录加载失败"),
+        desc: (err && err.message) || QSL.t("网络异常，请稍后重试。"),
+        actionLabel: QSL.t("重新加载"),
         onAction: function () { loadExchanges(root, S.exchanges.page); }
       });
       if (pager) pager.innerHTML = '';
@@ -1702,9 +2054,9 @@
     if (!items.length) {
       emptyInto(area, {
         icon: 'send',
-        title: S.exchanges.status ? '该状态下暂无换卡申请' : '还没有换卡申请',
-        desc: S.exchanges.status ? '试试切换其它状态，或查看全部记录。' : '当用户之间发起 QSL 卡片交换后，记录会出现在这里。',
-        actionLabel: S.exchanges.status ? '查看全部记录' : '',
+        title: S.exchanges.status ? QSL.t("该状态下暂无换卡申请") : QSL.t("还没有换卡申请"),
+        desc: S.exchanges.status ? QSL.t("试试切换其它状态，或查看全部记录。") : QSL.t("当用户之间发起 QSL 卡片交换后，记录会出现在这里。"),
+        actionLabel: S.exchanges.status ? QSL.t("查看全部记录") : '',
         onAction: S.exchanges.status ? function () {
           S.exchanges.status = '';
           redrawTab();
@@ -1715,7 +2067,7 @@
     }
     area.innerHTML =
       '<table class="table a-table a-exchanges-table"><thead><tr>' +
-      '<th>卡片</th><th>申请人</th><th>接收人</th><th>状态</th><th>创建时间</th><th>处理时间</th><th class="a-col-chev"></th>' +
+      ("<th>" + QSL.escapeHtml(QSL.t("卡片")) + "</th><th>" + QSL.escapeHtml(QSL.t("申请人")) + "</th><th>" + QSL.escapeHtml(QSL.t("接收人")) + "</th><th>" + QSL.escapeHtml(QSL.t("状态")) + "</th><th>" + QSL.escapeHtml(QSL.t("创建时间")) + "</th><th>" + QSL.escapeHtml(QSL.t("处理时间")) + "</th><th class=\"a-col-chev\"></th>") +
       '</tr></thead><tbody>' + items.map(exchangeRowHtml).join('') + '</tbody></table>';
     renderPager(pager, res, function (target) { loadExchanges(root, target); });
     enhanceScope(area);
@@ -1725,9 +2077,9 @@
     const card = item.card || {};
     const decided = item.decidedAt || (item.status !== 'pending' ? item.updatedAt : '');
     return (
-      '<tr data-exchange-id="' + escAttr(item.id) + '" tabindex="0" class="a-row-click" title="点击查看换卡详情">' +
+      '<tr data-exchange-id="' + escAttr(item.id) + ("\" tabindex=\"0\" class=\"a-row-click\" title=\"" + QSL.escapeHtml(QSL.t("点击查看换卡详情")) + "\">") +
       '<td><div class="a-exch-card">' + miniThumb(card.frontImage, card.title) +
-      '<span class="a-exch-card-text"><b>' + esc(card.title || '卡片已删除') + '</b>' +
+      '<span class="a-exch-card-text"><b>' + esc(card.title || QSL.t("卡片已删除")) + '</b>' +
       '<small>' + esc(card.callSign || '—') + ' · ' + esc(ratioLabel(card.ratio)) + '</small></span></div></td>' +
       '<td>' + userInline(item.fromUser, 30) + '</td>' +
       '<td>' + userInline(item.toUser, 30) + '</td>' +
@@ -1743,7 +2095,7 @@
     return (
       '<div class="a-party">' +
       '<div class="a-party-head">' + esc(label) + '</div>' +
-      (user ? userInline(user, 34) : '<span class="muted">用户已删除</span>') +
+      (user ? userInline(user, 34) : ("<span class=\"muted\">" + QSL.escapeHtml(QSL.t("用户已删除")) + "</span>")) +
       addressHtml(address, addressVisible) +
       '</div>'
     );
@@ -1751,10 +2103,10 @@
 
   function addressHtml(address, visible) {
     if (!visible) {
-      return '<div class="a-addr a-addr--locked">' + ico('lock', 14) + '<span>申请尚未达成交换，地址暂不公开</span></div>';
+      return '<div class="a-addr a-addr--locked">' + ico('lock', 14) + ("<span>" + QSL.escapeHtml(QSL.t("申请尚未达成交换，地址暂不公开")) + "</span></div>");
     }
     if (!address) {
-      return '<div class="a-addr a-addr--locked">' + ico('info', 14) + '<span>暂无地址信息</span></div>';
+      return '<div class="a-addr a-addr--locked">' + ico('info', 14) + ("<span>" + QSL.escapeHtml(QSL.t("暂无地址信息")) + "</span></div>");
     }
     const addr = address;
     const lines = [];
@@ -1770,22 +2122,22 @@
   function timelineHtml(item) {
     const list = [{
       time: item.createdAt,
-      title: '提交换卡申请',
-      desc: '申请人 ' + ((item.fromUser && (item.fromUser.displayName || item.fromUser.username)) || '未知用户') + ' 发起申请'
+      title: QSL.t("提交换卡申请"),
+      desc: (QSL.t("申请人") + " ") + ((item.fromUser && (item.fromUser.displayName || item.fromUser.username)) || QSL.t("未知用户")) + (" " + QSL.t("发起申请"))
     }];
     if (item.decidedAt) {
       if (item.status === 'approved') {
-        list.push({ time: item.decidedAt, title: '卡片所有者同意交换', desc: '双方地址已互相公开，可以开始寄送卡片' });
+        list.push({ time: item.decidedAt, title: QSL.t("卡片所有者同意交换"), desc: QSL.t("双方地址已互相公开，可以开始寄送卡片") });
       } else if (item.status === 'rejected') {
-        list.push({ time: item.decidedAt, title: '卡片所有者拒绝申请', desc: item.rejectReason || '未填写拒绝原因' });
+        list.push({ time: item.decidedAt, title: QSL.t("卡片所有者拒绝申请"), desc: item.rejectReason || QSL.t("未填写拒绝原因") });
       } else if (item.status === 'cancelled') {
-        list.push({ time: item.decidedAt, title: '申请人取消申请', desc: '申请在待处理状态被取消' });
+        list.push({ time: item.decidedAt, title: QSL.t("申请人取消申请"), desc: QSL.t("申请在待处理状态被取消") });
       } else {
         list.push({ time: item.decidedAt, title: exchangeText(item.status) });
       }
     }
     if (item.status === 'completed') {
-      list.push({ time: item.updatedAt || item.decidedAt, title: '交换完成', desc: '双方确认已完成 QSL 卡片互换' });
+      list.push({ time: item.updatedAt || item.decidedAt, title: QSL.t("交换完成"), desc: QSL.t("双方确认已完成 QSL 卡片互换") });
     }
     return '<div class="timeline">' + list.map(function (entry) {
       return '<div class="timeline-item">' +
@@ -1804,33 +2156,33 @@
       '<div class="a-exch-detail">' +
       '<div class="a-exch-preview">' +
       '<div class="a-exch-3d" data-role="exch-3d"></div>' +
-      '<div class="a-exch-cardmeta"><b>' + esc(card.title || '卡片已删除') + '</b>' +
+      '<div class="a-exch-cardmeta"><b>' + esc(card.title || QSL.t("卡片已删除")) + '</b>' +
       '<span>' + esc([card.callSign, ratioLabel(card.ratio)].filter(Boolean).join(' · ') || '—') + '</span>' +
       '<span class="a-exch-cardbadges">' + exchangeBadge(item.status) + '</span></div>' +
-      '<p class="a-preview-hint">' + ico('3d', 15) + '拖拽旋转 · 双击翻转查看背面</p>' +
+      '<p class="a-preview-hint">' + ico('3d', 15) + (QSL.escapeHtml(QSL.t("拖拽旋转 · 双击翻转查看背面")) + "</p>") +
       '</div>' +
       '<div class="a-exch-info">' +
       '<div class="a-exch-statusrow">' +
-      '<div class="a-exch-idbox"><span class="a-kicker">申请编号</span><b class="a-mono">' + esc(item.id || '—') + '</b></div>' +
-      '<div class="a-exch-idbox"><span class="a-kicker">提交时间</span><b>' + esc(fmtDateTime(item.createdAt)) + '</b></div>' +
-      '<div class="a-exch-idbox"><span class="a-kicker">当前状态</span><b>' + esc(exchangeText(item.status)) + '</b></div>' +
+      ("<div class=\"a-exch-idbox\"><span class=\"a-kicker\">" + QSL.escapeHtml(QSL.t("申请编号")) + "</span><b class=\"a-mono\">") + esc(item.id || '—') + '</b></div>' +
+      ("<div class=\"a-exch-idbox\"><span class=\"a-kicker\">" + QSL.escapeHtml(QSL.t("提交时间")) + "</span><b>") + esc(fmtDateTime(item.createdAt)) + '</b></div>' +
+      ("<div class=\"a-exch-idbox\"><span class=\"a-kicker\">" + QSL.escapeHtml(QSL.t("当前状态")) + "</span><b>") + esc(exchangeText(item.status)) + '</b></div>' +
       '</div>' +
-      '<div class="a-info-block"><div class="a-info-label">' + ico('mail', 15) + '申请留言</div>' +
+      '<div class="a-info-block"><div class="a-info-label">' + ico('mail', 15) + (QSL.escapeHtml(QSL.t("申请留言")) + "</div>") +
       (item.message
         ? '<blockquote class="a-quote">' + esc(item.message) + '</blockquote>'
-        : '<p class="a-empty-line">申请人没有填写留言。</p>') + '</div>' +
+        : ("<p class=\"a-empty-line\">" + QSL.escapeHtml(QSL.t("申请人没有填写留言。")) + "</p>")) + '</div>' +
       (item.status === 'rejected'
-        ? '<div class="a-info-block"><div class="a-info-label">' + ico('alert', 15) + '拒绝原因</div>' +
-        (item.rejectReason ? '<blockquote class="a-quote a-quote--danger">' + esc(item.rejectReason) + '</blockquote>' : '<p class="a-empty-line">未填写拒绝原因。</p>') + '</div>'
+        ? '<div class="a-info-block"><div class="a-info-label">' + ico('alert', 15) + (QSL.escapeHtml(QSL.t("拒绝原因")) + "</div>") +
+        (item.rejectReason ? '<blockquote class="a-quote a-quote--danger">' + esc(item.rejectReason) + '</blockquote>' : ("<p class=\"a-empty-line\">" + QSL.escapeHtml(QSL.t("未填写拒绝原因。")) + "</p>")) + '</div>'
         : '') +
-      '<div class="a-info-block"><div class="a-info-label">' + ico('users', 15) + '交换双方' +
-      (item.contactName ? '<span class="a-info-extra">收件联系人：' + esc(item.contactName) + '</span>' : '') + '</div>' +
+      '<div class="a-info-block"><div class="a-info-label">' + ico('users', 15) + QSL.t("交换双方") +
+      (item.contactName ? ("<span class=\"a-info-extra\">" + QSL.escapeHtml(QSL.t("收件联系人："))) + esc(item.contactName) + '</span>' : '') + '</div>' +
       '<div class="a-parties">' +
-      partyHtml('申请人 · 发出申请', item.fromUser, item.fromAddress, visibleAddress) +
-      partyHtml('接收人 · 卡片所有者', item.toUser, item.toAddress, visibleAddress) +
+      partyHtml(QSL.t("申请人 · 发出申请"), item.fromUser, item.fromAddress, visibleAddress) +
+      partyHtml(QSL.t("接收人 · 卡片所有者"), item.toUser, item.toAddress, visibleAddress) +
       '</div></div>' +
-      '<div class="a-info-block"><div class="a-info-label">' + ico('clock', 15) + '时间线</div>' + timelineHtml(item) + '</div>' +
-      '<div class="info-banner"><span>' + ico('shield', 18) + '</span><span>管理员视角为只读：换卡状态由参与双方操作，管理员无法直接修改。</span></div>' +
+      '<div class="a-info-block"><div class="a-info-label">' + ico('clock', 15) + (QSL.escapeHtml(QSL.t("时间线")) + "</div>") + timelineHtml(item) + '</div>' +
+      '<div class="info-banner"><span>' + ico('shield', 18) + ("</span><span>" + QSL.escapeHtml(QSL.t("管理员视角为只读：换卡状态由参与双方操作，管理员无法直接修改。")) + "</span></div>") +
       '</div></div>'
     );
   }
@@ -1839,7 +2191,7 @@
     const card = item.card || {};
     let viewer = null;
     const modal = QSL.modal({
-      title: '换卡申请详情',
+      title: QSL.t("换卡申请详情"),
       size: 'lg',
       content: exchangeDetailHtml(item),
       onClose: function () {
@@ -1850,14 +2202,14 @@
       },
       actions: [
         {
-          label: '查看卡片详情',
+          label: QSL.t("查看卡片详情"),
           type: 'ghost',
           closeOnClick: true,
           onClick: function () {
             if (card.id) window.open('/card/' + encodeURIComponent(card.id), '_blank', 'noopener');
           }
         },
-        { label: '关闭', type: 'ghost' }
+        { label: QSL.t("关闭"), type: 'ghost' }
       ]
     });
     const host = modal.body ? modal.body.querySelector('[data-role="exch-3d"]') : null;
@@ -1880,7 +2232,7 @@
     }
     if (!viewer) {
       host.innerHTML = thumbPair(card, { className: 'a-thumbs--preview' }) +
-        '<p class="a-preview-hint">' + ico('image', 15) + '正反面缩略图</p>';
+        '<p class="a-preview-hint">' + ico('image', 15) + (QSL.escapeHtml(QSL.t("正反面缩略图")) + "</p>");
     }
   }
 
@@ -1918,11 +2270,13 @@
       cancelled = true;
       if (S) {
         closeAnnouncementModal();
+        closeContestModal();
+        clearInterval(S.contest.votingTimer);
         S.disposed = true;
         S = null;
       }
     };
   }
 
-  QSL.registerPage('admin', { title: '管理后台', render: render });
+  QSL.registerPage('admin', { title: QSL.t("管理后台"), render: render });
 })();
