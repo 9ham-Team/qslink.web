@@ -2384,8 +2384,8 @@ html[lang="en"] .f-visual-card {
 
 /* ---------------- QSL 设计大赛 ---------------- */
 .f-contest { padding-bottom: 42px; }
-.f-contest-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .65fr); align-items: stretch; gap: 24px; margin-top: 24px; }
-.f-contest-hero { display: flex; align-items: center; min-width: 0; padding: 48px 40px; border: 1px solid var(--line); border-radius: var(--r-xl); background: #fff; box-shadow: var(--shadow-sm); }
+.f-contest-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .65fr); align-items: center; gap: 40px; padding: 48px 40px; margin-top: 24px; border: 1px solid var(--line); border-radius: var(--r-xl); background: #fff; box-shadow: var(--shadow-sm); }
+.f-contest-hero { display: flex; align-items: center; min-width: 0; }
 .f-contest-brand { display: inline-block; background: var(--grad-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .f-contest-hero h1 { position: relative; max-width: 900px; margin: 0 0 36px; font-size: clamp(34px, 5.5vw, 70px); line-height: 1.2; letter-spacing: -.04em; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; text-wrap: balance; }
 .f-contest-hero-copy { min-width: 0; }
@@ -2502,8 +2502,7 @@ html[lang="en"] .f-visual-card {
   .f-contest-prizes-bubble strong { font-size: clamp(22px, 5.5vw, 32px); }
   .f-contest-prizes-runners { grid-template-columns: minmax(0, 1fr); }
   .f-contest-prizes-runners article { padding: 22px 18px; }
-  .f-contest-intro { grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 16px; }
-  .f-contest-hero { padding: 44px 22px; border-radius: var(--r-lg); }
+  .f-contest-intro { grid-template-columns: minmax(0, 1fr); gap: 30px; padding: 44px 22px; margin-top: 16px; border-radius: var(--r-lg); }
   .f-contest-hero-figure { padding: 20px; border-radius: var(--r-lg); }
   .f-contest-trophy-stage { max-width: 300px; width: 100%; align-self: center; }
   .f-contest-hero h1 { margin-bottom: 28px; }
