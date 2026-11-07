@@ -5,7 +5,7 @@ const { badRequest, conflict, notFound } = require('../errors');
 const { isObj, str, parsePagination, parseEnum } = require('../validate');
 const { createId, paginate } = require('../db');
 const { requireContest, resetEntry, entryWorks, entryView } = require('../contests');
-const { cardPublic } = require('../serialize');
+const contestVoting = require('../contest-voting');
 
 function checkRevision(body, entry) {
   if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 1) {
@@ -85,21 +85,18 @@ async function saveEntry(ctx) {
   return { status: entry ? 200 : 201, body: { entry: entryView(ctx.db, saved) } };
 }
 
-function publicWorks(ctx) {
+async function publicWorks(ctx) {
   requireContest(ctx.params.eventKey);
   const { page, limit } = parsePagination(ctx.query);
   const q = str(ctx.query.get('q')).toLowerCase();
   const numeric = /^\d+$/.test(q) ? Number(q) : null;
   const items = [];
+  const counts = await contestVoting.voteCounts(ctx.db, ctx.params.eventKey);
   for (const work of ctx.db.data.contestWorks) {
-    if (work.eventKey !== ctx.params.eventKey || !work.active) continue;
-    const entry = ctx.db.find('contestEntries', (item) => item.id === work.entryId);
+    if (work.eventKey !== ctx.params.eventKey || !contestVoting.visibleWork(ctx.db, work)) continue;
     const card = ctx.db.find('cards', (item) => item.id === work.cardId);
-    const user = entry && ctx.db.find('users', (item) => item.id === entry.userId);
-    if (!entry || entry.status !== 'approved' || !card || card.status !== 'approved' || !user || user.status !== 'active' || card.ownerId !== user.id) continue;
     if (q && !(card.callSign || '').toLowerCase().includes(q) && work.number !== numeric) continue;
-    items.push({ number: work.number, description: work.description, submittedAt: work.submittedAt,
-      card: cardPublic(ctx.db, card, ctx.user) });
+    items.push(contestVoting.workView(ctx, work, counts.get(work.id) || 0));
   }
   items.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt) || a.number - b.number);
   return { body: paginate(items, page, limit) };
@@ -150,11 +147,16 @@ async function reviewEntry(ctx) {
 
 module.exports = {
   routes: [
-    { method: 'GET', pattern: '/api/contests/:eventKey', handler: (ctx) => ({ body: { contest: {
+    { method: 'GET', pattern: '/api/contests/:eventKey', handler: async (ctx) => ({ body: { contest: {
       ...requireContest(ctx.params.eventKey),
       approvedRegistrationCount: ctx.db.data.contestEntries.filter((item) => item.eventKey === ctx.params.eventKey && item.status === 'approved').length,
-    } } }) },
+    }, voting: await contestVoting.voting(ctx) } }) },
     { method: 'GET', pattern: '/api/contests/:eventKey/works', handler: publicWorks },
+    { method: 'GET', pattern: '/api/contests/:eventKey/works/:id', handler: contestVoting.detail },
+    { method: 'POST', pattern: '/api/contests/:eventKey/works/:id/vote', handler: contestVoting.vote },
+    { method: 'GET', pattern: '/api/admin/contests/:eventKey/voting', handler: contestVoting.getSettings },
+    { method: 'PUT', pattern: '/api/admin/contests/:eventKey/voting', handler: contestVoting.putSettings },
+    { method: 'GET', pattern: '/api/admin/contests/:eventKey/votes.xlsx', handler: contestVoting.exportVotes },
     { method: 'GET', pattern: '/api/contests/:eventKey/entry', handler: ownEntry },
     { method: 'PUT', pattern: '/api/contests/:eventKey/entry', handler: saveEntry },
     { method: 'GET', pattern: '/api/admin/contests/:eventKey/entries', handler: listEntries },

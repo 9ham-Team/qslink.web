@@ -16,6 +16,8 @@
 
   const CONTEST_KEY = 'qsl-design-2026-11';
   const CONTEST_API = '/api/admin/contests/' + CONTEST_KEY + '/entries';
+  const CONTEST_VOTING_API = '/api/admin/contests/' + CONTEST_KEY + '/voting';
+  let contestDownloadBusy = false;
   const TABS = ['overview', 'users', 'cards', 'exchanges', 'announcements', 'contest'];
   const TAB_META = {
     overview: { label: QSL.t("概览"), icon: 'layout' },
@@ -219,7 +221,7 @@
       announcementPage: 1,
       announcementModal: null,
       contestModal: null,
-      contest: { status: 'pending', page: 1, announcementPage: 1, detailJob: 0 },
+      contest: { status: 'pending', page: 1, announcementPage: 1, detailJob: 0, votingTimer: null },
       jobs: { overview: 0, users: 0, cards: 0, exchanges: 0, announcements: 0, contest: 0, stats: 0 },
       users: { q: '', status: '', role: '', page: 1, data: null, map: Object.create(null) },
       cards: { status: 'all', q: '', page: 1, data: null, map: Object.create(null) },
@@ -372,6 +374,8 @@
   function drawTab(tab, panel) {
     closeAnnouncementModal();
     closeContestModal();
+    clearInterval(S.contest.votingTimer);
+    S.contest.votingTimer = null;
     S.root = null;
     if (tab === 'overview') drawOverview(panel);
     else if (tab === 'users') drawUsers(panel);
@@ -523,10 +527,180 @@
     S.contestModal = null;
   }
 
+  function contestBeijingInput(iso) {
+    if (!iso) return '';
+    const time = Date.parse(iso);
+    return Number.isFinite(time) ? new Date(time + 8 * 3600000).toISOString().slice(0, 23) : '';
+  }
+
+  function contestVotingStatus(voting) {
+    const start = Date.parse(voting.startsAt);
+    const end = Date.parse(voting.endsAt);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) return QSL.t("未设置（投票未开放）");
+    if (Date.now() < start) return QSL.t("未开始");
+    return Date.now() < end ? QSL.t("投票进行中") : QSL.t("已结束");
+  }
+
+  async function downloadContestVotes(live) {
+    if (contestDownloadBusy) return;
+    contestDownloadBusy = true;
+    let objectUrl = null;
+    let link = null;
+    try {
+      const token = QSL.api.token();
+      let response;
+      try {
+        response = await fetch('/api/admin/contests/' + CONTEST_KEY + '/votes.xlsx', {
+          headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+          cache: 'no-store'
+        });
+      } catch (err) {
+        throw new QSL.ApiError(QSL.t("网络连接失败，请确认服务已启动"), { isNetwork: true });
+      }
+      if (!response.ok) {
+        let data = null;
+        try { data = await response.json(); } catch (err) { /* 非 JSON 错误使用状态提示 */ }
+        const info = (data && data.error) || {};
+        if (response.status === 401 && token && QSL.api.token() === token) {
+          QSL.api.setToken(null);
+          QSL.state.user = null;
+          QSL.emit('auth', null);
+          toast(QSL.t("登录已过期，请重新登录"), 'error');
+        }
+        const messages = { 401: QSL.t("请先登录后再操作"), 403: QSL.t("没有权限执行此操作"), 404: QSL.t("内容不存在或已被删除"), 429: QSL.t("操作太频繁，请稍后再试"), 500: QSL.t("服务器开小差了，请稍后再试") };
+        throw new QSL.ApiError((info.message && QSL.i18n.error(info.message)) || messages[response.status] || QSL.t("下载失败，请稍后重试"), { status: response.status, code: info.code });
+      }
+      const blob = await response.blob();
+      if (!live()) return;
+      objectUrl = URL.createObjectURL(blob);
+      link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = CONTEST_KEY + '-votes.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      await new Promise(function (resolve) { setTimeout(resolve, 1000); });
+    } catch (err) {
+      if (live()) toastError(err);
+    } finally {
+      if (link) link.remove();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      contestDownloadBusy = false;
+    }
+  }
+
+  function drawContestVoting(root, owner, live) {
+    const section = root.querySelector('[data-contest-voting]');
+    let voting = null;
+    let busy = false;
+    let stale = false;
+    section.innerHTML = '<h2>' + esc(QSL.t("投票管理")) + '</h2><div data-voting-body></div>';
+    const body = section.querySelector('[data-voting-body]');
+    function load() {
+      if (!live() || busy) return;
+      busy = true;
+      clearInterval(owner.contest.votingTimer);
+      owner.contest.votingTimer = null;
+      QSL.loading(body);
+      QSL.api.get(CONTEST_VOTING_API).then(function (res) {
+        busy = false;
+        if (!live()) return;
+        voting = res.voting;
+        stale = false;
+        body.innerHTML = '<form class="a-contest-voting-form" novalidate>' +
+          '<p class="a-contest-voting-status" role="status" data-voting-status></p>' +
+          '<p class="muted">' + esc(QSL.t("所有输入均为北京时间（UTC+08:00 / Asia/Shanghai），不使用设备当地时区。两项均留空并保存可关闭投票；开始时间必须早于结束时间。")) + '</p>' +
+          '<div class="a-contest-voting-times"><label>' + esc(QSL.t("开始时间（北京时间 UTC+08:00）")) + '<input class="input" type="datetime-local" step="0.001" name="startsAt"></label>' +
+          '<label>' + esc(QSL.t("结束时间（北京时间 UTC+08:00）")) + '<input class="input" type="datetime-local" step="0.001" name="endsAt"></label></div>' +
+          '<p class="a-hint-error" role="alert" data-voting-error></p><div class="a-announcement-actions">' +
+          '<button class="btn btn-primary" type="submit">' + esc(QSL.t("保存投票时间")) + '</button>' +
+          '<button class="btn btn-ghost" type="button" data-voting-reload>' + esc(QSL.t("刷新投票配置")) + '</button>' +
+          '<button class="btn btn-ghost" type="button" data-voting-download>' + esc(QSL.t("下载当前投票 XLSX")) + '</button></div></form>';
+        const form = body.querySelector('form');
+        const error = form.querySelector('[data-voting-error]');
+        const save = form.querySelector('[type="submit"]');
+        const reload = form.querySelector('[data-voting-reload]');
+        const download = form.querySelector('[data-voting-download]');
+        function showVoting() {
+          form.elements.startsAt.value = contestBeijingInput(voting.startsAt);
+          form.elements.endsAt.value = contestBeijingInput(voting.endsAt);
+        }
+        function updateStatus() {
+          if (!live()) return;
+          form.querySelector('[data-voting-status]').textContent = QSL.t("当前状态") + '：' + contestVotingStatus(voting);
+          download.disabled = contestDownloadBusy;
+        }
+        showVoting();
+        updateStatus();
+        clearInterval(owner.contest.votingTimer);
+        owner.contest.votingTimer = setInterval(updateStatus, 1000);
+        reload.onclick = load;
+        download.onclick = async function () {
+          if (!live() || contestDownloadBusy) return;
+          animateBusy(download, true);
+          try { await downloadContestVotes(live); }
+          finally { if (live()) animateBusy(download, false); }
+        };
+        form.onsubmit = async function (event) {
+          event.preventDefault();
+          if (!live() || busy || stale) return;
+          error.textContent = '';
+          const startValue = form.elements.startsAt.value;
+          const endValue = form.elements.endsAt.value;
+          if (!!startValue !== !!endValue) {
+            error.textContent = QSL.t("请同时填写开始和结束时间，或将两项均留空以关闭投票。");
+            return;
+          }
+          const start = startValue ? new Date(startValue + '+08:00') : null;
+          const end = endValue ? new Date(endValue + '+08:00') : null;
+          if (!form.checkValidity() || (start && (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end))) {
+            error.textContent = QSL.t("请输入有效的北京时间，且开始时间必须早于结束时间。");
+            return;
+          }
+          busy = true;
+          animateBusy(save, true);
+          reload.disabled = true;
+          form.elements.startsAt.disabled = true;
+          form.elements.endsAt.disabled = true;
+          try {
+            const res = await QSL.api.put(CONTEST_VOTING_API, {
+              startsAt: start ? start.toISOString() : null,
+              endsAt: end ? end.toISOString() : null,
+              expectedRevision: voting.revision
+            });
+            if (!live()) return;
+            voting = res.voting;
+            showVoting();
+            updateStatus();
+            toast(QSL.t("投票时间已更新"));
+          } catch (err) {
+            if (!live()) return;
+            stale = err.status === 409;
+            error.textContent = stale ? QSL.t("投票配置已更新，请刷新投票配置后重新保存。") : (err.message || QSL.t("操作失败，请稍后重试"));
+            if (err.fields) QSL.showFieldErrors(form, err.fields);
+          } finally {
+            busy = false;
+            if (live()) {
+              animateBusy(save, false);
+              save.disabled = stale;
+              reload.disabled = false;
+              form.elements.startsAt.disabled = false;
+              form.elements.endsAt.disabled = false;
+            }
+          }
+        };
+      }).catch(function (err) {
+        busy = false;
+        if (live()) renderLoadError(body, err, load);
+      });
+    }
+    load();
+  }
+
   function drawContest(panel) {
     const owner = S;
     const state = owner.contest;
     const root = tabRoot(panel,
+      '<section class="a-contest-section" data-contest-voting></section>' +
       '<section class="a-contest-section"><div class="toolbar a-toolbar"><h2>' + esc(QSL.t("报名审核")) +
       '</h2><span class="a-toolbar-spacer"></span><label class="a-filter">' + esc(QSL.t("报名状态")) +
       '<select class="select a-select" data-contest-status>' + CARD_STATUS_TABS.map(function (item) {
@@ -567,6 +741,7 @@
     }).catch(function (err) {
       if (live()) renderLoadError(list, err, redrawTab);
     });
+    drawContestVoting(root, owner, live);
     drawAnnouncements(panel, CONTEST_KEY, root.querySelector('[data-contest-announcements]'));
   }
 
@@ -2096,6 +2271,7 @@
       if (S) {
         closeAnnouncementModal();
         closeContestModal();
+        clearInterval(S.contest.votingTimer);
         S.disposed = true;
         S = null;
       }

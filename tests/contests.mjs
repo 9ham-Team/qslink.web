@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import ExcelJS from 'exceljs';
 import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import contests from '../server/lib/api/contests.js';
@@ -15,7 +17,7 @@ async function testContestMigration() {
       unit.insert('announcements', { id: 'legacy_contest_notice', title: '旧全站公告', body: '升级前正文', status: 'published', eventKey: null, displaySeconds: 30, publishedAt: now, createdAt: now, updatedAt: now });
     }, { write: true });
     // DDL stays outside UnitOfWork: its current collection loader requires the new table.
-    await legacy.db.pool.query(`DROP TABLE ${schema}."contestWorks"; DROP TRIGGER contest_works_card_delete ON ${schema}.cards; DROP TABLE ${schema}."contestEntries"; DROP FUNCTION ${schema}.scrub_contest_works(); ALTER TABLE ${schema}.announcements DROP COLUMN "eventKey"; DELETE FROM ${schema}.schema_migrations WHERE version >= 14`);
+    await legacy.db.pool.query(`DROP TABLE ${schema}."contestVotes"; DROP TABLE ${schema}."contestVotingSettings"; DROP TABLE ${schema}."contestWorks"; DROP TRIGGER contest_works_card_delete ON ${schema}.cards; DROP TABLE ${schema}."contestEntries"; DROP FUNCTION ${schema}.scrub_contest_works(); ALTER TABLE ${schema}.announcements DROP COLUMN "eventKey"; DELETE FROM ${schema}.schema_migrations WHERE version >= 14`);
     assert.equal((await legacy.db.pool.query(`SELECT max(version) AS version FROM ${schema}.schema_migrations`)).rows[0].version, 13);
     await legacy.db.migrate();
     await legacy.db.migrate();
@@ -37,6 +39,253 @@ const adminPath = '/api/admin/contests/:eventKey/entries';
 const detailPath = adminPath + '/:id';
 const reviewPath = detailPath + '/review';
 
+async function testContestVoting() {
+  const f = await fixture();
+  const second = new database.Database(f);
+  const now = Date.now();
+  const iso = offset => new Date(now + offset).toISOString();
+  const day = 24 * 60 * 60 * 1000;
+  const worksPath = publicPath + '/works';
+  const workPath = worksPath + '/:id';
+  const votePath = workPath + '/vote';
+  const settingsPath = '/api/admin/contests/:eventKey/voting';
+  const exportPath = '/api/admin/contests/:eventKey/votes.xlsx';
+  const fingerprint = 'private-device-fingerprint';
+  const privateEmail = 'private-voting-entry@example.test';
+  const formulaTitle = '=HYPERLINK("https://example.test","card")';
+  const formulaUser = '+SUM(1,2)';
+  const formulaCallSign = '@SUM(1,2)';
+  async function call(method, pattern, { viewer = 'voter', id, body, db = f.db, routes = contests.routes } = {}) {
+    const route = routes.find(item => item.method === method && item.pattern === pattern);
+    assert.ok(route, method + ' ' + pattern + ' is registered');
+    return db.transaction(unit => route.handler({ db: unit, user: viewer ? unit.find('users', item => item.id === viewer) : null,
+      params: { eventKey, id }, body, query: new URLSearchParams(), config: {} }), { write: method !== 'GET' });
+  }
+  const rejects = (promise, status, code) => assert.rejects(promise, err => err.status === status && (!code || err.code === code));
+  const vote = (id, options = {}) => call('POST', votePath, { id, body: { fingerprint }, ...options });
+  const detail = (id, options = {}) => call('GET', workPath, { id, ...options }).then(result => result.body);
+  const rows = () => f.db.transaction(async unit => (await unit.client.query('SELECT *, "voteDate"::text AS "voteDate" FROM "contestVotes" ORDER BY slot, id')).rows);
+  const settings = () => call('GET', settingsPath, { viewer: 'admin' }).then(result => result.body.voting);
+  async function configure(startsAt, endsAt) {
+    const previous = await settings();
+    const result = await call('PUT', settingsPath, { viewer: 'admin', body: { startsAt, endsAt, expectedRevision: previous.revision } });
+    assert.equal(result.body.voting.revision, previous.revision + 1);
+    return result.body.voting;
+  }
+  const movePreviousVotes = () => f.db.transaction(unit => unit.client.query('UPDATE "contestVotes" SET "voteDate"="voteDate"-10, "createdAt"="createdAt"-interval \'10 days\' WHERE "userId"=$1', ['voter']), { write: true });
+  try {
+    await f.db.transaction(unit => {
+      for (const id of ['admin', 'author', 'author2', 'voter', 'racer', 'ineligible']) {
+        unit.insert('users', { id, username: id === 'voter' ? formulaUser : id, email: id + '@example.test', displayName: id,
+          callSign: id === 'voter' ? formulaCallSign : '', bio: '', avatarColor: '#123456', role: id === 'admin' ? 'admin' : 'user',
+          status: 'active', passwordHash: 'private-password-hash', address: null, createdAt: iso(0), updatedAt: iso(0) });
+      }
+      for (const [id, ownerId, status] of [['work1', 'author', 'approved'], ['work2', 'author', 'approved'], ['work3', 'author', 'approved'],
+        ['work4', 'author2', 'approved'], ['voter-card', 'voter', 'approved'], ['racer-card', 'racer', 'approved'], ['pending-card', 'ineligible', 'pending']]) {
+        unit.insert('cards', { id, ownerId, title: id === 'work1' ? formulaTitle : id, callSign: '', band: '', mode: '', notes: '', stock: null,
+          backImage: '', ratio: { w: 3, h: 2 }, frontImage: '/uploads/test.png', shareToken: 'private-share-' + id, status,
+          rejectReason: null, createdAt: iso(0), updatedAt: iso(0) });
+      }
+    }, { write: true });
+    const works = [];
+    for (const [viewer, cardIds] of [['author', ['work1', 'work2', 'work3']], ['author2', ['work4']]]) {
+      const entry = (await call('PUT', entryPath, { viewer, body: { contactEmail: privateEmail,
+        works: cardIds.map(cardId => ({ cardId, description: '投票测试作品' })) } })).body.entry;
+      const approved = (await call('PUT', reviewPath, { viewer: 'admin', id: entry.id,
+        body: { status: 'approved', expectedRevision: entry.revision } })).body.entry;
+      works.push(...approved.works);
+    }
+    const ids = works.map(work => work.id);
+    assert.equal(ids.length, 4);
+    assert.deepEqual(await settings(), { startsAt: null, endsAt: null, isOpen: false, eligible: false,
+      votesUsed: 0, votedToday: false, votedWorkIds: [], revision: 0 });
+    await rejects(vote(ids[0], { viewer: null }), 401);
+    for (const [method, pattern] of [['GET', settingsPath], ['PUT', settingsPath], ['GET', exportPath]]) {
+      await rejects(call(method, pattern, { viewer: null }), 401);
+      await rejects(call(method, pattern), 403);
+    }
+    await rejects(vote(ids[0]), 409, 'VOTING_CLOSED');
+    assert.equal((await detail(ids[0], { viewer: null })).work.voteCount, 0);
+    await configure(iso(day), iso(2 * day));
+    await rejects(vote(ids[0]), 409, 'VOTING_CLOSED');
+    await configure(iso(-2 * day), iso(-day));
+    await rejects(vote(ids[0]), 409, 'VOTING_CLOSED');
+    const closed = await configure(null, null);
+    assert.equal(closed.startsAt, null);
+    assert.equal(closed.endsAt, null);
+    assert.equal(closed.isOpen, false);
+    await rejects(vote(ids[0]), 409, 'VOTING_CLOSED');
+    const open = await configure(iso(-30 * day), iso(30 * day));
+    assert.equal(open.revision, closed.revision + 1);
+    assert.equal(open.isOpen, true);
+    for (const body of [{ startsAt: iso(0), endsAt: iso(0), expectedRevision: open.revision },
+      { startsAt: '2026-11-07T12:00:00', endsAt: iso(day), expectedRevision: open.revision },
+      { startsAt: iso(-day), endsAt: iso(day) }]) {
+      await rejects(call('PUT', settingsPath, { viewer: 'admin', body }), 400);
+    }
+    await rejects(call('PUT', settingsPath, { viewer: 'admin', body: { startsAt: iso(-day), endsAt: iso(day), expectedRevision: 0 } }), 409, 'REVISION_CONFLICT');
+    assert.equal((await detail(ids[0], { viewer: 'ineligible' })).voting.eligible, false);
+    await rejects(vote(ids[0], { viewer: 'ineligible' }), 403);
+    for (const body of [{}, { fingerprint: 123 }, { fingerprint: 'x'.repeat(8193) }]) await rejects(vote(ids[0], { body }), 400);
+    const authorEntryId = await f.db.transaction(unit => unit.find('contestWorks', work => work.id === ids[0]).entryId);
+    for (const [collection, targetId, field, hidden, visible] of [
+      ['contestWorks', ids[0], 'active', false, true], ['contestEntries', authorEntryId, 'status', 'pending', 'approved'],
+      ['cards', 'work1', 'status', 'pending', 'approved'], ['users', 'author', 'status', 'banned', 'active'],
+    ]) {
+      await f.db.transaction(unit => { unit.find(collection, item => item.id === targetId)[field] = hidden; }, { write: true });
+      await rejects(detail(ids[0]), 404);
+      await rejects(vote(ids[0]), 404);
+      assert.equal((await call('GET', worksPath, { viewer: null })).body.items.some(work => work.id === ids[0]), false);
+      await f.db.transaction(unit => { unit.find(collection, item => item.id === targetId)[field] = visible; }, { write: true });
+    }
+    await rejects(detail('missing'), 404);
+    await rejects(vote('missing'), 404);
+    await call('POST', '/api/cards/:id/like', { id: 'work1', routes: cards.routes });
+    const likesBefore = await f.db.transaction(unit => structuredClone(unit.data.likes));
+    const first = (await vote(ids[0])).body;
+    assert.equal(first.work.voteCount, 1);
+    assert.equal(first.work.card.likeCount, 1);
+    assert.deepEqual(first.voting.votedWorkIds, [ids[0]]);
+    assert.equal(first.voting.votesUsed, 1);
+    assert.equal(first.voting.votedToday, true);
+    assert.equal(first.voting.eligible, true);
+    assert.deepEqual(await f.db.transaction(unit => unit.data.likes), likesBefore, 'votes never mutate likes');
+    await rejects(vote(ids[0]), 409, 'WORK_ALREADY_VOTED');
+    await rejects(vote(ids[1]), 409, 'DAILY_VOTE_LIMIT');
+    await movePreviousVotes();
+    assert.equal((await detail(ids[0])).voting.votedToday, false);
+    await rejects(vote(ids[0]), 409, 'WORK_ALREADY_VOTED');
+    assert.equal((await vote(ids[1])).body.voting.votesUsed, 2);
+    await movePreviousVotes();
+    assert.equal((await vote(ids[2])).body.voting.votesUsed, 3);
+    await movePreviousVotes();
+    await rejects(vote(ids[3]), 409, 'TOTAL_VOTE_LIMIT');
+    const concurrent = await Promise.allSettled([vote(ids[3], { viewer: 'racer' }), vote(ids[2], { viewer: 'racer', db: second })]);
+    assert.equal(concurrent.filter(result => result.status === 'fulfilled').length, 1);
+    assert.equal(concurrent.find(result => result.status === 'rejected').reason.status, 409);
+    const votes = await rows();
+    assert.equal(votes.length, 4);
+    assert.equal(votes.filter(item => item.userId === 'racer').length, 1);
+    const secret = await f.db.transaction(async unit => (await unit.client.query("SELECT value FROM app_meta WHERE key='contestVotingSecret'")).rows[0].value);
+    assert.match(secret, /^[a-f0-9]{64}$/);
+    const hmac = (purpose, value) => crypto.createHmac('sha256', secret).update(JSON.stringify([purpose, eventKey, value])).digest('hex');
+    for (const row of votes) {
+      assert.equal(row.voterKey, hmac('voter', row.userId));
+      assert.equal(row.fingerprintHash, hmac('fingerprint', fingerprint));
+      assert.notEqual(row.voterKey, row.fingerprintHash);
+      assert.equal(row.voteDate, new Date(row.createdAt.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10));
+      assert.equal(row.fingerprintExpiresAt.toISOString(), new Date(Date.parse(open.endsAt) + 90 * day).toISOString());
+    }
+    await f.db.migrate();
+    assert.equal(await f.db.transaction(async unit => (await unit.client.query("SELECT value FROM app_meta WHERE key='contestVotingSecret'")).rows[0].value), secret, 'migration preserves the HMAC key');
+    const publicWorks = (await call('GET', worksPath, { viewer: null })).body;
+    for (const work of publicWorks.items) assert.equal(work.voteCount, votes.filter(v => v.workId === work.id).length);
+    for (const viewer of [null, 'voter']) {
+      for (const [pattern, id] of [[publicPath], [worksPath], [workPath, ids[0]]]) {
+        const body = (await call('GET', pattern, { viewer, id })).body;
+        const text = JSON.stringify(body);
+        assert.ok(!/contactEmail|fingerprint|voterKey|passwordHash|fingerprintExpiresAt/.test(text));
+        for (const value of [privateEmail, fingerprint, secret, 'private-password-hash', ...votes.flatMap(v => [v.voterKey, v.fingerprintHash])]) assert.ok(!text.includes(value), 'public responses exclude private voting data');
+      }
+    }
+    const exported = await call('GET', exportPath, { viewer: 'admin' });
+    assert.equal(exported.headers['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    assert.match(exported.headers['Content-Disposition'], /votes\.xlsx/);
+    assert.ok(Buffer.isBuffer(exported.body));
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exported.body);
+    assert.deepEqual(workbook.worksheets.map(sheet => sheet.name), ['作品汇总', '逐票明细']);
+    const summary = workbook.getWorksheet('作品汇总');
+    const details = workbook.getWorksheet('逐票明细');
+    assert.equal(summary.rowCount, 5);
+    assert.equal(details.rowCount, votes.length + 1);
+    assert.equal(summary.getRow(1).getCell(10).value, '票数');
+    assert.equal(details.getRow(1).getCell(9).value, '投票日期（北京时间）');
+    for (let index = 2; index <= summary.rowCount; index++) {
+      const row = summary.getRow(index);
+      assert.equal(row.getCell(10).value, votes.filter(v => v.workId === row.getCell(1).value).length);
+      assert.equal(row.getCell(3).value, '公开');
+      if (row.getCell(1).value === ids[0]) {
+        assert.equal(row.getCell(5).value, formulaTitle);
+        assert.equal(row.getCell(5).type, ExcelJS.ValueType.String);
+      }
+    }
+    for (let index = 2; index <= details.rowCount; index++) {
+      const row = details.getRow(index);
+      const stored = votes.find(v => v.id === row.getCell(1).value);
+      assert.ok(stored);
+      assert.equal(row.getCell(2).value, stored.workId);
+      assert.equal(row.getCell(4).value, stored.userId);
+      assert.equal(row.getCell(8).value, stored.voterKey);
+      assert.equal(row.getCell(9).value, stored.voteDate);
+      assert.equal(row.getCell(10).value, stored.createdAt.toISOString());
+      assert.equal(row.getCell(11).value, stored.fingerprintHash);
+      if (stored.userId === 'voter') {
+        assert.equal(row.getCell(5).value, formulaUser);
+        assert.equal(row.getCell(6).value, formulaCallSign);
+        assert.equal(row.getCell(5).type, ExcelJS.ValueType.String);
+        assert.equal(row.getCell(6).type, ExcelJS.ValueType.String);
+      }
+    }
+    for (const sheet of workbook.worksheets) sheet.eachRow(row => row.eachCell(cell => assert.notEqual(cell.type, ExcelJS.ValueType.Formula)));
+    const expiringVote = votes.find(row => row.userId === 'voter');
+    const votingBeforeExpiry = (await detail(expiringVote.workId)).voting;
+    await f.db.transaction(unit => unit.client.query('UPDATE "contestVotes" SET "fingerprintExpiresAt"=now()-interval \'1 day\' WHERE id=$1', [expiringVote.id]), { write: true });
+    const expiredExport = new ExcelJS.Workbook();
+    await expiredExport.xlsx.load((await call('GET', exportPath, { viewer: 'admin' })).body);
+    const expiredRows = [];
+    expiredExport.getWorksheet('逐票明细').eachRow((row, index) => {
+      if (index > 1 && row.getCell(1).value === expiringVote.id) expiredRows.push(row);
+    });
+    assert.equal(expiredRows.length, 1);
+    assert.ok(!expiredRows[0].getCell(11).value, 'export omits an expired fingerprint before physical cleanup');
+    assert.equal((await rows()).find(row => row.id === expiringVote.id).fingerprintHash, expiringVote.fingerprintHash, 'read-only export leaves the stored digest intact');
+    const { default: contestVoting } = await import('../server/lib/contest-voting.js');
+    await f.db.transaction(unit => contestVoting.cleanup(unit), { write: true });
+    const cleanedVotes = await rows();
+    assert.equal(cleanedVotes.find(row => row.id === expiringVote.id).fingerprintHash, null);
+    assert.deepEqual(cleanedVotes.map(row => [row.id, row.voterKey, row.workId, row.slot]), votes.map(row => [row.id, row.voterKey, row.workId, row.slot]), 'cleanup preserves vote identity, counts and occupied slots');
+    assert.deepEqual((await detail(expiringVote.workId)).voting, votingBeforeExpiry, 'digest expiry does not restore voting quota');
+    for (const work of (await call('GET', worksPath, { viewer: null })).body.items) {
+      assert.equal(work.voteCount, votes.filter(row => row.workId === work.id).length);
+    }
+    await rejects(vote(ids[3]), 409, 'TOTAL_VOTE_LIMIT');
+    await call('DELETE', '/api/admin/users/:id', { viewer: 'admin', id: 'voter', routes: admin.routes });
+    assert.ok((await rows()).filter(row => votes.some(v => v.id === row.id && v.userId === 'voter')).every(row => row.userId === null));
+    await call('DELETE', '/api/cards/:id', { viewer: 'author', id: 'work1', routes: cards.routes });
+    for (const id of ['author', 'author2']) await call('DELETE', '/api/admin/users/:id', { viewer: 'admin', id, routes: admin.routes });
+    const retained = await rows();
+    assert.deepEqual(retained.map(row => row.id), votes.map(row => row.id));
+    assert.deepEqual(retained.map(row => [row.voterKey, row.workId]), votes.map(row => [row.voterKey, row.workId]));
+    await f.db.transaction(unit => {
+      for (const id of ids) {
+        const tombstone = unit.find('contestWorks', work => work.id === id);
+        assert.ok(tombstone);
+        assert.equal(tombstone.active, false);
+        assert.equal(tombstone.cardId, null);
+        assert.equal(tombstone.entryId, null);
+        assert.equal(tombstone.description, '');
+      }
+    });
+    assert.equal((await call('GET', worksPath, { viewer: null })).body.total, 0);
+    const historical = new ExcelJS.Workbook();
+    await historical.xlsx.load((await call('GET', exportPath, { viewer: 'admin' })).body);
+    assert.equal(historical.getWorksheet('作品汇总').rowCount, 5);
+    assert.equal(historical.getWorksheet('逐票明细').rowCount, 5);
+    const deletedVoterRows = [];
+    historical.getWorksheet('逐票明细').eachRow((row, index) => { if (index > 1 && row.getCell(7).value === '已注销') deletedVoterRows.push(row); });
+    assert.equal(deletedVoterRows.length, 3);
+    for (const row of deletedVoterRows) {
+      assert.ok(!row.getCell(4).value);
+      assert.ok(!row.getCell(5).value);
+      assert.ok(row.getCell(8).value);
+    }
+  } finally {
+    await second.close();
+    await f.cleanup();
+  }
+}
+
 export async function testContests() {
   const f = await fixture();
   const second = new database.Database(f);
@@ -51,7 +300,10 @@ export async function testContests() {
   const get = (options = {}) => call(contests.routes, 'GET', entryPath, options).then(result => result.body.entry);
   const assertApprovedCount = async (count) => {
     const result = await call(contests.routes, 'GET', publicPath, { viewer: null });
-    assert.deepEqual(result.body, { contest: { key: eventKey, title: '第一届QSLink QSL 卡片设计大赛', approvedRegistrationCount: count } }, 'public contest exposes only its key, title and approved registration count');
+    const { contest, voting } = result.body;
+    assert.deepEqual(contest, { key: eventKey, title: '第一届QSLink QSL 卡片设计大赛', approvedRegistrationCount: count });
+    assert.deepEqual(Object.keys(voting).sort(), ['eligible', 'endsAt', 'isOpen', 'startsAt', 'votedToday', 'votedWorkIds', 'votesUsed']);
+    assert.ok(!/contactEmail|fingerprint|voterKey|passwordHash/.test(JSON.stringify(result.body)), 'public contest excludes private registration and vote data');
   };
   const description = '<script>alert(1)</script> 作品说明';
   const selected = (ids, text = description) => ids.map(cardId => ({ cardId, description: text }));
@@ -84,7 +336,7 @@ export async function testContests() {
       try {
         await client.query('BEGIN');
         await client.query(`SET LOCAL search_path TO "${migration.databaseSchema}"`);
-        await client.query('DROP TABLE "contestWorks"; DROP TRIGGER contest_works_card_delete ON cards; DROP TRIGGER contest_works_entry_delete ON "contestEntries"; DROP FUNCTION scrub_contest_works(); ALTER TABLE "contestEntries" ADD COLUMN "cardIds" jsonb, ADD COLUMN description text; DELETE FROM schema_migrations WHERE version = 16');
+        await client.query('DROP TABLE "contestVotes"; DROP TABLE "contestVotingSettings"; DROP TABLE "contestWorks"; DROP TRIGGER contest_works_card_delete ON cards; DROP TRIGGER contest_works_entry_delete ON "contestEntries"; DROP FUNCTION scrub_contest_works(); ALTER TABLE "contestEntries" ADD COLUMN "cardIds" jsonb, ADD COLUMN description text; DELETE FROM schema_migrations WHERE version >= 16');
         await client.query(`INSERT INTO "contestEntries" (id,"eventKey","userId","cardIds",description,"contactEmail",status,revision,"createdAt","updatedAt") VALUES
           ('older',$1,'owner','["replacement","target"]','旧多卡说明','old@example.test','pending',1,'2026-01-01','2026-01-01'),
           ('newer',$1,'other','["foreign"]','旧单卡说明','old@example.test','pending',1,'2026-02-01','2026-02-01')`, [eventKey]);
@@ -167,7 +419,7 @@ export async function testContests() {
     const firstPage = await publicWorks('limit=1');
     assert.equal(firstPage.total, 3);
     assert.equal(firstPage.pages, 3);
-    assert.deepEqual(Object.keys(firstPage.items[0]).sort(), ['card', 'description', 'number', 'submittedAt']);
+    assert.deepEqual(Object.keys(firstPage.items[0]).sort(), ['card', 'description', 'id', 'number', 'submittedAt', 'voteCount']);
     assert.equal(firstPage.items[0].card.owner.id, 'owner');
     assert.ok(firstPage.items[0].card.frontImage);
     assert.equal(firstPage.items[0].card.owner.email, undefined);
@@ -353,7 +605,8 @@ export async function testContests() {
     await f.db.transaction(unit => {
       assert.ok(unit.data.contestWorks.filter(work => [1, 2, 3].includes(work.number)).every(work => work.cardId === null && work.entryId === null && work.description === ''));
     });
-    console.log('[contests] migration, numbered works, permissions, privacy, search, pagination, revisions, moderation and tombstones passed');
+    await testContestVoting();
+    console.log('[contests] migration, numbered works, permissions, privacy, search, pagination, revisions, moderation, tombstones and voting passed');
   } finally {
     await second.close();
     await f.cleanup();

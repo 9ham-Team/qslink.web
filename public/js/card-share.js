@@ -132,8 +132,50 @@
     return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error(QSL.t("图片生成失败"))), 'image/png'));
   }
 
+  async function contestPoster(card, work, url, signal) {
+    const img = card.frontImage ? await image(card.frontImage, signal) : null;
+    const palette = QSL.posterPalette.fromImage(img);
+    const canvas = document.createElement('canvas');
+    canvas.width = 900; canvas.height = 1440;
+    const ctx = canvas.getContext('2d');
+    const sans = '"Microsoft YaHei", "PingFang SC", sans-serif';
+    ctx.fillStyle = palette.backgroundTop; ctx.fillRect(0, 0, 900, 1440);
+    function line(value, y, size, color) {
+      ctx.font = size + 'px ' + sans; ctx.fillStyle = color || palette.ink;
+      let label = Array.from(String(value || '')).slice(0, 160).join('');
+      while (label && ctx.measureText(label + '…').width > 764) label = Array.from(label).slice(0, -1).join('');
+      if (label !== String(value || '')) label += '…';
+      ctx.fillText(label, 68, y);
+    }
+    line('QSLink · QSL DESIGN CONTEST', 82, 22, palette.accent);
+    line(QSL.t('QSL设计大赛-2026.11'), 143, 36);
+    line(QSL.t('作品编号：{n}', { n: String(work.number).padStart(3, '0') }), 195, 25, palette.muted);
+    if (img) {
+      const scale = Math.min(764 / img.naturalWidth, 620 / img.naturalHeight);
+      const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+      ctx.drawImage(img, (900 - w) / 2, 242 + (620 - h) / 2, w, h);
+    }
+    line(card.title || QSL.t('未命名卡片'), 938, 36);
+    const owner = card.owner || {};
+    line([owner.displayName || owner.username, card.callSign || owner.callSign].filter(Boolean).join(' · '), 990, 23, palette.muted);
+    const qr = QSL.qr.canvas(url, 6, 240);
+    ctx.fillStyle = '#fff'; ctx.fillRect(68, 1052, 256, 256);
+    ctx.drawImage(qr, 68 + Math.floor((256 - qr.width) / 2), 1052 + Math.floor((256 - qr.height) / 2));
+    ctx.fillStyle = palette.ink; ctx.font = '28px ' + sans;
+    ctx.fillText(QSL.t('扫码欣赏作品'), 358, 1130);
+    ctx.font = '23px ' + sans; ctx.fillStyle = palette.accent;
+    ctx.fillText(QSL.t('为喜欢的设计投一票'), 358, 1180);
+    ctx.font = '18px ' + sans; ctx.fillStyle = palette.muted;
+    ctx.fillText(new URL(url).host, 358, 1230);
+    line(QSL.t('每一张 QSL 卡片，都有自己的设计故事。'), 1370, 20, palette.muted);
+    if (signal.aborted) throw new Error(QSL.t('已取消生成'));
+    return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error(QSL.t('图片生成失败'))), 'image/png'));
+  }
+
   QSL.cardShare = {
-    bind: function (button, card) {
+    bind: function (button, card, options) {
+      const contestWork = options && options.contestWork;
+      const shareTitle = contestWork ? QSL.t('参赛作品 {n}：{title}', { n: String(contestWork.number).padStart(3, '0'), title: card.title || QSL.t('未命名卡片') }) : card.title || QSL.t('QSL 卡片');
       let disposed = false, modal = null, imageModal = null, menuOpen = false, imageBusy = false;
       const urls = new Set();
       const abort = new AbortController();
@@ -141,7 +183,7 @@
       wrapper.className = 'g-card-share';
       button.replaceWith(wrapper);
       wrapper.appendChild(button);
-      button.setAttribute('aria-label', QSL.t("分享卡片"));
+      button.setAttribute('aria-label', QSL.t(contestWork ? '分享作品' : '分享卡片'));
       button.title = QSL.t("点击复制链接，悬浮或按方向下键查看分享选项；触屏点击打开分享弹窗");
       button.setAttribute('aria-expanded', 'false');
       button.setAttribute('aria-controls', 'g-card-share-panel');
@@ -152,7 +194,9 @@
       // Portal avoids transformed page layers making the fixed menu scroll or sit below the footer.
       document.body.appendChild(panel);
       let urlPromise;
-      function getUrl() { return urlPromise || (urlPromise = QSL.cardShareUrl(card)); }
+      function getUrl() {
+        return urlPromise || (urlPromise = contestWork ? Promise.resolve(location.origin + '/events/qsl-design-2026-11/works/' + encodeURIComponent(contestWork.id)) : QSL.cardShareUrl(card));
+      }
       function listen(node, type, fn) { node.addEventListener(type, fn, { signal: abort.signal }); }
       function fail(err) { if (!disposed) QSL.toast(err.message || QSL.t("分享失败，请重试"), 'error'); }
       function revoke(url) { URL.revokeObjectURL(url); urls.delete(url); }
@@ -197,11 +241,12 @@
         release = fitDialog(view);
         imageModal = view;
         try {
-          const blob = await poster(card, await getUrl(), imageAbort.signal);
+          const url = await getUrl();
+          const blob = contestWork ? await contestPoster(card, contestWork, url, imageAbort.signal) : await poster(card, url, imageAbort.signal);
           if (disposed || closed) return;
           previewUrl = URL.createObjectURL(blob); urls.add(previewUrl);
           const host = view.body.querySelector('.g-card-share__poster');
-          host.innerHTML = ("<img alt=\"" + QSL.escapeHtml(QSL.t("卡片分享图，含直达分享页的二维码")) + "\">") +
+          host.innerHTML = ("<img alt=\"" + QSL.escapeHtml(QSL.t(contestWork ? '赛事作品分享图，含直达作品详情的二维码' : '卡片分享图，含直达分享页的二维码')) + "\">") +
             ("<p>" + QSL.escapeHtml(QSL.t("保存图片后发送给朋友；手机也可长按图片保存。")) + "</p><div class=\"btn-group\">") +
             '<a class="btn btn-primary" download="QSLink-card.png">' + QSL.icon('download', 17) + (QSL.escapeHtml(QSL.t("保存分享图")) + "</a></div>");
           host.querySelector('img').src = previewUrl;
@@ -210,7 +255,7 @@
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             const share = document.createElement('button');
             share.type = 'button'; share.className = 'btn btn-soft'; share.textContent = QSL.t("发送图片到…");
-            share.addEventListener('click', () => navigator.share({ files: [file], title: card.title || QSL.t("QSL 卡片") }).catch(err => { if (err.name !== 'AbortError') fail(err); }));
+            share.addEventListener('click', () => navigator.share({ files: [file], title: shareTitle }).catch(err => { if (err.name !== 'AbortError') fail(err); }));
             host.querySelector('.btn-group').appendChild(share);
           }
         } catch (err) {
@@ -222,11 +267,11 @@
       function content(host) {
         host.innerHTML = '<div class="g-card-share__summary"><div class="g-card-share__card">' +
           (card.frontImage ? ("<img alt=\"" + QSL.escapeHtml(QSL.t("卡片正面")) + "\" ") + QSL.images.attributes(card.frontImage, '220px') + '>' : '') +
-          '<strong>' + esc(card.title || QSL.t("未命名卡片")) + ("</strong></div><div class=\"g-card-share__qr\"><span>" + QSL.escapeHtml(QSL.t("正在准备二维码…")) + "</span></div></div>") +
+          '<strong>' + esc(contestWork ? shareTitle : card.title || QSL.t("未命名卡片")) + ("</strong></div><div class=\"g-card-share__qr\"><span>" + QSL.escapeHtml(QSL.t("正在准备二维码…")) + "</span></div></div>") +
           '<div class="g-card-share__actions"><button type="button" class="btn btn-primary" data-poster>' + QSL.icon('image', 17) + (QSL.escapeHtml(QSL.t("生成分享图")) + "</button>") +
           '<button type="button" class="btn btn-soft" data-copy>' + QSL.icon('copy', 17) + (QSL.escapeHtml(QSL.t("复制分享链接")) + "</button></div>") +
           ("<input class=\"input g-card-share__url\" readonly aria-label=\"" + QSL.escapeHtml(QSL.t("分享链接")) + "\"><div class=\"g-card-share__social\" aria-label=\"" + QSL.escapeHtml(QSL.t("分享到社交平台")) + "\"></div>") +
-          ("<p class=\"g-card-share__hint\" role=\"status\">" + QSL.escapeHtml(QSL.t("扫码直达分享页。QQ / 微信需粘贴链接或发送已保存的分享图。")) + "</p>");
+          ("<p class=\"g-card-share__hint\" role=\"status\">" + QSL.escapeHtml(QSL.t(contestWork ? '扫码直达赛事作品详情，欣赏设计并参与投票。' : '扫码直达分享页。QQ / 微信需粘贴链接或发送已保存的分享图。')) + "</p>");
         const input = host.querySelector('input');
         listen(input, 'click', () => input.select());
         listen(host.querySelector('[data-poster]'), 'click', () => {
@@ -241,12 +286,12 @@
           qr.innerHTML = '';
           try {
             const canvas = QSL.qr.canvas(url, 4);
-            canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', QSL.t("扫码查看卡片分享页"));
+            canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', QSL.t(contestWork ? '扫码查看赛事作品详情' : '扫码查看卡片分享页'));
             qr.appendChild(canvas);
             const label = document.createElement('span'); label.textContent = QSL.t("扫码查看 / 分享"); qr.appendChild(label);
           } catch (err) { qr.textContent = err.message; }
           const social = host.querySelector('.g-card-share__social');
-          const title = card.title || QSL.t("QSL 卡片");
+          const title = shareTitle;
           const items = [
             [QSL.t("微信"), QSL.t("微"), 'weixin://', 'wechat'],
             ['QQ', 'QQ', 'https://connect.qq.com/widget/shareqq/index.html?url=' + encodeURIComponent(url) + '&title=' + encodeURIComponent(title), 'qq'],
@@ -346,14 +391,14 @@
       listen(window, 'resize', () => { if (menuOpen) placePanel(); });
       listen(window, 'scroll', () => { if (menuOpen) placePanel(); });
       listen(button, 'click', event => {
-        if (desktop() && event.pointerType !== 'touch') {
+        if (!contestWork && desktop() && event.pointerType !== 'touch') {
           getUrl().then(url => !disposed && QSL.copyText(url, QSL.t("分享链接已复制，快发给朋友吧"))).catch(fail);
         } else {
           if (modal) return;
           const host = document.createElement('div'); host.className = 'g-card-share__dialog';
           let release = function () {};
           button.setAttribute('aria-expanded', 'true');
-          modal = QSL.modal({ title: QSL.t("分享这张卡片"), content: host, onClose: () => { release(); modal = null; button.setAttribute('aria-expanded', 'false'); if (!disposed) button.focus({ preventScroll: true }); } });
+          modal = QSL.modal({ title: QSL.t(contestWork ? '分享参赛作品' : '分享这张卡片'), content: host, onClose: () => { release(); modal = null; button.setAttribute('aria-expanded', 'false'); if (!disposed) button.focus({ preventScroll: true }); } });
           release = fitDialog(modal);
           content(host);
         }

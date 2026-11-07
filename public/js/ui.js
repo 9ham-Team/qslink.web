@@ -11,6 +11,7 @@
   /* ---------------- 图标库（手写线性图标） ---------------- */
   const ICONS = {
     trophy: '<path d="M8 3h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H4v2a4 4 0 0 0 4 4M16 5h4v2a4 4 0 0 1-4 4M12 12v5M8 21h8M9 17h6v4"/>',
+    ballot: '<path d="M8 10H5l-3 5v6h20v-6l-3-5h-3M2 15h20M8 12h8"/><path d="m9 3 8 4-4 7-8-4z"/>',
     heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z"/>',
     share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2"/>',
     cards: '<rect x="3" y="6" width="14" height="10" rx="2.5"/><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3H19a2 2 0 0 1 2 2v9.5a1.5 1.5 0 0 1-1.5 1.5H18"/>',
@@ -595,6 +596,7 @@
     const ratio = c.ratio || { w: 3, h: 2 };
     const href = opts.href || '/card/' + c.id;
     const liked = !!c.liked;
+    const contest = typeof opts.contestVoteCount === 'number';
     const tile = document.createElement('article');
     tile.className = 'qsl-tile' + (opts.className ? ' ' + opts.className : '');
     tile.dataset.cardId = c.id || '';
@@ -610,20 +612,22 @@
       '<span class="qsl-tile-3d">' + icon('3d', 15) + ("<span>" + QSL.escapeHtml(QSL.t("3D 预览")) + "</span></span>") +
       statusHtml +
       '</a>' +
-      '<button class="qsl-like' + (liked ? ' is-liked' : '') + ("\" type=\"button\" aria-label=\"" + QSL.escapeHtml(QSL.t("点赞")) + "\" title=\"" + QSL.escapeHtml(QSL.t("点赞")) + "\">") +
-      icon('heart', 18) + '<span class="qsl-like-count">' + QSL.formatNumber(c.likeCount || 0) + '</span></button>' +
+      (contest ? '<span class="g-contest-votes" aria-label="' + esc(QSL.t('{n} 票', { n: opts.contestVoteCount })) + '">' +
+        icon('ballot', 18) + '<span>' + esc(opts.contestVoteCount) + '</span></span>' :
+        '<button class="qsl-like' + (liked ? ' is-liked' : '') + ("\" type=\"button\" aria-label=\"" + QSL.escapeHtml(QSL.t("点赞")) + "\" title=\"" + QSL.escapeHtml(QSL.t("点赞")) + "\">") +
+        icon('heart', 18) + '<span class="qsl-like-count">' + QSL.formatNumber(c.likeCount || 0) + '</span></button>') +
       '</div>' +
       '<div class="qsl-tile-info">' +
       '<a class="qsl-tile-title" href="' + esc(href) + '" data-link>' + esc(c.title || QSL.t("未命名卡片")) + '</a>' +
       '<div class="qsl-tile-meta">' +
       QSL.ownerLine(c.owner) +
       '</div>' +
-      '<p class="hint">' + (c.stock == null ? QSL.t("库存未设置") : c.stock === 0 ? QSL.t("暂无库存") : (QSL.t("剩余") + " ") + esc(c.stock) + (" " + QSL.t("张"))) + '</p>' +
+      (contest ? '' : '<p class="hint">' + (c.stock == null ? QSL.t("库存未设置") : c.stock === 0 ? QSL.t("暂无库存") : (QSL.t("剩余") + " ") + esc(c.stock) + (" " + QSL.t("张"))) + '</p>') +
       (opts.footerHtml || '') +
       '</div>';
 
     const likeBtn = tile.querySelector('.qsl-like');
-    likeBtn.addEventListener('click', async function (e) {
+    if (likeBtn) likeBtn.addEventListener('click', async function (e) {
       e.preventDefault();
       e.stopPropagation();
       if (typeof opts.onLike === 'function') {

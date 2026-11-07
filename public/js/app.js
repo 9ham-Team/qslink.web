@@ -21,7 +21,10 @@
   const contestPath = '/events/qsl-design-2026-11';
   function isContestRoute() {
     return location.pathname === contestPath || location.pathname === contestPath + '/registration' ||
-      location.pathname === contestPath + '/works';
+      location.pathname === contestPath + '/works' || location.pathname.startsWith(contestPath + '/works/');
+  }
+  function isContestLinkActive(href) {
+    return location.pathname === href || (href === contestPath + '/works' && location.pathname.startsWith(href + '/'));
   }
   let contestOpen = isContestRoute();
   let lastContestRoute = location.pathname;
@@ -54,7 +57,7 @@
     return '<div class="nav-contest-panel" data-contest-panel id="nav-contest-' +
       (mobile ? 'mobile' : 'desktop') + '"><div class="nav-contest-clip"><nav class="nav-contest-links" aria-label="' +
       QSL.escapeHtml(QSL.t('QSL设计大赛-2026.11')) + '">' + links.map(function (link) {
-        const active = location.pathname === link.href;
+        const active = isContestLinkActive(link.href);
         return '<a href="' + link.href + '" data-link class="' + (active ? 'is-active' : '') + '"' +
           (active ? ' aria-current="page"' : '') + '>' + QSL.escapeHtml(QSL.t(link.label)) + '</a>';
       }).join('') + '</nav></div></div>';
@@ -79,7 +82,7 @@
       panel.inert = !open;
       panel.setAttribute('aria-hidden', String(!open));
       panel.querySelectorAll('a').forEach(function (link) {
-        const active = location.pathname === link.getAttribute('href');
+        const active = isContestLinkActive(link.getAttribute('href'));
         link.classList.toggle('is-active', active);
         if (active) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');

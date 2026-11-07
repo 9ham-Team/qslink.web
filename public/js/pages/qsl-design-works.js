@@ -45,7 +45,7 @@
           if (!append) grid.replaceChildren();
           data.items.forEach((work) => {
             const number = String(work.number).padStart(3, '0');
-            const tile = QSL.cardTile(work.card, { footerHtml: '<div class="g-contest-work"><strong>' + esc(QSL.t('作品编号：{n}', { n: number })) + '</strong>' +
+            const tile = QSL.cardTile(work.card, { href: '/events/qsl-design-2026-11/works/' + encodeURIComponent(work.id), contestVoteCount: Number(work.voteCount) || 0, footerHtml: '<div class="g-contest-work"><strong>' + esc(QSL.t('作品编号：{n}', { n: number })) + '</strong>' +
               '<details><summary>' + text('作品说明') + '</summary><p>' + esc(work.description) + '</p></details></div>' });
             grid.appendChild(tile);
           });
