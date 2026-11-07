@@ -20,7 +20,8 @@
 
   const contestPath = '/events/qsl-design-2026-11';
   function isContestRoute() {
-    return location.pathname === contestPath || location.pathname === contestPath + '/registration' ||
+    return location.pathname === contestPath || location.pathname === contestPath + '/alternate' ||
+      location.pathname === contestPath + '/registration' ||
       location.pathname === contestPath + '/works' || location.pathname.startsWith(contestPath + '/works/');
   }
   function isContestLinkActive(href) {

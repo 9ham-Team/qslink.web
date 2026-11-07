@@ -2396,6 +2396,54 @@ html[lang="en"] .f-visual-card {
 .f-contest-trophy-stage::before { content: ''; position: absolute; z-index: -1; width: 100%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #fff 35%, rgba(255, 255, 255, .6) 58%, transparent 72%); }
 .f-contest-hero-figure figcaption { margin-top: 12px; color: var(--muted); font-size: 12px; line-height: 1.7; text-align: center; }
 .f-contest-hero-image { display: block; width: min(100%, 270px); height: auto; border-radius: var(--r-md); }
+/* 仅链接直达的备选首屏，与正式页共用下方赛事内容。 */
+.f-contest-alt-intro { display: grid; grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr); align-items: stretch; gap: 44px; margin-top: 24px; padding: 34px; border: 1px solid #e4eeeb; border-radius: 28px; background: linear-gradient(110deg, #fff 0%, #fbfefd 64%, #effcf8 100%); box-shadow: 0 28px 48px -36px rgba(23, 78, 65, .35); }
+.f-contest-alt-copy { min-width: 0; align-self: center; padding: 12px 0; }
+.f-contest-alt-eyebrow { display: flex; align-items: center; gap: 6px; margin: 0 0 22px; color: #536863; font-size: clamp(7px, .78vw, 10px); font-weight: 700; letter-spacing: .12em; white-space: nowrap; }
+.f-contest-alt-eyebrow::before { content: ''; width: 20px; height: 1px; margin-right: 8px; background: linear-gradient(90deg, transparent, #adab7d, transparent); }
+.f-contest-alt-eyebrow b { color: #1c7363; }
+.f-contest-alt-copy h1 { margin: 0; color: #092e27; font-size: clamp(30px, 4.5vw, 60px); line-height: 1.22; font-weight: 900; letter-spacing: -.045em; }
+.f-contest-alt-copy h1 > span { display: block; }
+.f-contest-alt-copy h1 > span:first-child { white-space: nowrap; }
+.f-contest-alt-copy .f-contest-brand { background-image: linear-gradient(105deg, #008761, #30b6ce); }
+.f-contest-alt-subtitle { margin: 18px 0 24px; color: #52665f; font-size: clamp(12px, 1.3vw, 16px); line-height: 1.8; }
+.f-contest-alt-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.f-contest-alt-actions .btn { min-height: 44px; padding: 11px 24px; border-radius: 999px; gap: 10px; font-size: 13px; }
+.f-contest-alt-actions .btn-primary { background: linear-gradient(110deg, #00866b, #00818b); box-shadow: 0 6px 14px -8px #007d6c; }
+.f-contest-alt-actions .btn-soft { border: 1px solid #dfe9e6; background: #fbfefd; color: #244a41; box-shadow: 0 3px 7px rgba(32, 72, 60, .04); }
+.f-contest-alt-status { display: flex; align-items: center; gap: 7px; margin: 12px 0 0; color: #617970; font-size: 11px; line-height: 1.7; }
+.f-contest-alt-status::before { content: ''; flex: 0 0 5px; height: 5px; border-radius: 50%; background: #10ac85; box-shadow: 0 0 0 3px rgba(16, 172, 133, .07); }
+.f-contest-alt-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 26px 0 0; padding-top: 18px; border-top: 1px solid #e5eeea; }
+.f-contest-alt-stats > div + div { padding-left: 16px; border-left: 1px solid #e9f0ed; }
+.f-contest-alt-stats dt { color: #187866; font-size: 19px; font-weight: 900; line-height: 1.2; letter-spacing: -.04em; }
+.f-contest-alt-stats small { font-size: 11px; font-weight: 500; letter-spacing: 0; }
+.f-contest-alt-stats dd { margin: 5px 0 0; color: #64766f; font-size: 11px; line-height: 1.5; }
+.f-contest-alt-figure { display: flex; flex-direction: column; min-width: 0; margin: 0; padding: 16px; border: 1px solid #e0eeea; border-radius: 22px; background: radial-gradient(ellipse at 50% 70%, #dffaf3, transparent 72%), linear-gradient(145deg, #fafffe, #effbf8); box-shadow: 0 12px 24px -20px rgba(28, 110, 87, .3); }
+.f-contest-alt-figure-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.f-contest-alt-figure .f-contest-trophy-label { gap: 5px; padding: 4px 9px; font-size: 10px; font-weight: 600; }
+.f-contest-alt-figure time { color: #60776f; font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; }
+.f-contest-alt-stage { position: relative; isolation: isolate; display: grid; place-items: center; flex: 1; min-height: 310px; padding: 26px 0 6px; }
+.f-contest-alt-stage::before { content: ''; position: absolute; z-index: -1; width: 86%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.9) 35%, rgba(255,255,255,.38) 68%, transparent 70%); }
+.f-contest-alt-stage img { display: block; width: auto; height: 300px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 16px 18px rgba(49, 83, 66, .2)); }
+.f-contest-alt-figure figcaption { margin: 10px 0 0; color: #6b8177; text-align: center; font-size: 10px; line-height: 1.8; }
+@media (max-width: 1080px) and (min-width: 761px) {
+  .f-contest-alt-intro { gap: 30px; padding: 32px; }
+  .f-contest-alt-stage { min-height: 296px; }
+  .f-contest-alt-stage img { height: 278px; }
+}
+@media (max-width: 760px) {
+  .f-contest-alt-intro { grid-template-columns: minmax(0, 1fr); gap: 28px; margin-top: 16px; padding: 24px; border-radius: 24px; }
+  .f-contest-alt-copy { padding: 4px 0 0; }
+  .f-contest-alt-copy h1 { font-size: clamp(26px, 6.8vw, 48px); }
+  .f-contest-alt-eyebrow { font-size: clamp(6px, 1.45vw, 9px); gap: 4px; letter-spacing: .07em; }
+  .f-contest-alt-eyebrow::before { width: 12px; margin-right: 2px; }
+  .f-contest-alt-subtitle { font-size: 12px; }
+  .f-contest-alt-actions .btn { padding-inline: 20px; }
+  .f-contest-alt-stats > div + div { padding-left: 12px; }
+  .f-contest-alt-figure { min-height: 370px; }
+  .f-contest-alt-stage { min-height: 280px; }
+  .f-contest-alt-stage img { height: 278px; }
+}
 .f-contest-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .f-contest-actions .btn { white-space: normal; text-align: center; }
 .f-contest-section { margin-top: 64px; scroll-margin-top: calc(var(--nav-h) + 24px); }

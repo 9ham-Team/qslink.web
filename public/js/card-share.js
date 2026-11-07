@@ -138,35 +138,50 @@
     canvas.width = 900; canvas.height = 1440;
     const ctx = canvas.getContext('2d');
     const sans = '"Microsoft YaHei", "PingFang SC", sans-serif';
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 900, 1440);
-    function line(value, x, y, size, width, color, align) {
-      ctx.font = size + 'px ' + sans; ctx.fillStyle = color || '#ffffff';
-      ctx.textAlign = align || 'left';
-      let label = Array.from(String(value || '')).slice(0, 160).join('');
-      while (label && ctx.measureText(label + '…').width > width) label = Array.from(label).slice(0, -1).join('');
-      if (label !== String(value || '')) label += '…';
+    const serif = '"Songti SC", "STSong", "SimSun", Georgia, serif';
+    const palette = QSL.posterPalette.fromImage(img);
+    const background = ctx.createLinearGradient(0, 0, 900, 1440);
+    background.addColorStop(0, palette.backgroundTop);
+    background.addColorStop(1, palette.backgroundBottom);
+    ctx.fillStyle = background; ctx.fillRect(0, 0, 900, 1440);
+    function line(value, x, y, size, width, color, align, family, weight) {
+      const text = String(value || '');
+      let label = Array.from(text).slice(0, 160).join('');
+      const font = family || sans;
+      ctx.font = (weight || 'normal') + ' ' + size + 'px ' + font;
+      while (size > 28 && ctx.measureText(label).width > width) {
+        size--; ctx.font = (weight || 'normal') + ' ' + size + 'px ' + font;
+      }
+      if (label !== text || ctx.measureText(label).width > width) {
+        while (label && ctx.measureText(label + '…').width > width) label = Array.from(label).slice(0, -1).join('');
+        label += '…';
+      }
+      ctx.fillStyle = color || palette.ink; ctx.textAlign = align || 'left';
       ctx.fillText(label, x, y);
     }
-    const brand = ctx.createLinearGradient(350, 0, 550, 0);
+    const brand = ctx.createLinearGradient(60, 0, 235, 0);
     brand.addColorStop(0, '#0eaf8f'); brand.addColorStop(.5, '#21c7b0'); brand.addColorStop(1, '#38bdf8');
-    line('QSLink', 450, 94, 48, 764, brand, 'center');
-    line(QSL.t('第一届QSLink杯QSL卡片设计大赛'), 450, 155, 30, 792, '#172a27', 'center');
-    line(QSL.t('作品编号：{n}', { n: String(work.number).padStart(3, '0') }), 450, 207, 23, 764, '#5e7169', 'center');
-    ctx.fillStyle = '#f0f7f5'; ctx.beginPath(); ctx.roundRect(48, 250, 804, 664, 24); ctx.fill();
+    line('QSLink', 60, 91, 42, 260, brand, 'left', sans, 'bold');
+    line(QSL.t('作品编号：{n}', { n: String(work.number).padStart(3, '0') }), 840, 87, 20, 440, palette.muted, 'right');
+    line(QSL.t('第一届QSLink杯QSL卡片设计大赛'), 60, 179, 44, 780, palette.ink, 'left', serif, 'bold');
+    ctx.fillStyle = palette.line; ctx.fillRect(60, 219, 780, 1);
+    ctx.fillStyle = palette.accent; ctx.fillRect(60, 217, 64, 4);
     if (img) {
       const scale = Math.min(780 / img.naturalWidth, 640 / img.naturalHeight);
       const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
-      ctx.save(); ctx.beginPath(); ctx.roundRect(60, 262, 780, 640, 16); ctx.clip();
-      ctx.drawImage(img, (900 - w) / 2, 262 + (640 - h) / 2, w, h); ctx.restore();
+      const x = (900 - w) / 2, y = 275 + (640 - h) / 2;
+      ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, w, h, Math.min(24, w / 2, h / 2)); ctx.clip();
+      ctx.drawImage(img, x, y, w, h); ctx.restore();
     }
-    line(card.title || QSL.t('未命名卡片'), 60, 1009, 34, 780, '#172a27');
+    line(card.title || QSL.t('未命名卡片'), 60, 1009, 42, 780, palette.ink, 'left', serif, 'bold');
     const owner = card.owner || {};
-    line([owner.displayName || owner.username, card.callSign || owner.callSign].filter(Boolean).join(' · '), 60, 1055, 22, 780, '#5e7169');
-    ctx.fillStyle = '#dcebe6'; ctx.fillRect(60, 1092, 780, 1);
-    line(QSL.t('扫码投我一票！'), 60, 1210, 34, 460, '#0b806b');
-    line(new URL(url).host, 60, 1260, 20, 460, '#5e7169');
+    line([owner.displayName || owner.username, card.callSign || owner.callSign].filter(Boolean).join(' · '), 60, 1057, 22, 780, palette.muted);
+    ctx.fillStyle = palette.line; ctx.fillRect(60, 1100, 780, 1);
+    line(QSL.t('扫码投我一票！'), 60, 1210, 34, 460, palette.accent, 'left', serif, 'bold');
+    line(new URL(url).host, 60, 1260, 20, 460, palette.muted);
     const qr = QSL.qr.canvas(url, 6, 240);
-    ctx.drawImage(qr, 572 + Math.floor((268 - qr.width) / 2), 1120 + Math.floor((268 - qr.height) / 2));
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(572, 1130, 268, 268, 20); ctx.fill();
+    ctx.drawImage(qr, 572 + Math.floor((268 - qr.width) / 2), 1130 + Math.floor((268 - qr.height) / 2));
     if (signal.aborted) throw new Error(QSL.t('已取消生成'));
     return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error(QSL.t('图片生成失败'))), 'image/png'));
   }
