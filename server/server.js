@@ -50,6 +50,7 @@ const ROUTES = [
   ...adminApi.routes,
   ...require('./lib/api/announcements').routes,
   ...require('./lib/api/contests').routes,
+  ...require('./lib/contest-judging').routes,
 ];
 
 /* =========================================================================
@@ -270,7 +271,7 @@ async function handleApi(req, res, { db, config, url, host }) {
   }
 
   if (matched.outsideTransaction) {
-    const result = await matched.handler({ db, config, req, res, body });
+    const result = await matched.handler({ db, config, req, res, body, params, url, query: url.searchParams, host });
     sendJson(res, result.status || 200, result.body || {});
     return;
   }

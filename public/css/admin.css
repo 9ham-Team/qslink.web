@@ -5,6 +5,24 @@
  * 只使用、不重定义共享组件（.btn/.input/.badge/.table/...）
  * ============================================================ */
 
+/* Independent contest judging region. */
+.a-judging-admin { min-width: 0; overflow-wrap: anywhere; }
+.a-judging-admin label { display: grid; gap: 7px; }
+.a-judging-admin [data-config] { display: grid; gap: 14px; }
+.a-judging-search, .a-judging-range { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.a-judging-search label { flex: 1 1 200px; }
+.a-judging-selected { display: grid; gap: 8px; padding-left: 22px; }
+.a-judging-selected li { padding: 7px; overflow-wrap: anywhere; }
+.a-judging-selected button { margin-left: 12px; }
+.a-judging-table { overflow: auto; max-width: 100%; margin: 14px 0; }
+.a-judging-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.a-judging-table th, .a-judging-table td { text-align: left; padding: 10px; min-width: 110px; border-bottom: 1px solid var(--line, #dce8e3); vertical-align: top; }
+.a-judging-table small { display: block; margin-top: 5px; }
+.a-judging-comment { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 260px; max-height: 220px; overflow: auto; }
+.a-judging-notice { padding: 12px; border-radius: 12px; background: var(--amber-soft, #fff4da); font-size: 13px; }
+.a-judging-admin h3 { margin-top: 22px; }
+@media (max-width: 600px) { .a-judging-range label { flex: 1 1 130px; } .a-judging-range button { width: 100%; } }
+
 /* ============================================================
  * 页面骨架
  * ============================================================ */

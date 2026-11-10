@@ -113,6 +113,9 @@
       { href: '/dashboard/exchanges', icon: 'inbox', title: QSL.t("换卡申请"), desc: QSL.t("处理收到的申请") },
       { href: '/dashboard/profile', icon: 'settings', title: QSL.t("个人资料"), desc: QSL.t("地址、密码与头像") }
     ];
+    if (user && user.role === 'user') {
+      links.push({ href: '/events/qsl-design-2026-11/judging', icon: 'star', title: QSL.t('评委工作台'), desc: QSL.t('指定评委专用，权限由服务器核验') });
+    }
     if (user && user.role === 'admin') {
       links.push({ href: '/admin', icon: 'shield', title: QSL.t("管理后台"), desc: QSL.t("审核卡片与用户"), admin: true });
     }

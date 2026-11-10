@@ -57,9 +57,12 @@
       res = await fetch(path, {
         method,
         headers,
-        body: body === undefined || body === null ? undefined : JSON.stringify(body)
+        body: body === undefined || body === null ? undefined : JSON.stringify(body),
+        signal: opts.signal,
+        cache: opts.cache
       });
     } catch (err) {
+      if (err.name === 'AbortError') throw err;
       throw new ApiError(QSL.t("网络连接失败，请确认服务已启动"), { isNetwork: true });
     }
 

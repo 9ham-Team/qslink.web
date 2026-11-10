@@ -110,6 +110,7 @@ async function listUsers(ctx) {
       if (role !== 'all' && user.role !== role) return false;
       if (q) {
         const haystack = [
+          user.uid,
           user.username,
           user.displayName,
           user.callSign,
@@ -140,6 +141,12 @@ async function updateUser(ctx) {
   if (!target) throw notFound('用户不存在');
 
   const patch = validateAdminUserUpdate(ctx.body || {});
+  // Prevent administrator account takeover from bypassing pre-cutoff score privacy.
+  // Check frozen slot identity, not current role/status (promotion/demotion must not bypass it).
+  if (patch.newPassword) {
+    const locked = await ctx.db.client.query('SELECT 1 FROM "contestJudges" j JOIN "contestJudging" c ON c.id=j."eventKey" WHERE j."userId"=$1 AND c."frozenAt" IS NOT NULL AND c.deadline > clock_timestamp() LIMIT 1', [target.id]);
+    if (locked.rows.length) throw conflict('JUDGING_ACCOUNT_LOCKED', '评审截止前管理员不能重置已冻结评委的密码');
+  }
   const isSelf = target.id === admin.id;
 
   // 不能修改自己的角色/状态（传相同值视为无操作）

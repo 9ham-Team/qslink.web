@@ -376,6 +376,8 @@
     closeContestModal();
     clearInterval(S.contest.votingTimer);
     S.contest.votingTimer = null;
+    if (S.contest.judgingCleanup) S.contest.judgingCleanup();
+    S.contest.judgingCleanup = null;
     S.root = null;
     if (tab === 'overview') drawOverview(panel);
     else if (tab === 'users') drawUsers(panel);
@@ -701,6 +703,7 @@
     const state = owner.contest;
     const root = tabRoot(panel,
       '<section class="a-contest-section" data-contest-voting></section>' +
+      '<section class="a-contest-section a-judging-admin" data-contest-judging></section>' +
       '<section class="a-contest-section"><div class="toolbar a-toolbar"><h2>' + esc(QSL.t("报名审核")) +
       '</h2><span class="a-toolbar-spacer"></span><label class="a-filter">' + esc(QSL.t("报名状态")) +
       '<select class="select a-select" data-contest-status>' + CARD_STATUS_TABS.map(function (item) {
@@ -742,6 +745,7 @@
       if (live()) renderLoadError(list, err, redrawTab);
     });
     drawContestVoting(root, owner, live);
+    if (QSL.mountAdminContestJudging) state.judgingCleanup = QSL.mountAdminContestJudging(root.querySelector('[data-contest-judging]'), live);
     drawAnnouncements(panel, CONTEST_KEY, root.querySelector('[data-contest-announcements]'));
   }
 
@@ -2272,6 +2276,7 @@
         closeAnnouncementModal();
         closeContestModal();
         clearInterval(S.contest.votingTimer);
+        if (S.contest.judgingCleanup) S.contest.judgingCleanup();
         S.disposed = true;
         S = null;
       }
