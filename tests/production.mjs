@@ -13,6 +13,7 @@ import { fixture } from './helpers/database.mjs';
 import { withLegalConsent } from './helpers/legal.mjs';
 import './profile-address.mjs';
 import './i18n.mjs';
+import './contest-page.mjs';
 import './review-webhook.mjs';
 import { testExchangeCardChoice } from './exchange-card-choice.mjs';
 test('exchange card choice: privacy, validation, empty confirmation and persistence', testExchangeCardChoice);
