@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const auth = require('./auth');
 const { requireContest } = require('./contests');
-const { visibleWork } = require('./contest-voting');
+const { reviewedWork } = require('./contest-voting');
 const { withImageSlot } = require('./image-variants');
 const { badRequest, conflict, forbidden, notFound, payloadTooLarge } = require('./errors');
 
@@ -83,7 +83,6 @@ function parseDeadline(value) {
 async function putSettings(ctx) {
   auth.requireAdmin(ctx);
   const config = await setting(ctx);
-  if (config && config.frozenAt) throw conflict('JUDGING_STARTED', '开始后不能修改评委或截止时间');
   const body = bodyOf(ctx);
   expected(body.expectedRevision, config ? config.revision : 0);
   const deadline = parseDeadline(body.deadline);
@@ -94,15 +93,27 @@ async function putSettings(ctx) {
   const selected = ids.map(id => ctx.db.find('users', u => u.id === id));
   if (selected.some(u => !u || u.role !== 'user' || u.status !== 'active')) throw badRequest({ judgeUserIds: '评委须为可用普通用户，不能选择管理员' });
   await ctx.db.client.query('INSERT INTO "contestJudging" (id,deadline) VALUES ($1,$2) ON CONFLICT(id) DO UPDATE SET deadline=$2,revision="contestJudging".revision+1', [scope(ctx), deadline]);
-  await ctx.db.client.query('DELETE FROM "contestJudges" WHERE "eventKey"=$1', [scope(ctx)]);
-  for (const [index, user] of selected.entries()) {
+  const previous = await judges(ctx);
+  if (config && config.frozenAt) {
+    await ctx.db.client.query('INSERT INTO "contestJudgingChanges" ("eventKey","actorId","previousConfig","previousJudges","previousScores") VALUES ($1,$2,$3::jsonb,$4::jsonb,$5::jsonb)',
+      [scope(ctx), ctx.user.id, JSON.stringify(config), JSON.stringify(previous), JSON.stringify((await ctx.db.client.query('SELECT * FROM "contestScores" WHERE "eventKey"=$1', [scope(ctx)])).rows)]);
+  }
+  const removed = previous.filter(judge => !ids.includes(judge.userId));
+  for (const judge of removed) {
+    await ctx.db.client.query('DELETE FROM "contestScores" WHERE "eventKey"=$1 AND slot=$2', [scope(ctx), judge.slot]);
+    await ctx.db.client.query('DELETE FROM "contestJudges" WHERE "eventKey"=$1 AND slot=$2', [scope(ctx), judge.slot]);
+  }
+  const retained = previous.filter(judge => ids.includes(judge.userId));
+  const free = [1,2,3,4,5].filter(slot => !retained.some(judge => judge.slot === slot));
+  for (const user of selected) {
+    if (retained.some(judge => judge.userId === user.id)) continue;
     await ctx.db.client.query('INSERT INTO "contestJudges" ("eventKey",slot,"userId",username,uid,"displayName") VALUES ($1,$2,$3,$4,$5,$6)',
-      [scope(ctx), index + 1, user.id, user.username, user.uid, user.displayName || '']);
+      [scope(ctx), free.shift(), user.id, user.username, user.uid, user.displayName || '']);
   }
   return { ...await getSettings(ctx), afterCommit: audit(ctx, 'settings.update') };
 }
 function publicSnapshot(ctx) {
-  return ctx.db.data.contestWorks.filter(w => w.eventKey === scope(ctx) && visibleWork(ctx.db, w)).sort((a,b) => a.number-b.number).map(w => {
+  return ctx.db.data.contestWorks.filter(w => w.eventKey === scope(ctx) && reviewedWork(ctx.db, w)).sort((a,b) => a.number-b.number).map(w => {
     const card = ctx.db.find('cards', c => c.id === w.cardId);
     return { id: w.id, number: w.number, title: card.title, description: w.description, front: card.frontImage, back: card.backImage || null };
   });
@@ -211,6 +222,67 @@ async function own(ctx) {
       score: score ? { value: Number(score.value), comment: score.comment, revision: score.revision } : null };
   }) } };
 }
+// Append new eligible works without replacing any material that already has a
+// frozen identity. Image preparation stays outside the shared writer lock.
+function withNewMaterials(handler, authorize) {
+  return async base => {
+    const prepared = await base.db.transaction(async unit => {
+      const ctx = independentContext(base, unit);
+      await authorize(ctx);
+      const config = await setting(ctx);
+      if (!isOpen(config)) return null;
+      const existing = await materials(ctx);
+      const works = publicSnapshot(ctx).filter(w => !existing.some(m => m.id === w.id));
+      if (!works.length) return null;
+      if (existing.length + works.length > MAX_FROZEN_WORKS) throw payloadTooLarge('冻结作品超过 1000 件');
+      return { config, works, actorId: ctx.user.id, bytes: existing.reduce((sum, m) => sum + m.images.front.bytes + (m.images.back?.bytes || 0), 0) };
+    });
+    if (prepared) {
+      const storageKey = crypto.randomUUID();
+      const directory = path.join(base.config.dataDir, 'judging', storageKey);
+      await fs.mkdir(directory, { recursive: true, mode: 0o700 });
+      let committed = false;
+      try {
+        const frozen = [];
+        let bytes = prepared.bytes;
+        for (const work of prepared.works) {
+          const images = { front: await freezeImage(work.front, base.config.uploadsDir, directory, `${work.number}-front.webp`),
+            back: work.back ? await freezeImage(work.back, base.config.uploadsDir, directory, `${work.number}-back.webp`) : null };
+          for (const image of Object.values(images)) if (image) image.storageKey = storageKey;
+          bytes += images.front.bytes + (images.back?.bytes || 0);
+          if (bytes > MAX_FROZEN_BYTES) throw payloadTooLarge('冻结图片总量超过 256MiB');
+          frozen.push({ id: work.id, number: work.number, title: work.title, description: work.description, images });
+        }
+        committed = await base.db.transaction(async unit => {
+          const ctx = independentContext(base, unit);
+          await authorize(ctx);
+          const config = await setting(ctx);
+          // A competing sync/configuration change wins; the next read can retry.
+          if (!isOpen(config) || config.revision !== prepared.config.revision) return false;
+          const existing = await materials(ctx);
+          const works = publicSnapshot(ctx).filter(w => !existing.some(m => m.id === w.id));
+          if (JSON.stringify(works) !== JSON.stringify(prepared.works)) return false;
+          const combined = [...existing, ...frozen].sort((a, b) => a.number - b.number);
+          const bytes = combined.reduce((sum, m) => sum + m.images.front.bytes + (m.images.back?.bytes || 0), 0);
+          if (bytes > MAX_FROZEN_BYTES) throw payloadTooLarge('冻结图片总量超过 256MiB');
+          for (const work of frozen) {
+            await unit.client.query('INSERT INTO "contestMaterials" ("eventKey",id,number,title,description,images) VALUES ($1,$2,$3,$4,$5,$6)',
+              [scope(ctx), work.id, work.number, work.title, work.description, JSON.stringify(work.images)]);
+          }
+          const version = hash(JSON.stringify(combined.map(({ id, number, title, description, images }) => ({ id, number, title, description, images }))));
+          const published = await unit.client.query('UPDATE "contestJudging" SET "materialVersion"=$2,revision=revision+1 WHERE id=$1 AND deadline>clock_timestamp() RETURNING id', [scope(ctx), version]);
+          if (!published.rows.length) throw conflict('JUDGING_CLOSED', '评审已截止');
+          await unit.client.query('UPDATE "contestJudges" SET "submittedAt"=NULL,revision=revision+1 WHERE "eventKey"=$1', [scope(ctx)]);
+          return true;
+        }, { write: true });
+        if (committed) console.info('[admin:contest-judging]', JSON.stringify({ action: 'materials.append', eventKey: base.params.eventKey, actorId: prepared.actorId, at: new Date().toISOString() }));
+      } finally {
+        if (!committed) await fs.rm(directory, { recursive: true, force: true });
+      }
+    }
+    return base.db.transaction(async unit => handler(independentContext(base, unit)));
+  };
+}
 async function putScore(ctx) {
   const judge = await requireJudge(ctx);
   const config = await setting(ctx);
@@ -286,10 +358,11 @@ async function exportScores(ctx) {
 }
 async function frozenBytes(ctx, config, image) {
   if (!image) throw notFound('该作品没有此面图片');
-  if (!/^[a-f0-9-]{36}$/.test(config.storageKey) || !/^\d+-(front|back)\.webp$/.test(image.file)) throw notFound('材料不可用');
+  const storageKey = image.storageKey || config.storageKey;
+  if (!/^[a-f0-9-]{36}$/.test(storageKey) || !/^\d+-(front|back)\.webp$/.test(image.file)) throw notFound('材料不可用');
   let bytes;
   try {
-    const root = await fs.realpath(path.join(ctx.dataDir, 'judging', config.storageKey));
+    const root = await fs.realpath(path.join(ctx.dataDir, 'judging', storageKey));
     const file = await fs.realpath(path.join(root, image.file));
     if (path.dirname(file) !== root) throw new Error('outside');
     const stat = await fs.stat(file);
@@ -351,13 +424,13 @@ async function exportMaterials(ctx) {
 const adminPrefix = '/api/admin/contests/:eventKey/judging';
 const judgePrefix = '/api/contests/:eventKey/judging';
 const routes = [
-  { method: 'GET', pattern: adminPrefix, handler: getSettings },
+  { method: 'GET', pattern: adminPrefix, handler: withNewMaterials(getSettings, auth.requireAdmin), outsideTransaction: true },
   { method: 'PUT', pattern: adminPrefix, handler: putSettings },
   { method: 'POST', pattern: adminPrefix + '/start', handler: start, outsideTransaction: true },
   { method: 'GET', pattern: adminPrefix + '/results', handler: results },
   { method: 'GET', pattern: adminPrefix + '/scores.xlsx', handler: exportScores },
-  { method: 'GET', pattern: adminPrefix + '/materials.zip', handler: exportMaterials },
-  { method: 'GET', pattern: judgePrefix, handler: own },
+  { method: 'GET', pattern: adminPrefix + '/materials.zip', handler: withNewMaterials(exportMaterials, auth.requireAdmin), outsideTransaction: true },
+  { method: 'GET', pattern: judgePrefix, handler: withNewMaterials(own, requireJudge), outsideTransaction: true },
   { method: 'PUT', pattern: judgePrefix + '/materials/:id/score', handler: putScore },
   { method: 'POST', pattern: judgePrefix + '/submit', handler: submit },
   { method: 'GET', pattern: judgePrefix + '/materials/:id/:side', handler: image },

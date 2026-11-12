@@ -23,12 +23,14 @@ function createAuthLimiter({ trustProxy = false } = {}) {
     }
   }
   return (req, res, pathname, body) => {
-    if (req.method !== 'POST' || !['/api/auth/login', '/api/auth/register'].includes(pathname)) return;
+    const vote = /^\/api\/contests\/[^/]+\/works\/[^/]+\/vote$/.test(pathname);
+    if (req.method !== 'POST' || (!vote && !['/api/auth/login', '/api/auth/register'].includes(pathname))) return;
     const peer = req.socket.remoteAddress;
     const forwarded = req.headers['x-real-ip'];
     // Only trust the configured local reverse proxy, never arbitrary clients.
     const loopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(peer);
     const ip = (loopback || trustProxy) && typeof forwarded === 'string' && net.isIP(forwarded) ? forwarded : peer;
+    if (vote) { consume('vote:' + ip, 30, res); return; }
     consume('ip:' + ip, 100, res);
     const identifier = body && typeof body.identifier === 'string' ? body.identifier.trim().toLowerCase() : '';
     if (pathname.endsWith('/login') && identifier) consume('login:' + identifier.slice(0, 120), 15, res);

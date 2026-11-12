@@ -24,7 +24,11 @@ function visibleWork(db, work) {
   const entry = db.find('contestEntries', (item) => item.id === work.entryId);
   const card = db.find('cards', (item) => item.id === work.cardId);
   const user = entry && db.find('users', (item) => item.id === entry.userId);
-  return !!(entry && entry.status === 'approved' && card && card.status === 'approved' && user && user.status === 'active' && card.ownerId === user.id);
+  return !!(entry && card && card.status === 'approved' && user && user.status === 'active' && card.ownerId === user.id);
+}
+
+function reviewedWork(db, work) {
+  return visibleWork(db, work) && db.find('contestEntries', item => item.id === work.entryId).status === 'approved';
 }
 
 function targetWork(ctx) {
@@ -40,7 +44,7 @@ async function voteCounts(db, eventKey) {
 }
 
 function workView(ctx, work, voteCount) {
-  return { id: work.id, number: work.number, description: work.description, submittedAt: work.submittedAt,
+  return { id: work.id, number: work.number, description: reviewedWork(ctx.db, work) ? work.description : '', submittedAt: work.submittedAt,
     card: cardPublic(ctx.db, ctx.db.find('cards', (item) => item.id === work.cardId), ctx.user), voteCount };
 }
 
@@ -66,7 +70,7 @@ async function vote(ctx) {
   const user = auth.requireUser(ctx);
   const work = targetWork(ctx);
   const body = isObj(ctx.body) ? ctx.body : {};
-  if (typeof body.fingerprint !== 'string' || body.fingerprint.length > 8192) throw badRequest({ fingerprint: '请提交不超过 8192 字符的指纹字符串' });
+  if (typeof body.fingerprint !== 'string' || !body.fingerprint.trim() || body.fingerprint.length > 8192) throw badRequest({ fingerprint: '无法读取投票浏览器标识，请允许本站存储后重试' });
   const now = Date.now();
   const state = await voting(ctx, now);
   if (!state.isOpen) throw conflict('VOTING_CLOSED', '当前不在投票时间内');
@@ -74,9 +78,13 @@ async function vote(ctx) {
   if (state.votedWorkIds.includes(work.id)) throw conflict('WORK_ALREADY_VOTED', '已投过该作品');
   if (state.votesUsed >= 5) throw conflict('TOTAL_VOTE_LIMIT', '本赛事最多投五票');
   const key = await secret(ctx.db);
+  const fingerprintHash = digest(key, 'fingerprint', ctx.params.eventKey, body.fingerprint);
+  // Writes are serialized by Database.transaction, including across server instances.
+  const deviceVotes = (await ctx.db.client.query('SELECT count(*)::integer AS count FROM "contestVotes" WHERE "eventKey"=$1 AND "fingerprintHash"=$2 AND "fingerprintExpiresAt">now()', [ctx.params.eventKey, fingerprintHash])).rows[0].count;
+  if (deviceVotes >= 5) throw conflict('BROWSER_VOTE_LIMIT', '此浏览器本赛事的五票额度已用完，请勿切换账号重复投票；如有疑问请联系管理员');
   await ctx.db.client.query('INSERT INTO "contestVotes" (id,"eventKey","workId","userId","voterKey","voteDate",slot,"createdAt","fingerprintHash","fingerprintExpiresAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
     [createId('cv'), ctx.params.eventKey, work.id, user.id, digest(key, 'voter', ctx.params.eventKey, user.id), beijingDate(now), state.votesUsed + 1,
-      new Date(now).toISOString(), digest(key, 'fingerprint', ctx.params.eventKey, body.fingerprint), new Date(Date.parse(state.endsAt) + RETENTION_MS).toISOString()]);
+      new Date(now).toISOString(), fingerprintHash, new Date(Date.parse(state.endsAt) + RETENTION_MS).toISOString()]);
   return detail(ctx);
 }
 
@@ -157,4 +165,4 @@ async function exportVotes(ctx) {
   }, afterCommit: audit(ctx, 'votes.export') };
 }
 
-module.exports = { visibleWork, voteCounts, workView, voting, detail, vote, getSettings, putSettings, exportVotes, cleanup };
+module.exports = { visibleWork, reviewedWork, voteCounts, workView, voting, detail, vote, getSettings, putSettings, exportVotes, cleanup };

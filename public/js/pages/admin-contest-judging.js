@@ -11,11 +11,11 @@
     let alive = true, busy = false, downloading = false, loading = false, stale = false;
     let judging = null, selected = [], searchJob = 0;
     const live = () => alive && ownerLive();
-    root.innerHTML = '<h2>' + t('人工评审管理') + '</h2><p class="muted">' + t('开始前配置 5 位正常状态的普通用户。开始后评委、截止时间与材料版本固定，不可修改。截止前管理员仅可查看进度；截止后才可查看人工结果和下载评分表。不自动调用 AI 或生成最终排名。') + '</p><div data-judging-admin-body></div>';
+    root.innerHTML = '<h2>' + t('人工评审管理') + '</h2><p class="muted">' + t('配置 5 位正常状态的普通用户。开始后仍可修改评委与截止时间；截止前自动补入新审核通过的参赛作品，保留已有材料与评分，并清除完成标记。被替换评委立即失去权限，其评分归档且不再计分，新评委须重新评分。延长已截止的评审会重新开放评分并暂时隐藏结果。') + '</p><div data-judging-admin-body></div>';
     const body = root.querySelector('[data-judging-admin-body]');
     function error(err) { if (live()) body.querySelector('[data-admin-error]').textContent = err.message || QSL.t('操作失败，请稍后重试'); }
     function configDirty() {
-      if (!judging || judging.frozenAt) return false;
+      if (!judging) return false;
       const deadline = body.querySelector('[data-deadline]');
       if (!deadline) return false;
       const deadlineChanged = judging.deadline ? Date.parse(deadline.value + '+08:00') !== Date.parse(judging.deadline) : !!deadline.value;
@@ -24,10 +24,10 @@
     function disable() {
       if (!live() || !judging) return;
       const frozen = !!judging.frozenAt;
-      body.querySelectorAll('[data-config] input, [data-config] button').forEach(node => { node.disabled = busy || loading || stale || frozen; });
+      body.querySelectorAll('[data-config] input, [data-config] button').forEach(node => { node.disabled = busy || loading || stale; });
       body.querySelector('[data-start]').disabled = busy || loading || stale || frozen || configDirty() || !judging.deadline || (judging.judges || []).length !== 5;
       body.querySelector('[data-reload]').disabled = busy || loading;
-      body.querySelectorAll('[data-download]').forEach(node => { node.disabled = downloading || busy || (node.dataset.download === 'scores' ? !judging.canViewResults : !frozen); });
+      body.querySelectorAll('[data-download]').forEach(node => { node.disabled = downloading || busy || stale || loading || (node.dataset.download === 'scores' ? !judging.canViewResults : !frozen); });
     }
     function drawSelected() {
       body.querySelector('[data-selected]').innerHTML = selected.map((user, index) => '<li><span>' + QSL.t('评委 {n}', { n: index + 1 }) + ' · ' + esc(user.displayName || user.username || user.userId) + ' @' + esc(user.username || '') + ' · UID ' + esc(user.uid || '—') + '</span><button class="btn btn-ghost btn-sm" type="button" data-remove="' + index + '">' + t('移除') + '</button></li>').join('');
@@ -39,7 +39,7 @@
     function draw() {
       const frozen = !!judging.frozenAt;
       selected = (judging.judges || []).map(user => ({ ...user, id: user.userId }));
-      body.innerHTML = '<p class="a-contest-voting-status">' + t(frozen ? '评审配置已固定' : '评审尚未开始') + ' · ' + esc(QSL.t('材料版本：{version} · 共 {n} 件作品', { version: judging.materialVersion || '—', n: judging.totalWorks || 0 })) + '</p>' +
+      body.innerHTML = '<p class="a-contest-voting-status">' + t(frozen ? '评审已开始，截止前自动补入新作品' : '评审尚未开始') + ' · ' + esc(QSL.t('材料版本：{version} · 共 {n} 件作品', { version: judging.materialVersion || '—', n: judging.totalWorks || 0 })) + '</p>' +
         '<p class="muted">' + esc(QSL.t('截止时间（北京时间）：{time}', { time: J.beijingTime(judging.deadline) })) + '</p><div data-config>' +
         '<label>' + t('截止时间（北京时间 UTC+08:00）') + '<input class="input" type="datetime-local" step="1" data-deadline value="' + esc(J.beijingInput(judging.deadline)) + '"></label>' +
         '<form data-user-search class="a-judging-search"><label>' + t('搜索评委用户名或 UID') + '<input class="input" name="q" type="search" autocomplete="off"></label><button class="btn btn-ghost" type="submit">' + t('搜索用户') + '</button></form>' +
@@ -59,10 +59,13 @@
       try {
         const data = await QSL.api.get(API, { signal: resources.signal, cache: 'no-store' });
         if (!live()) return;
-        // Poll progress without overwriting a pre-start configuration draft.
-        if (quiet && judging && !judging.frozenAt && !data.judging.frozenAt) {
-          if (data.judging.revision !== judging.revision) { stale = true; error(new Error(QSL.t('评审配置已变化，请刷新后重新操作。'))); }
-        } else if (quiet && judging && judging.frozenAt && data.judging.frozenAt && judging.canViewResults === data.judging.canViewResults) {
+        // Never overwrite an unsaved configuration, including after judging starts.
+        if (quiet && judging && (data.judging.revision !== judging.revision ||
+            (configDirty() && judging.canViewResults !== data.judging.canViewResults))) {
+          stale = true;
+          body.querySelector('[data-results]').innerHTML = '';
+          error(new Error(QSL.t('评审配置已变化，请刷新后重新操作。')));
+        } else if (quiet && judging && judging.canViewResults === data.judging.canViewResults) {
           judging = data.judging;
           body.querySelector('[data-progress-rows]').innerHTML = progressRows();
         } else {
@@ -86,7 +89,7 @@
     root.addEventListener('submit', async event => {
       if (!event.target.matches('[data-user-search]')) return;
       event.preventDefault();
-      if (!live() || busy || stale || judging.frozenAt) return;
+      if (!live() || busy || stale) return;
       const q = event.target.elements.q.value.trim();
       const results = body.querySelector('[data-user-results]');
       if (!q) { results.textContent = QSL.t('请输入用户名或 UID'); return; }
@@ -94,11 +97,11 @@
       results.textContent = QSL.t('加载中…');
       try {
         const data = await QSL.api.admin.users({ q, role: 'user', status: 'active', limit: 20, page: 1 });
-        if (!live() || job !== searchJob || judging.frozenAt) return;
+        if (!live() || job !== searchJob) return;
         const users = (data.items || data.users || []).filter(user => user.role === 'user' && user.status === 'active');
         results.innerHTML = users.length ? users.map((user, index) => '<button type="button" class="btn btn-ghost" data-add-user="' + index + '">' + esc(user.displayName || user.username) + ' @' + esc(user.username) + ' · UID ' + esc(user.uid) + '</button>').join('') : '<p>' + t('没有匹配的正常普通用户') + '</p>';
         results.querySelectorAll('[data-add-user]').forEach(button => button.addEventListener('click', () => {
-          if (!live() || judging.frozenAt || busy || stale) return;
+          if (!live() || busy || stale) return;
           const user = users[Number(button.dataset.addUser)];
           if (selected.length >= 5 || selected.some(item => item.id === user.id)) { error(new Error(QSL.t('请选择 5 位不重复的正常普通用户'))); return; }
           selected.push(user); drawSelected();
@@ -112,8 +115,9 @@
       if (!judging) return;
       if (button.hasAttribute('data-remove')) { selected.splice(Number(button.dataset.remove), 1); drawSelected(); return; }
       if (button.hasAttribute('data-save-config') || button.hasAttribute('data-start')) {
-        if (busy || loading || stale || judging.frozenAt) return;
+        if (busy || loading || stale) return;
         const starting = button.hasAttribute('data-start');
+        if (starting && judging.frozenAt) return;
         if (starting && configDirty()) { error(new Error(QSL.t('请先保存当前评审配置，再开始评审。'))); return; }
         let payload = { expectedRevision: judging.revision };
         if (!starting) {
@@ -124,7 +128,12 @@
         }
         busy = true; disable();
         if (starting) {
-          const yes = await QSL.confirm({ title: QSL.t('开始并固定评审'), message: QSL.t('开始将固定已保存的 5 位评委、截止时间及当前审核通过作品材料。此操作不可修改，请确认已保存配置且材料完整。'), confirmText: QSL.t('确认开始并固定') });
+          const yes = await QSL.confirm({ title: QSL.t('开始并固定评审'), message: QSL.t('开始将固定当前审核通过作品材料；截止前新审核通过的参赛作品会自动补入，已有材料与评分保留，完成标记会清除。请确认已保存配置且材料完整。'), confirmText: QSL.t('确认开始并固定') });
+          if (!live()) return;
+          if (!yes) { busy = false; disable(); return; }
+        }
+        if (!starting && judging.frozenAt) {
+          const yes = await QSL.confirm({ title: QSL.t('确认调整评审配置'), message: QSL.t('留任评委保留评分；被替换评委立即失去权限，旧评分归档且不再计分，新评委须重新评分。修改截止时间可能重新开放评分并隐藏结果。确认保存？'), confirmText: QSL.t('保存评审配置') });
           if (!live()) return;
           if (!yes) { busy = false; disable(); return; }
         }
@@ -134,7 +143,7 @@
         } catch (err) { if (live() && err.name !== 'AbortError') { stale = err.status === 409; error(err); } }
         finally { busy = false; disable(); }
       } else if (button.hasAttribute('data-results-load')) {
-        if (!judging.canViewResults || busy) return;
+        if (!judging.canViewResults || busy || stale || loading) return;
         busy = true; button.disabled = true; disable();
         try {
           const data = await QSL.api.get(API + '/results', { signal: resources.signal, cache: 'no-store' });
@@ -147,7 +156,7 @@
         } catch (err) { if (live() && err.name !== 'AbortError') { error(err); button.disabled = false; } }
         finally { busy = false; disable(); }
       } else if (button.hasAttribute('data-download')) {
-        if (downloading) return;
+        if (downloading || stale || loading) return;
         const materials = button.dataset.download === 'materials';
         if (materials && !judging.frozenAt || !materials && !judging.canViewResults) return;
         let path = API + '/scores.xlsx', filename = 'qsl-design-2026-11-judging.xlsx';

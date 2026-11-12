@@ -4,6 +4,19 @@
   const QSL = (window.QSL = window.QSL || {});
   QSL.translations = QSL.translations || {};
   QSL.translations.en = {
+  "作品说明审核通过后展示，不影响图片展示与投票。": "The description will appear after approval. Images remain visible and eligible for voting.",
+  "使用已通过广场审核的卡片报名后，即可在这里展示并参与投票。": "Register with gallery-approved cards to display them here and receive votes.",
+  "作品说明审核": "Description review",
+  "说明审核状态": "Description review status",
+  "作品说明已通过审核": "Description approved",
+  "作品说明未通过审核": "Description not approved",
+  "作品说明审核中": "Description under review",
+  "已通过广场审核的图片在报名后即可展示和接受投票；作品说明审核通过后公开，待审核或驳回不影响图片投票。": "Gallery-approved images are displayed and eligible for voting as soon as registration is submitted. Descriptions become public after approval; pending or rejected descriptions do not affect voting for the images.",
+  "每个账号一份报名，最多选择 2 件作品。已通过广场审核的图片提交报名后即可展示和接受投票；作品说明审核通过后公开，修改报名资料需重新审核说明。": "Each account may register up to 2 entries. Gallery-approved images are displayed and eligible for voting immediately after registration. Descriptions become public after approval; changing registration details requires another description review.",
+  "已通过广场审核的图片报名后即可展示和投票；这里仅审核作品说明，待审核或驳回均不影响图片投票。": "Gallery-approved images are displayed and eligible for voting after registration. This review controls descriptions only; pending or rejected descriptions do not affect voting for the images.",
+  "通过作品说明": "Approve descriptions",
+  "驳回作品说明": "Reject descriptions",
+  "作品说明审核已更新": "Description review updated",
   "请提交当前版本": "Submit the current revision",
   "数据已更新，请刷新后重试": "The data has changed. Refresh and try again.",
   "仅授权的普通用户评委可访问": "Only authorized regular-user judges may access this resource",
@@ -1826,6 +1839,14 @@
   "实物奖品": "Physical prizes",
   "机器 + 人工 + 投票": "Automated + Human + Voting",
   "2026 颁奖日期": "2026 award ceremony date",
-  "奖杯示意图，真实奖杯的图片背景将由参赛卡片制成。": "Trophy concept preview. The actual trophy background will feature participating card designs."
+  "奖杯示意图，真实奖杯的图片背景将由参赛卡片制成。": "Trophy concept preview. The actual trophy background will feature participating card designs.",
+  "配置 5 位正常状态的普通用户。开始后仍可修改评委与截止时间；截止前自动补入新审核通过的参赛作品，保留已有材料与评分，并清除完成标记。被替换评委立即失去权限，其评分归档且不再计分，新评委须重新评分。延长已截止的评审会重新开放评分并暂时隐藏结果。": "Choose five active regular users. Judges and the deadline can be changed after starting. Newly approved contest entries are added automatically before the deadline, preserving existing materials and scores and clearing completion markers. Replaced judges lose access immediately and their scores are archived and excluded; replacements must score again. Extending a closed review reopens scoring and hides results until the new deadline.",
+  "评审已开始，截止前自动补入新作品": "Judging started; new entries are added automatically before the deadline",
+  "开始将固定当前审核通过作品材料；截止前新审核通过的参赛作品会自动补入，已有材料与评分保留，完成标记会清除。请确认已保存配置且材料完整。": "Starting freezes the currently approved entry materials. Newly approved contest entries are added automatically before the deadline, preserving existing materials and scores and clearing completion markers. Make sure the configuration is saved and materials are complete.",
+  "确认调整评审配置": "Confirm judging changes",
+  "留任评委保留评分；被替换评委立即失去权限，旧评分归档且不再计分，新评委须重新评分。修改截止时间可能重新开放评分并隐藏结果。确认保存？": "Retained judges keep their scores. Replaced judges immediately lose access; their scores are archived and excluded. New judges must score again. Changing the deadline may reopen scoring and hide results. Save these changes?",
+  "禁止多账号刷票、脚本投票及付费买票。同一浏览器跨账号合计最多 5 票，系统限制高频请求；共用浏览器请注意共享额度，遇到误拦请联系管理员。": "Multiple-account vote manipulation, automated voting and buying votes are prohibited. Accounts using the same browser share a five-vote limit. High-frequency requests are limited. Shared browsers share the quota; contact an administrator if you are blocked in error.",
+  "无法读取投票浏览器标识，请允许本站存储后重试": "Unable to read the voting browser identifier. Allow site storage and try again.",
+  "此浏览器本赛事的五票额度已用完，请勿切换账号重复投票；如有疑问请联系管理员": "This browser has used all five votes for this contest. Do not switch accounts to cast more votes. Contact an administrator if you need help."
 };
 })();

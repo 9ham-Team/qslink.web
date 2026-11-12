@@ -106,14 +106,14 @@
   }
 
   /* ---------------- 快捷入口 ---------------- */
-  function quickLinks(user) {
+  function quickLinks(user, canJudgeContest = false) {
     const links = [
       { href: '/dashboard/cards/new', icon: 'upload', title: QSL.t("上传新卡片"), desc: QSL.t("正反两面，提交审核") },
       { href: '/dashboard/cards', icon: 'cards', title: QSL.t("我的卡片"), desc: QSL.t("管理、编辑与分享") },
       { href: '/dashboard/exchanges', icon: 'inbox', title: QSL.t("换卡申请"), desc: QSL.t("处理收到的申请") },
       { href: '/dashboard/profile', icon: 'settings', title: QSL.t("个人资料"), desc: QSL.t("地址、密码与头像") }
     ];
-    if (user && user.role === 'user') {
+    if (user && user.role === 'user' && canJudgeContest) {
       links.push({ href: '/events/qsl-design-2026-11/judging', icon: 'star', title: QSL.t('评委工作台'), desc: QSL.t('指定评委专用，权限由服务器核验') });
     }
     if (user && user.role === 'admin') {
@@ -396,6 +396,7 @@
           QSL.emit('auth', data.user);
         }
         paintStats((data && data.stats) || {});
+        container.querySelector('.f-quick-grid').innerHTML = quickLinks(data.user, data.canJudgeContest === true);
         paintPending((data && data.recentIncoming) || []);
         paintRecent((data && data.recentCards) || []);
       } catch (err) {

@@ -46,13 +46,13 @@
           data.items.forEach((work) => {
             const number = String(work.number).padStart(3, '0');
             const tile = QSL.cardTile(work.card, { href: '/events/qsl-design-2026-11/works/' + encodeURIComponent(work.id), contestVoteCount: Number(work.voteCount) || 0, footerHtml: '<div class="g-contest-work"><strong>' + esc(QSL.t('作品编号：{n}', { n: number })) + '</strong>' +
-              '<details><summary>' + text('作品说明') + '</summary><p>' + esc(work.description) + '</p></details></div>' });
+              (work.description ? '<details><summary>' + text('作品说明') + '</summary><p>' + esc(work.description) + '</p></details>' : '<p class="hint">' + text('作品说明审核通过后展示，不影响图片展示与投票。') + '</p>') + '</div>' });
             grid.appendChild(tile);
           });
           if (!data.total) {
             const empty = document.createElement('div');
             empty.className = 'g-grid-empty';
-            empty.appendChild(QSL.emptyState({ icon: q ? 'search' : 'cards', title: QSL.t(q ? '没有匹配的参赛作品' : '暂无公开参赛作品'), desc: QSL.t(q ? '试试其他呼号或作品编号。' : '审核通过的参赛作品将在这里展示。') }));
+            empty.appendChild(QSL.emptyState({ icon: q ? 'search' : 'cards', title: QSL.t(q ? '没有匹配的参赛作品' : '暂无公开参赛作品'), desc: QSL.t(q ? '试试其他呼号或作品编号。' : '使用已通过广场审核的卡片报名后，即可在这里展示并参与投票。') }));
             grid.appendChild(empty);
           }
           page = data.page;
