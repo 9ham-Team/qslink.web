@@ -160,7 +160,7 @@
   function alternateHero() {
     return '<div class="f-contest-alt-intro"><header class="f-contest-alt-copy">' +
       '<p class="f-contest-alt-eyebrow"><b>2026.11</b> · FIRST EDITION · QSL CARD DESIGN CONTEST</p>' +
-      '<h1><span>' + text('第一届') + ' <span class="f-contest-brand">QSLink</span>' + text('杯') + '</span><span>' + text('QSL 卡片设计大赛') + '</span></h1>' +
+      '<h1><span>' + text('第一届') + ' <span class="f-contest-brand">QSLink</span> ' + text('杯') + '</span><span>' + text('QSL 卡片设计大赛') + '</span></h1>' +
       '<p class="f-contest-alt-subtitle">' + text('上传你的 QSL 卡片，参与评选，赢取十强好礼。') + '</p>' +
       '<div class="f-contest-alt-actions"><a class="btn btn-primary" href="' + path + '/registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 16) + '</a>' +
       '<a class="btn btn-soft" href="' + path + '#rules" data-link>' + '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v15M12 5C9 3 5 3 3 4v14c3-1 6-1 9 2 3-3 6-3 9-2V4c-2-1-6-1-9 1Z"/></svg>' + text('参赛须知') + '</a></div>' +
