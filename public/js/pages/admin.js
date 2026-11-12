@@ -704,11 +704,11 @@
     const root = tabRoot(panel,
       '<section class="a-contest-section" data-contest-voting></section>' +
       '<section class="a-contest-section a-judging-admin" data-contest-judging></section>' +
-      '<section class="a-contest-section"><div class="toolbar a-toolbar"><h2>' + esc(QSL.t("报名审核")) +
-      '</h2><span class="a-toolbar-spacer"></span><label class="a-filter">' + esc(QSL.t("报名状态")) +
+      '<section class="a-contest-section"><div class="toolbar a-toolbar"><h2>' + esc(QSL.t("作品说明审核")) +
+      '</h2><span class="a-toolbar-spacer"></span><label class="a-filter">' + esc(QSL.t("说明审核状态")) +
       '<select class="select a-select" data-contest-status>' + CARD_STATUS_TABS.map(function (item) {
         return '<option value="' + item.key + '"' + (item.key === state.status ? ' selected' : '') + '>' + esc(item.label) + '</option>';
-      }).join('') + '</select></label></div><p class="muted">' + esc(QSL.t("比赛审核与广场卡片审核独立；作品变更后需重新审核。")) +
+      }).join('') + '</select></label></div><p class="muted">' + esc(QSL.t("已通过广场审核的图片报名后即可展示和投票；这里仅审核作品说明，待审核或驳回均不影响图片投票。")) +
       '</p><div class="a-cardlist" data-contest-list></div><div class="pagination a-pager" data-contest-pager></div></section>' +
       '<section class="a-contest-section" data-contest-announcements></section>');
     const job = ++owner.jobs.contest;
@@ -791,7 +791,7 @@
         '<form class="a-announcement-form" novalidate><label>' + esc(QSL.t("审核原因（驳回必填）")) + '<textarea class="textarea" name="reviewReason" maxlength="200"></textarea></label>' +
         (!canApprove ? '<p class="a-hint-error">' + esc(QSL.t("关联卡片未通过广场审核，不能批准报名。")) + '</p>' : '') +
         '<p class="a-hint-error" data-error role="alert"></p><div class="a-announcement-actions"><button class="btn btn-primary" type="submit" value="approved"' + (!canApprove ? ' disabled' : '') + '>' +
-        esc(QSL.t("通过报名")) + '</button><button class="btn btn-danger" type="submit" value="rejected">' + esc(QSL.t("驳回报名")) +
+        esc(QSL.t("通过作品说明")) + '</button><button class="btn btn-danger" type="submit" value="rejected">' + esc(QSL.t("驳回作品说明")) +
         '</button><button class="btn btn-ghost" type="button" data-contest-reload>' + esc(QSL.t("刷新详情")) + '</button></div></form></div>';
       body.querySelector('[data-contest-reload]').addEventListener('click', function () {
         if (live() && !busy) openContestEntry(root, id);
@@ -820,7 +820,7 @@
           });
           if (!live()) return;
           modal.close();
-          toast(QSL.t("报名审核已更新"));
+          toast(QSL.t("作品说明审核已更新"));
           redrawTab();
         } catch (err) {
           if (!live()) return;

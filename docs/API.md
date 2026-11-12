@@ -407,15 +407,15 @@ body：`{ works: [{ cardId, description }], contactEmail, expectedRevision? }`�
 - 有效修改递增 `revision`、转为 `pending` 并清空旧审核信息；没有实际变化的重复保存不撤销审核结果。
 - 旧版本更新返回 `409`，需重新读取再提交；非法字段为 `400`，未登录为 `401`。
 - 修改作品选择、逐作品说明或联系邮箱，整份报名重新待审核；任一当前作品卡片内容变化或失去广场通过状态时同样重新待审核，仅库存变化不影响赛事审核。删卡清除作品的卡片/报名关联及说明并保留编号墓碑，报名保留；删除用户清理报名及所有作品个人内容，编号不回收。
-- 成功返回 `{ entry }`，首次创建为 `201`，更新为 `200`。作品说明为 1–2000 个字符，联系邮箱为有效邮箱且最多 120 个字符。
+- 成功返回 `{ entry }`，首次创建为 `201`，更新为 `200`。作品说明为 1–2000 个字符，联系邮箱为有效邮箱且最多 120 个字符。报名提交后，广场审核通过且账号正常的当前作品图片立即可公开和接受投票；作品说明待审核或被驳回时均不公开。说明修改重新待审核，但图片与既有票数保留。投票仍受赛期和既有限额约束。
 
 ### GET /api/contests/:eventKey/works
 
-匿名可读取，支持 `q`、`page`、`limit`（通用分页规则），返回 `{ items: [{ id, number, description, submittedAt, card, voteCount }], page, pages, total, limit }`。`id` 为独立作品 ID，供作品详情与投票使用；`voteCount` 为该作品已获票数（非负整数，无票为 0）。`card` 使用现有 `CardPublic` 序列化，含作者公开摘要、双面图片及比例等展示字段，兼容卡片网格。只公开当前参与、整份报名 approved、卡片 approved 且所有者账号 active 的作品；不返回报名对象、联系邮箱、审核原因、审核人或投票人。按 `submittedAt`、`number` 正序，先筛选再分页，不按票数排序。`q` 去除首尾空白后按卡片呼号大小写不敏感包含匹配；纯数字还精确匹配作品编号（`001` 与 `1` 均匹配编号 1），与呼号匹配取并集。
+匿名可读取，支持 `q`、`page`、`limit`（通用分页规则），返回 `{ items: [{ id, number, description, submittedAt, card, voteCount }], page, pages, total, limit }`。`id` 为独立作品 ID，供作品详情与投票使用；`voteCount` 为该作品已获票数（非负整数，无票为 0）。`card` 使用现有 `CardPublic` 序列化，含作者公开摘要、双面图片及比例等展示字段，兼容卡片网格。只公开当前参与、卡片 approved 且卡片仍属于报名人、报名人账号 active 的作品；报名说明的 pending／rejected 不阻止图片展示和投票。`description` 仅在整份报名 approved 时返回审核通过的原文，其他状态返回空字符串，未审核原文不通过列表、详情或投票响应公开；不返回报名对象、联系邮箱、审核原因、审核人或投票人。按 `submittedAt`、`number` 正序，先筛选再分页，不按票数排序。`q` 去除首尾空白后按卡片呼号大小写不敏感包含匹配；纯数字还精确匹配作品编号（`001` 与 `1` 均匹配编号 1），与呼号匹配取并集。
 
 ### GET /api/contests/:eventKey/works/:id
 
-匿名可读取，返回 `{ work: { id, number, description, submittedAt, card, voteCount }, voting }`，作品结构与列表项一致。按作品 ID 查询并执行与公开列表相同的可见性规则，已移除、未通过审核、卡片不可公开或账号不可用的作品返回 404，不通过详情泄露隐藏内容。
+匿名可读取，返回 `{ work: { id, number, description, submittedAt, card, voteCount }, voting }`，作品结构与列表项一致。按作品 ID 查询并执行与公开列表相同的可见性规则，已移除、卡片不可公开、所有权不符或账号不可用的作品返回 404，不通过详情泄露隐藏内容。
 
 ### POST /api/contests/:eventKey/works/:id/vote 🔒
 
@@ -425,7 +425,7 @@ body：`{ fingerprint }`，`fingerprint` 为浏览器本地持久化的随机投
 
 ### GET /api/admin/contests/:eventKey/entries 🔒👑
 
-支持 `status=all|pending|approved|rejected`、`page`、`limit`，返回通用分页结构 `{ items, total, page, limit, pages }`。列表包含报名审核所需字段及参赛者简要信息，不通过公开接口暴露。
+支持 `status=all|pending|approved|rejected`、`page`、`limit`，返回通用分页结构 `{ items, total, page, limit, pages }`。列表包含作品说明审核所需字段及参赛者简要信息，不通过公开接口暴露。
 
 ### GET /api/admin/contests/:eventKey/entries/:id 🔒👑
 
@@ -433,7 +433,7 @@ body：`{ fingerprint }`，`fingerprint` 为浏览器本地持久化的随机投
 
 ### PUT /api/admin/contests/:eventKey/entries/:id/review 🔒👑
 
-body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。驳回必须填写 1–200 个字符的原因；旧版本返回 `409 REVISION_CONFLICT`。实质审核变化递增 `revision`，相同结果与原因的重复审核保持幂等。通过时再次检查所有关联卡片存在、属于报名人、广场状态为 approved，且报名用户可用；没有可用卡片不能通过。审核只改变赛事报名，不代替或改变广场审核。返回 `{ entry }`。
+body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。驳回必须填写 1–200 个字符的原因；旧版本返回 `409 REVISION_CONFLICT`。实质审核变化递增 `revision`，相同结果与原因的重复审核保持幂等。通过时再次检查所有关联卡片存在、属于报名人、广场状态为 approved，且报名用户可用；没有可用卡片不能通过。审核只控制作品说明的公开以及完整评审材料的准入，不代替或改变广场图片审核。pending／rejected 时图片仍可展示与投票，description 为空；approved 后公开说明并允许完整材料进入人工评审。已获得的票数不因说明状态变化而清除。返回 `{ entry }`。
 
 ### GET /api/admin/contests/:eventKey/voting 🔒👑
 
@@ -449,13 +449,13 @@ body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。
 
 ### 独立人工评审接口 🔒
 
-本届人工评审不依赖全局新角色。管理员指定恰好 5 个不同的 active 普通账号（`role=user`），评委使用本人会话；管理员不因角色获得评委权限。配置、开始、保存、提交均有版本校验，截止使用服务端实际时间，前端以北京时间显示。开始后名单、截止时间和材料版本锁定，不提供普通改期／替换／重置接口。
+本届人工评审不依赖全局新角色。管理员指定恰好 5 个不同的 active 普通账号（`role=user`），评委使用本人会话；管理员不因角色获得评委权限。配置、开始、保存、提交均有版本校验，截止使用服务端实际时间，前端以北京时间显示。开始后可按版本调整名单和未来截止时间；截止前读取评委工作台、管理员评审配置或材料包时，自动补入新审核通过且满足公开条件的参赛作品，已有材料和评分保留。
 
 所有评审 JSON、图片和导出文件均为私有、`no-store`，图片路径不包含 token。无会话 401，无权限 403，未知材料／赛事 404；版本冲突、未开始写入、已截止写入分别返回 409 `REVISION_CONFLICT`／`JUDGING_NOT_STARTED`／`JUDGING_CLOSED`；完成标记不限制截止前继续修改。客户端不能通过 `userId`、`judgeId` 或作品参数读取／修改另一评委的评分。
 
 #### GET /api/admin/contests/:eventKey/judging 👑
 
-返回 `{ judging }`：`revision`、`deadline`、`frozenAt`、`materialVersion`、`totalWorks`、`judges` 和 `canViewResults`。`totalWorks` 是已冻结作品数量，准备期为 0，不代表实时可参赛作品总量。名单项目包括 `slot`（1–5）、`userId`、`username`、`uid`、`displayName`、`scoredCount`、`submittedAt`。截止前只返回进度，不包含分数、评语、人工项或隐藏结果。名单中的账号信息不通过公开接口或其他评委接口返回。
+返回 `{ judging }`：`revision`、`deadline`、`frozenAt`、`materialVersion`、`totalWorks`、`judges` 和 `canViewResults`。`totalWorks` 是当前已冻结作品数量，准备期为 0。开始后截止前读取本接口会补入新增可参赛作品。名单项目包括 `slot`（1–5）、`userId`、`username`、`uid`、`displayName`、`scoredCount`、`submittedAt`。截止前只返回进度，不包含分数、评语、人工项或隐藏结果。名单中的账号信息不通过公开接口或其他评委接口返回。
 
 #### PUT /api/admin/contests/:eventKey/judging 👑
 
@@ -463,11 +463,11 @@ body：`{ expectedRevision, deadline, judgeUserIds: [五个用户ID] }`，截止
 
 #### POST /api/admin/contests/:eventKey/judging/start 👑
 
-body：`{ expectedRevision }`。恰有 5 位可用评委、未来截止时间及可评审作品后才能开始。开始时只选取当前满足公开条件的审核通过作品，并固定作品编号、标题、说明、站内正反面图片和材料版本。图片处理在事务外准备，最终短写事务重新核对配置和作品快照，防止处理中改稿混入另一版；失败不发布半份材料。单次最多冻结 1000 件作品、派生图片合计最多 256 MiB，单图最多 10 MiB，输出最长边不超过 1920；超限拒绝而不静默截断。之后原卡修改或删除不自动改变冻结内容。
+body：`{ expectedRevision }`。恰有 5 位可用评委、未来截止时间及可评审作品后才能开始。开始时只选取当前满足公开条件的审核通过作品，并固定作品编号、标题、说明、站内正反面图片和材料版本。图片处理在事务外准备，最终短写事务重新核对配置和作品快照，防止处理中改稿混入另一版；失败不发布半份材料。单次最多冻结 1000 件作品、派生图片合计最多 256 MiB，单图最多 10 MiB，输出最长边不超过 1920；超限拒绝而不静默截断。之后原卡修改或删除不自动改变冻结内容。截止前读取评委工作台、管理员评审配置或材料包会补入尚未冻结且满足相同公开条件的作品（已有部署中漏入的作品也会补入）。补入更新整体材料版本和配置 revision，保留已冻结作品、编号和各项评分，清除所有评委完成标记并递增其整表 revision。图片在独立批次目录准备，短写事务重新校验配置、作品和实际截止时间；并发刷新只发布一份，失败清理自身未发布批次。总作品和图片大小限制对累计材料生效。截止后不再补入；延长截止后重新按此规则补入。
 
 #### GET /api/contests/:eventKey/judging
 
-仅本届评委，返回 `{ judging, items }`。`judging` 包含 `deadline`、`frozenAt`、`materialVersion`、`totalWorks`、`submittedAt`、`isOpen`、`slot` 及本人整表 `revision`；`items` 为 `{ id, number, title, description, frontUrl, backUrl, score }` 数组，`score` 为 `null` 或 `{ value, comment, revision }`，只含本人评分。未开始且已获授权时返回 `isOpen:false`、空 `items`；截止或提交后仍能读取本人内容。不返回其他评委名单／评分、票数、AI 分数或人工汇总。
+仅本届评委，截止前先检查并补入新增合格作品，再返回 `{ judging, items }`。前端每 30 秒刷新，也可手动刷新。`judging` 包含 `deadline`、`frozenAt`、`materialVersion`、`totalWorks`、`submittedAt`、`isOpen`、`slot` 及本人整表 `revision`；`items` 为 `{ id, number, title, description, frontUrl, backUrl, score }` 数组，`score` 为 `null` 或 `{ value, comment, revision }`，只含本人评分。未开始且已获授权时返回 `isOpen:false`、空 `items`；截止或提交后仍能读取本人内容。不返回其他评委名单／评分、票数、AI 分数或人工汇总。
 
 #### PUT /api/contests/:eventKey/judging/materials/:id/score
 

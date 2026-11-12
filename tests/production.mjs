@@ -16,7 +16,7 @@ import './i18n.mjs';
 import './contest-page.mjs';
 import './judging-page.mjs';
 import './contest-rate-limit.mjs';
-import { testContestJudging } from './contest-judging.mjs';
+import { testContestJudging, createJudgingFixture } from './contest-judging.mjs';
 test('contest judging: frozen materials, permissions, revisions, cutoff and exports', testContestJudging);
 import './review-webhook.mjs';
 import { testExchangeCardChoice } from './exchange-card-choice.mjs';
@@ -358,6 +358,67 @@ async function request(base, route, { token, body, headers = {}, method = 'GET' 
   return fetch(base + route, { method, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { Authorization: 'Bearer ' + token } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined });
 }
+
+test('contest HTTP separates description review from voting and exports newly approved judging materials', async t => {
+  const f = await createJudgingFixture();
+  databases.set(f.dataDir, f);
+  t.after(() => f.cleanup());
+  const app = await start(t, f.dataDir);
+  const adminRoute = '/api/admin/contests/qsl-design-2026-11/judging';
+  const judgeRoute = '/api/contests/qsl-design-2026-11/judging';
+  const worksRoute = '/api/contests/qsl-design-2026-11/works';
+  const reviewRoute = '/api/admin/contests/qsl-design-2026-11/entries/entry/review';
+  await f.db.transaction(unit => { unit.find('contestEntries', e => e.id === 'entry').status = 'pending'; }, { write: true });
+  const votingConfig = await request(app.base, '/api/admin/contests/qsl-design-2026-11/voting', { method: 'PUT', token: f.adminToken,
+    body: { expectedRevision: 0, startsAt: new Date(Date.now() - 60000).toISOString(), endsAt: new Date(Date.now() + 3600000).toISOString() } });
+  assert.equal(votingConfig.status, 200);
+  const pending = await (await request(app.base, worksRoute)).json();
+  assert.equal(pending.items.length, 2);
+  assert.ok(pending.items.every(w => w.description === '' && w.card.frontImage));
+  for (const [index, status] of ['pending', 'rejected'].entries()) {
+    if (status === 'rejected') {
+      const rejected = await request(app.base, reviewRoute, { method: 'PUT', token: f.adminToken, body: { expectedRevision: 1, status, reviewReason: 'private-rejection' } });
+      assert.equal(rejected.status, 200);
+    }
+    const voted = await request(app.base, worksRoute + '/work1/vote', { method: 'POST', token: f.judgeTokens[index], body: { fingerprint: 'early-http-vote-' + index } });
+    assert.equal(voted.status, 200);
+    const data = await voted.json();
+    assert.equal(data.work.description, '');
+    assert.equal(data.work.voteCount, index + 1);
+    assert.ok(!JSON.stringify(data).includes('private-rejection'));
+  }
+  const approved = await request(app.base, reviewRoute, { method: 'PUT', token: f.adminToken, body: { expectedRevision: 2, status: 'approved' } });
+  assert.equal(approved.status, 200);
+  const publicWork = await (await request(app.base, worksRoute + '/work1')).json();
+  assert.equal(publicWork.work.description, 'Frozen description 1');
+  assert.equal(publicWork.work.voteCount, 2, 'approval preserves earlier votes');
+  const config = await request(app.base, adminRoute, { method: 'PUT', token: f.adminToken, body: {
+    expectedRevision: 0, judgeUserIds: f.ids, deadline: new Date(Date.now() + 3600000).toISOString(),
+  } });
+  assert.equal(config.status, 200);
+  const started = await request(app.base, adminRoute + '/start', { method: 'POST', token: f.adminToken, body: { expectedRevision: 1 } });
+  assert.equal(started.status, 200);
+  await f.db.transaction(unit => {
+    unit.insert('cards', { ...unit.find('cards', c => c.id === 'card2'), id: 'http-card3', shareToken: 'http-share3', shortToken: 'HTPNew' });
+    unit.insert('contestWorks', { ...unit.find('contestWorks', w => w.id === 'work2'), id: 'http-work3', cardId: 'http-card3', number: 3 });
+  }, { write: true });
+  const zip = await request(app.base, adminRoute + '/materials.zip?from=3&to=3', { token: f.adminToken });
+  assert.equal(zip.status, 200);
+  assert.equal(zip.headers.get('content-type'), 'application/zip');
+  assert.equal(zip.headers.get('cache-control'), 'no-store');
+  const bytes = Buffer.from(await zip.arrayBuffer());
+  assert.equal(bytes.subarray(0, 2).toString(), 'PK');
+  const own = await request(app.base, judgeRoute, { token: f.judgeTokens[0] });
+  assert.equal(own.status, 200);
+  const sheet = await own.json();
+  assert.equal(sheet.items.length, 3);
+  const image = await request(app.base, sheet.items[2].frontUrl, { token: f.judgeTokens[0] });
+  assert.equal(image.status, 200);
+  assert.equal(image.headers.get('content-type'), 'image/webp');
+  assert.equal(image.headers.get('cache-control'), 'no-store');
+  assert.equal((await request(app.base, adminRoute + '/materials.zip?from=3&to=3')).status, 401);
+  await app.stop();
+});
 
 async function withCode(app, body) {
   assert.equal((await request(app.base, '/api/auth/email-code', { method: 'POST', body: { email: body.email } })).status, 200);

@@ -124,18 +124,18 @@
       const missing = entry && (entry.cardIds || []).some((id) => !cards.some((card) => card.id === id));
       selected = entry ? (entry.cardIds || []).slice() : [];
       const statusHtml = entry ? '<div class="f-contest-status"><h3>' + text('我的报名') + '</h3>' +
-        (status === 'pending' ? QSL.badge(QSL.t('待审核'), 'amber') : QSL.statusBadge(status)) + '</div>' +
+        '<span>' + text('作品说明审核') + '</span>' + (status === 'pending' ? QSL.badge(QSL.t('待审核'), 'amber') : QSL.statusBadge(status)) + '</div>' +
         (status === 'rejected' ? '<p class="f-contest-review" role="status">' + text('驳回原因') + '：' + esc(entry.reviewReason || QSL.t('请修改后重新提交。')) + '</p>' : '') +
         (missing ? '<p class="f-contest-review">' + text('原报名卡片已不可用或未通过广场审核，请重新选择已通过审核的卡片。') + '</p>' : '') : '';
       if (entry && !editing) {
-        const state = status === 'approved' ? { label: '已通过', icon: 'check-circle' } :
-          status === 'rejected' ? { label: '未通过', icon: 'alert' } : { label: '审核中', icon: 'clock' };
+        const state = status === 'approved' ? { label: '作品说明已通过审核', icon: 'check-circle' } :
+          status === 'rejected' ? { label: '作品说明未通过审核', icon: 'alert' } : { label: '作品说明审核中', icon: 'clock' };
         showPanel('<div class="f-contest-result f-contest-result--' + esc(status) + '">' +
           '<span class="f-contest-result-icon" aria-hidden="true">' + QSL.icon(state.icon, 88) + '</span>' +
           '<p class="f-contest-result-label">' + text('我的报名') + '</p><h3 tabindex="-1" data-result-title>' + text(state.label) + '</h3>' +
           (status === 'rejected' ? '<p class="f-contest-result-note">' + text('驳回原因') + '：' + esc(entry.reviewReason || QSL.t('请修改后重新提交。')) + '</p>' : '') +
           (missing ? '<p class="f-contest-result-note">' + text('原报名卡片已不可用或未通过广场审核，请重新选择已通过审核的卡片。') + '</p>' : '') +
-          submittedWorksHtml() + '<div class="f-contest-actions"><button class="btn btn-soft" type="button" data-action="entry">' + QSL.icon('refresh', 18) + text('刷新状态') + '</button>' +
+          '<p class="f-contest-result-note">' + text('已通过广场审核的图片在报名后即可展示和接受投票；作品说明审核通过后公开，待审核或驳回不影响图片投票。') + '</p>' + submittedWorksHtml() + '<div class="f-contest-actions"><button class="btn btn-soft" type="button" data-action="entry">' + QSL.icon('refresh', 18) + text('刷新状态') + '</button>' +
           '<button class="btn btn-primary" type="button" data-action="edit-entry">' + QSL.icon('edit', 18) + text('修改报名信息') + '</button></div></div>', animate, focus);
         return;
       }
@@ -145,7 +145,7 @@
         showPanel(statusHtml + '<p>' + text('暂无可参赛卡片。请先上传卡片并通过广场审核，再回来报名。') + '</p>' + links, animate, focus);
         return;
       }
-      showPanel(statusHtml + '<p class="f-contest-form-intro">' + text('每个账号一份报名，最多选择 2 件作品。待审核时可更新；已通过的报名如修改作品或报名资料，将重新审核。') + '</p>' +
+      showPanel(statusHtml + '<p class="f-contest-form-intro">' + text('每个账号一份报名，最多选择 2 件作品。已通过广场审核的图片提交报名后即可展示和接受投票；作品说明审核通过后公开，修改报名资料需重新审核说明。') + '</p>' +
         '<form data-entry-form><div class="field" role="group" aria-label="' + text('参赛卡片') + '">' +
           '<span class="label">' + text('参赛卡片') + '<i class="req">*</i></span>' +
           '<div class="f-contest-cards"><div class="f-contest-selected" data-selected-cards></div>' +

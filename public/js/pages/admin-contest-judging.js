@@ -11,7 +11,7 @@
     let alive = true, busy = false, downloading = false, loading = false, stale = false;
     let judging = null, selected = [], searchJob = 0;
     const live = () => alive && ownerLive();
-    root.innerHTML = '<h2>' + t('人工评审管理') + '</h2><p class="muted">' + t('配置 5 位正常状态的普通用户。开始后仍可修改评委与截止时间，材料版本保持固定。留任评委保留评分，被替换评委立即失去权限，其评分归档且不再计分，新评委须重新评分。延长已截止的评审会重新开放评分并暂时隐藏结果。') + '</p><div data-judging-admin-body></div>';
+    root.innerHTML = '<h2>' + t('人工评审管理') + '</h2><p class="muted">' + t('配置 5 位正常状态的普通用户。开始后仍可修改评委与截止时间；截止前自动补入新审核通过的参赛作品，保留已有材料与评分，并清除完成标记。被替换评委立即失去权限，其评分归档且不再计分，新评委须重新评分。延长已截止的评审会重新开放评分并暂时隐藏结果。') + '</p><div data-judging-admin-body></div>';
     const body = root.querySelector('[data-judging-admin-body]');
     function error(err) { if (live()) body.querySelector('[data-admin-error]').textContent = err.message || QSL.t('操作失败，请稍后重试'); }
     function configDirty() {
@@ -39,7 +39,7 @@
     function draw() {
       const frozen = !!judging.frozenAt;
       selected = (judging.judges || []).map(user => ({ ...user, id: user.userId }));
-      body.innerHTML = '<p class="a-contest-voting-status">' + t(frozen ? '评审已开始，材料已固定' : '评审尚未开始') + ' · ' + esc(QSL.t('材料版本：{version} · 共 {n} 件作品', { version: judging.materialVersion || '—', n: judging.totalWorks || 0 })) + '</p>' +
+      body.innerHTML = '<p class="a-contest-voting-status">' + t(frozen ? '评审已开始，截止前自动补入新作品' : '评审尚未开始') + ' · ' + esc(QSL.t('材料版本：{version} · 共 {n} 件作品', { version: judging.materialVersion || '—', n: judging.totalWorks || 0 })) + '</p>' +
         '<p class="muted">' + esc(QSL.t('截止时间（北京时间）：{time}', { time: J.beijingTime(judging.deadline) })) + '</p><div data-config>' +
         '<label>' + t('截止时间（北京时间 UTC+08:00）') + '<input class="input" type="datetime-local" step="1" data-deadline value="' + esc(J.beijingInput(judging.deadline)) + '"></label>' +
         '<form data-user-search class="a-judging-search"><label>' + t('搜索评委用户名或 UID') + '<input class="input" name="q" type="search" autocomplete="off"></label><button class="btn btn-ghost" type="submit">' + t('搜索用户') + '</button></form>' +
@@ -128,7 +128,7 @@
         }
         busy = true; disable();
         if (starting) {
-          const yes = await QSL.confirm({ title: QSL.t('开始并固定评审'), message: QSL.t('开始将固定当前审核通过作品材料；之后可调整评委与截止时间，材料不会重新生成。请确认已保存配置且材料完整。'), confirmText: QSL.t('确认开始并固定') });
+          const yes = await QSL.confirm({ title: QSL.t('开始并固定评审'), message: QSL.t('开始将固定当前审核通过作品材料；截止前新审核通过的参赛作品会自动补入，已有材料与评分保留，完成标记会清除。请确认已保存配置且材料完整。'), confirmText: QSL.t('确认开始并固定') });
           if (!live()) return;
           if (!yes) { busy = false; disable(); return; }
         }

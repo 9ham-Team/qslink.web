@@ -63,7 +63,7 @@
           '<p class="eyebrow">' + esc(QSL.t('作品编号：{n}', { n: number })) + '</p><h1>' + esc(card.title || QSL.t('未命名卡片')) + '</h1>' +
           '<div class="g-contest-detail__author">' + QSL.ownerLine(card.owner) + '</div>' +
           '<p class="hint">' + text('上传时间') + ' · ' + esc(QSL.formatDateTime(card.createdAt)) + '</p>' +
-          '<h2>' + text('作品说明') + '</h2><p class="g-contest-detail__description">' + esc(work.description) + '</p>' +
+          '<h2>' + text('作品说明') + '</h2><p class="g-contest-detail__description">' + (work.description ? esc(work.description) : text('作品说明审核通过后展示，不影响图片展示与投票。')) + '</p>' +
           '<section class="g-contest-detail__voting" aria-label="' + text('赛事投票') + '"><strong data-vote-count aria-live="polite"></strong>' +
           '<p class="hint">' + text('每账号本赛事共 5 票，不设每日限制；同一作品只能投 1 次，允许为自己投票。投票后不可撤回。') + '</p>' +
           '<p class="hint">' + text('账号正常可用即可投票，无需拥有广场卡片或报名参赛。') + '</p>' +

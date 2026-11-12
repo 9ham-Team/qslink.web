@@ -24,7 +24,11 @@ function visibleWork(db, work) {
   const entry = db.find('contestEntries', (item) => item.id === work.entryId);
   const card = db.find('cards', (item) => item.id === work.cardId);
   const user = entry && db.find('users', (item) => item.id === entry.userId);
-  return !!(entry && entry.status === 'approved' && card && card.status === 'approved' && user && user.status === 'active' && card.ownerId === user.id);
+  return !!(entry && card && card.status === 'approved' && user && user.status === 'active' && card.ownerId === user.id);
+}
+
+function reviewedWork(db, work) {
+  return visibleWork(db, work) && db.find('contestEntries', item => item.id === work.entryId).status === 'approved';
 }
 
 function targetWork(ctx) {
@@ -40,7 +44,7 @@ async function voteCounts(db, eventKey) {
 }
 
 function workView(ctx, work, voteCount) {
-  return { id: work.id, number: work.number, description: work.description, submittedAt: work.submittedAt,
+  return { id: work.id, number: work.number, description: reviewedWork(ctx.db, work) ? work.description : '', submittedAt: work.submittedAt,
     card: cardPublic(ctx.db, ctx.db.find('cards', (item) => item.id === work.cardId), ctx.user), voteCount };
 }
 
@@ -161,4 +165,4 @@ async function exportVotes(ctx) {
   }, afterCommit: audit(ctx, 'votes.export') };
 }
 
-module.exports = { visibleWork, voteCounts, workView, voting, detail, vote, getSettings, putSettings, exportVotes, cleanup };
+module.exports = { visibleWork, reviewedWork, voteCounts, workView, voting, detail, vote, getSettings, putSettings, exportVotes, cleanup };

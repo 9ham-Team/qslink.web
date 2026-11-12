@@ -129,8 +129,22 @@ async function testContestVoting() {
     await rejects(vote(ids[0], { viewer: 'ineligible' }), 403);
     for (const body of [{}, { fingerprint: '' }, { fingerprint: '   ' }, { fingerprint: 123 }, { fingerprint: 'x'.repeat(8193) }]) await rejects(vote(ids[0], { body }), 400);
     const authorEntryId = await f.db.transaction(unit => unit.find('contestWorks', work => work.id === ids[0]).entryId);
+    for (const status of ['pending', 'rejected']) {
+      // Exercise actual vote SQL, then roll back to leave the quota fixtures intact.
+      const rollback = new Error('rollback preview vote');
+      await assert.rejects(f.db.transaction(async unit => {
+        unit.find('contestEntries', entry => entry.id === authorEntryId).status = status;
+        const route = contests.routes.find(item => item.method === 'POST' && item.pattern === votePath);
+        const response = await route.handler({ db: unit, user: unit.find('users', u => u.id === 'voter'),
+          params: { eventKey, id: ids[0] }, body: { fingerprint: 'preview-vote-' + status } });
+        assert.equal(response.body.work.description, '', 'unreviewed text is absent even in the vote response');
+        assert.equal(response.body.work.voteCount, 1, 'pending/rejected descriptions do not block voting');
+        assert.ok(response.body.work.card.frontImage);
+        throw rollback;
+      }, { write: true }), error => error === rollback);
+    }
     for (const [collection, targetId, field, hidden, visible] of [
-      ['contestWorks', ids[0], 'active', false, true], ['contestEntries', authorEntryId, 'status', 'pending', 'approved'],
+      ['contestWorks', ids[0], 'active', false, true],
       ['cards', 'work1', 'status', 'pending', 'approved'], ['users', 'author', 'status', 'banned', 'active'],
     ]) {
       await f.db.transaction(unit => { unit.find(collection, item => item.id === targetId)[field] = hidden; }, { write: true });
@@ -413,7 +427,9 @@ export async function testContests() {
     assert.equal(entry.works[0].description, description, 'API stores plain text; rendering is responsible for escaping');
     assert.equal(entry.works[0].number, 1);
     const originalWork = entry.works[0];
-    assert.equal((await publicWorks()).total, 0);
+    assert.equal((await publicWorks()).total, 1, 'gallery-approved images are public before description approval');
+    assert.equal((await publicWorks()).items[0].description, '');
+    assert.ok(!JSON.stringify(await publicWorks()).includes(description), 'unreviewed description never leaves the public API');
     assert.equal(entry.cards.length, 1);
     assert.equal(entry.cards[0].id, 'target');
     assert.equal(entry.user.id, 'owner');
@@ -446,6 +462,7 @@ export async function testContests() {
     await f.db.transaction(unit => { unit.find('cards', item => item.id === 'target').status = 'approved'; }, { write: true });
     const firstPage = await publicWorks('limit=1');
     assert.equal(firstPage.total, 2);
+    assert.equal(firstPage.items[0].description, description, 'approval publishes the description');
     assert.equal(firstPage.pages, 2);
     assert.deepEqual(Object.keys(firstPage.items[0]).sort(), ['card', 'description', 'id', 'number', 'submittedAt', 'voteCount']);
     assert.equal(firstPage.items[0].card.owner.id, 'owner');
@@ -464,7 +481,8 @@ export async function testContests() {
     assert.deepEqual(entry.cardIds, ['target']);
     assertPending(entry, approvedMulti);
     await assertApprovedCount(0);
-    assert.equal((await publicWorks()).total, 0);
+    assert.equal((await publicWorks()).total, 1, 'resubmission keeps the remaining image visible');
+    assert.equal((await publicWorks()).items[0].description, '');
     const readded = await submit({ ...payload, works: selected(['target', 'replacement']), expectedRevision: entry.revision });
     assert.equal(readded.works[1].number, multi.works[1].number);
     assert.equal(readded.works[1].submittedAt, multi.works[1].submittedAt);
@@ -488,6 +506,7 @@ export async function testContests() {
     entry = await submit({ ...payload, works: selected(['target'], '修改后的作品说明'), expectedRevision: entry.revision });
     assertPending(entry, approved);
     await assertApprovedCount(0);
+    assert.equal((await publicWorks()).items[0].description, '', 'editing an approved description hides the new text pending review');
     await rejects(review(approved), 409);
     await rejects(submit({ ...payload, expectedRevision: approved.revision }), 409);
     await rejects(call(contests.routes, 'PUT', reviewPath, { viewer: 'admin', id: entry.id, body: { status: 'rejected', reviewReason: '', expectedRevision: entry.revision } }), 400);
@@ -497,6 +516,8 @@ export async function testContests() {
     entry = await review(entry, 'rejected');
     assert.equal(entry.status, 'rejected');
     await assertApprovedCount(0);
+    assert.equal((await publicWorks()).total, 1, 'rejecting text does not hide an approved image');
+    assert.equal((await publicWorks()).items[0].description, '');
     assert.equal(entry.reviewReason, '请完善作品说明');
     const rejected = entry;
     entry = await submit({ ...payload, works: selected(['target'], '完善作品说明后重提'), expectedRevision: entry.revision });
