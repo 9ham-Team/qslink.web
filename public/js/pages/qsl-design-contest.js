@@ -14,7 +14,7 @@
         QSL.t('比赛采用一轮投票制：每个账号全赛期累计最多投 5 票，可投给五个不同作品，无每日限制；对每件作品最多投 1 票，投出后不可撤回，允许投给自己的作品。每个呼号仅可获得其最高名次的一项奖。'),
         QSL.t('禁止多账号刷票、脚本投票及付费买票。同一浏览器跨账号合计最多 5 票，系统限制高频请求；共用浏览器请注意共享额度，遇到误拦请联系管理员。'),
         QSL.t('账号正常可用即可投票，无需拥有广场卡片，也无需报名参赛。投票起止时间以赛事公布的安排为准，请从参赛作品列表进入作品详情投票，列表不提供快捷投票。'),
-        QSL.t('报名开始、截止日期及完整赛程待公布。当前可提交报名，后续安排请关注赛事动态。')
+        QSL.t('报名截止日期为 2026 年 12 月 20 日，颁奖日期为 2026 年 12 月 25 日。其他赛程安排请关注赛事动态。')
       ] },
       { title: QSL.t('评分规则'), icon: 'star', items: [
         QSL.t('总分 100 分：机器评分 30 分 + 人工评分 50 分 + 投票评分 20 分。'),
@@ -165,11 +165,12 @@
       '<p class="f-contest-alt-subtitle">' + text('上传你的 QSL 卡片，参与评选，赢取十强好礼。') + '</p>' +
       '<div class="f-contest-alt-actions"><a class="btn btn-primary" href="' + path + '/registration" data-link>' + text('比赛报名') + QSL.icon('arrow-right', 16) + '</a>' +
       '<a class="btn btn-soft" href="' + path + '#rules" data-link>' + '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v15M12 5C9 3 5 3 3 4v14c3-1 6-1 9 2 3-3 6-3 9-2V4c-2-1-6-1-9 1Z"/></svg>' + text('参赛须知') + '</a></div>' +
-      '<p class="f-contest-alt-status">' + text('报名通道开放中 · 截止日期待公布') + '</p>' +
+      '<p class="f-contest-alt-status">' + text('报名通道开放中 · 2026.12.20 截止') + '</p>' +
       '<dl class="f-contest-alt-stats"><div><dt>10<small>' + text('名') + '</small></dt><dd>' + text('实物奖品') + '</dd></div>' +
       '<div><dt>30<small> + </small>50<small> + </small>20</dt><dd>' + text('机器 + 人工 + 投票') + '</dd></div>' +
-      '<div><dt>12.20</dt><dd>' + text('2026 颁奖日期') + '</dd></div></dl></header>' +
-      '<figure class="f-contest-alt-figure"><div class="f-contest-alt-figure-head"><span class="f-contest-trophy-label">' + QSL.icon('trophy', 14) + text('冠军奖杯') + '</span><time datetime="2026-12-20">2026.12.20</time></div>' +
+      '<div><dt><time datetime="2026-12-20">12.20</time></dt><dd>' + text('2026 报名截止日期') + '</dd></div>' +
+      '<div><dt><time datetime="2026-12-25">12.25</time></dt><dd>' + text('2026 颁奖日期') + '</dd></div></dl></header>' +
+      '<figure class="f-contest-alt-figure"><div class="f-contest-alt-figure-head"><span class="f-contest-trophy-label">' + QSL.icon('trophy', 14) + text('冠军奖杯') + '</span><time datetime="2026-12-25">2026.12.25</time></div>' +
       '<div class="f-contest-alt-stage"><img src="/assets/contest-trophy.webp" width="1121" height="1403" alt="' + text('冠军奖杯') + '" decoding="async"></div>' +
       '<figcaption>' + text('奖杯示意图，真实奖杯的图片背景将由参赛卡片制成。') + '</figcaption></figure></div>';
   }
