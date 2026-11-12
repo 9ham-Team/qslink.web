@@ -17,6 +17,62 @@ const eventKey = 'qsl-design-2026-11';
 const adminPath = '/api/admin/contests/:eventKey/judging';
 const judgePath = '/api/contests/:eventKey/judging';
 
+async function testNewJudgingMaterials() {
+  const f = await createJudgingFixture();
+  async function read(pattern = judgePath, viewer = 'judge1') {
+    const route = judging.routes.find(r => r.method === 'GET' && r.pattern === pattern);
+    const token = viewer === 'admin' ? f.adminToken : f.judgeTokens[f.ids.indexOf(viewer)];
+    return route.handler({ db: f.db, config: f.config, req: { headers: { authorization: 'Bearer ' + token } }, params: { eventKey }, query: new URLSearchParams('from=1&to=3') });
+  }
+  async function write(pattern, body, viewer = 'admin') {
+    const route = judging.routes.find(r => r.method !== 'GET' && r.pattern === pattern);
+    if (route.outsideTransaction) return route.handler({ db: f.db, config: f.config, req: { headers: { authorization: 'Bearer ' + f.adminToken } }, params: { eventKey }, body });
+    return f.db.transaction(unit => route.handler({ db: unit, user: unit.find('users', u => u.id === viewer), params: { eventKey, id: 'work1' }, body }), { write: true });
+  }
+  try {
+    await write(adminPath, { expectedRevision: 0, judgeUserIds: f.ids, deadline: new Date(Date.now() + 3600000).toISOString() });
+    await write(adminPath + '/start', { expectedRevision: 1 });
+    await write(judgePath + '/materials/:id/score', { expectedRevision: 0, score: 8.5, comment: 'keep me' }, 'judge1');
+    await f.db.transaction(async unit => {
+      await unit.client.query('UPDATE "contestJudges" SET "submittedAt"=clock_timestamp() WHERE "eventKey"=$1', [eventKey]);
+      const card = structuredClone(unit.find('cards', c => c.id === 'card2'));
+      unit.insert('cards', { ...card, id: 'card3', shareToken: 'new-share-token', shortToken: 'NewTok', status: 'pending' });
+      unit.insert('contestWorks', { ...unit.find('contestWorks', w => w.id === 'work2'), id: 'work3', cardId: 'card3', number: 3 });
+    }, { write: true });
+    const before = (await read()).body;
+    assert.equal(before.items.length, 2, 'unapproved cards stay out');
+    await f.db.transaction(unit => { unit.find('cards', c => c.id === 'card3').status = 'approved'; }, { write: true });
+    const competing = await Promise.all([read(), read(adminPath, 'admin')]);
+    assert.ok(competing.every(r => r.body.judging.totalWorks === 3), 'concurrent refreshes append once');
+    const after = (await read()).body;
+    assert.deepEqual(after.items.map(w => w.number), [1, 2, 3]);
+    assert.deepEqual(after.items[0].score, before.items[0].score, 'old score and revision survive');
+    assert.equal(after.items[2].score, null);
+    assert.notEqual(after.judging.materialVersion, before.judging.materialVersion);
+    assert.equal(after.judging.revision, before.judging.revision + 1);
+    assert.equal(after.judging.submittedAt, null);
+    const state = (await read(adminPath, 'admin')).body.judging;
+    assert.ok(state.judges.every(j => j.submittedAt === null));
+    const archive = await JSZip.loadAsync((await read(adminPath + '/materials.zip', 'admin')).body);
+    assert.equal(JSON.parse(await archive.file('manifest.json').async('string')).materialVersion, after.judging.materialVersion);
+    assert.ok(await archive.file('3/front.webp').async('nodebuffer'), 'new frozen images can be exported');
+    assert.equal((await fs.readdir(path.join(f.dataDir, 'judging'))).length, 2, 'losing sync cleans its directory');
+    const revision = state.revision;
+    assert.equal((await read(adminPath, 'admin')).body.judging.revision, revision, 'unchanged reads do not mutate versions');
+    await f.db.transaction(async unit => {
+      unit.find('cards', c => c.id === 'card3').title = 'edited later';
+      await unit.client.query('UPDATE "contestJudging" SET deadline=$2 WHERE id=$1', [eventKey, new Date(Date.now() - 1).toISOString()]);
+      const card = structuredClone(unit.find('cards', c => c.id === 'card3'));
+      unit.insert('cards', { ...card, id: 'card4', shareToken: 'late-token', shortToken: 'LatTok' });
+      unit.insert('contestWorks', { ...unit.find('contestWorks', w => w.id === 'work3'), id: 'work4', cardId: 'card4', number: 4 });
+    }, { write: true });
+    const closed = (await read()).body;
+    assert.equal(closed.items.length, 3, 'cutoff prevents adding new works');
+    assert.equal(closed.items[2].title, after.items[2].title, 'existing material stays frozen');
+    assert.equal(closed.judging.materialVersion, after.judging.materialVersion);
+  } finally { await f.cleanup(); }
+}
+
 // All files live in an OS-temp directory, never an application's uploads/data.
 export async function createJudgingFixture() {
   const f = await fixture();
@@ -27,6 +83,7 @@ export async function createJudgingFixture() {
   await fs.writeFile(path.join(uploadsDir, 'original.png'), image);
   const adminToken = crypto.randomBytes(24).toString('hex');
   const judgeTokens = Array.from({ length: 5 }, () => crypto.randomBytes(24).toString('hex'));
+  const extraTokens = Object.fromEntries(['author', 'outsider'].map(id => [id, crypto.randomBytes(24).toString('hex')]));
   const ids = ['judge1','judge2','judge3','judge4','judge5'];
   const now = new Date().toISOString();
   await f.db.transaction(unit => {
@@ -34,7 +91,7 @@ export async function createJudgingFixture() {
       unit.insert('users', { id, username: id, email: id + '@example.test', displayName: id, callSign: '', bio: '', avatarColor: '#123456',
         role: id === 'admin' ? 'admin' : 'user', status: 'active', passwordHash: auth.hashPassword('JudgingFixture!2026'), address: null, createdAt: now, updatedAt: now });
     }
-    for (const [userId, token] of [['admin', adminToken], ...ids.map((id,i) => [id, judgeTokens[i]])]) {
+    for (const [userId, token] of [['admin', adminToken], ...Object.entries(extraTokens), ...ids.map((id,i) => [id, judgeTokens[i]])]) {
       unit.insert('sessions', { userId, token, createdAt: now, expiresAt: new Date(Date.now() + 86400000).toISOString() });
     }
     unit.insert('contestEntries', { id: 'entry', eventKey, userId: 'author', contactEmail: 'secret-author-contact@example.test', status: 'approved',
@@ -48,11 +105,12 @@ export async function createJudgingFixture() {
         number, description: 'Frozen description ' + number, submittedAt: now, active: true });
     }
   }, { write: true });
-  return { ...f, eventKey, dataDir, uploadsDir, config: { dataDir, uploadsDir }, adminToken, judgeTokens, ids,
+  return { ...f, eventKey, dataDir, uploadsDir, config: { dataDir, uploadsDir }, adminToken, judgeTokens, extraTokens, ids,
     async cleanup() { await fs.rm(dataDir, { recursive: true, force: true }); await f.cleanup(); } };
 }
 
 export async function testContestJudging() {
+  await testNewJudgingMaterials();
   const f = await createJudgingFixture();
   const second = new Database(f);
   const rejects = (promise, status, code) => assert.rejects(promise, error => error.status === status && (!code || error.code === code));
@@ -60,8 +118,8 @@ export async function testContestJudging() {
     const route = judging.routes.find(route => route.method === method && route.pattern === pattern);
     assert.ok(route, method + ' ' + pattern);
     if (route.outsideTransaction) {
-      const token = reqToken || (viewer === 'admin' ? f.adminToken : f.judgeTokens[f.ids.indexOf(viewer)]);
-      return route.handler({ db, config: f.config, req: { headers: { authorization: token ? 'Bearer ' + token : '' } }, params: { eventKey, id }, body });
+      const token = reqToken || (viewer === 'admin' ? f.adminToken : f.extraTokens[viewer] || f.judgeTokens[f.ids.indexOf(viewer)]);
+      return route.handler({ db, config: f.config, req: { headers: { authorization: token ? 'Bearer ' + token : '' } }, params: { eventKey, id, side }, body, query: new URLSearchParams(query) });
     }
     return db.transaction(unit => route.handler({ db: unit, config: f.config, dataDir: f.dataDir, uploadsDir: f.uploadsDir,
       user: viewer ? unit.find('users', u => u.id === viewer) : null, params: { eventKey, id, side }, body, query: new URLSearchParams(query) }), { write: method !== 'GET' });

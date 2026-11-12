@@ -270,13 +270,9 @@ async function handleApi(req, res, { db, config, url, host }) {
     return;
   }
 
-  if (matched.outsideTransaction) {
-    const result = await matched.handler({ db, config, req, res, body, params, url, query: url.searchParams, host });
-    sendJson(res, result.status || 200, result.body || {});
-    return;
-  }
-
-  const result = await db.transaction(
+  const result = matched.outsideTransaction
+    ? await matched.handler({ db, config, req, res, body, params, url, query: url.searchParams, host })
+    : await db.transaction(
     async (unit) => {
       const authState = auth.resolveAuth(unit, req);
       const ctx = {
