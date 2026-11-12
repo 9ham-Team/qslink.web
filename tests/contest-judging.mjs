@@ -41,7 +41,17 @@ async function testNewJudgingMaterials() {
     }, { write: true });
     const before = (await read()).body;
     assert.equal(before.items.length, 2, 'unapproved cards stay out');
-    await f.db.transaction(unit => { unit.find('cards', c => c.id === 'card3').status = 'approved'; }, { write: true });
+    await f.db.transaction(unit => {
+      const entry = unit.find('contestEntries', e => e.id === 'entry');
+      unit.insert('contestEntries', { ...entry, id: 'pending-entry', userId: 'outsider', status: 'pending', reviewReason: null, reviewedBy: null, reviewedAt: null });
+      unit.find('cards', c => c.id === 'card3').status = 'approved';
+      unit.find('cards', c => c.id === 'card3').ownerId = 'outsider';
+      unit.find('contestWorks', w => w.id === 'work3').entryId = 'pending-entry';
+    }, { write: true });
+    assert.equal((await read()).body.items.length, 2, 'pending descriptions never enter frozen judging');
+    await f.db.transaction(unit => { Object.assign(unit.find('contestEntries', e => e.id === 'pending-entry'), { status: 'rejected', reviewReason: 'Revise text' }); }, { write: true });
+    assert.equal((await read()).body.items.length, 2, 'rejected descriptions never enter frozen judging');
+    await f.db.transaction(unit => { Object.assign(unit.find('contestEntries', e => e.id === 'pending-entry'), { status: 'approved', reviewReason: null }); }, { write: true });
     const competing = await Promise.all([read(), read(adminPath, 'admin')]);
     assert.ok(competing.every(r => r.body.judging.totalWorks === 3), 'concurrent refreshes append once');
     const after = (await read()).body;

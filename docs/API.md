@@ -407,15 +407,15 @@ body：`{ works: [{ cardId, description }], contactEmail, expectedRevision? }`�
 - 有效修改递增 `revision`、转为 `pending` 并清空旧审核信息；没有实际变化的重复保存不撤销审核结果。
 - 旧版本更新返回 `409`，需重新读取再提交；非法字段为 `400`，未登录为 `401`。
 - 修改作品选择、逐作品说明或联系邮箱，整份报名重新待审核；任一当前作品卡片内容变化或失去广场通过状态时同样重新待审核，仅库存变化不影响赛事审核。删卡清除作品的卡片/报名关联及说明并保留编号墓碑，报名保留；删除用户清理报名及所有作品个人内容，编号不回收。
-- 成功返回 `{ entry }`，首次创建为 `201`，更新为 `200`。作品说明为 1–2000 个字符，联系邮箱为有效邮箱且最多 120 个字符。
+- 成功返回 `{ entry }`，首次创建为 `201`，更新为 `200`。作品说明为 1–2000 个字符，联系邮箱为有效邮箱且最多 120 个字符。报名提交后，广场审核通过且账号正常的当前作品图片立即可公开和接受投票；作品说明待审核或被驳回时均不公开。说明修改重新待审核，但图片与既有票数保留。投票仍受赛期和既有限额约束。
 
 ### GET /api/contests/:eventKey/works
 
-匿名可读取，支持 `q`、`page`、`limit`（通用分页规则），返回 `{ items: [{ id, number, description, submittedAt, card, voteCount }], page, pages, total, limit }`。`id` 为独立作品 ID，供作品详情与投票使用；`voteCount` 为该作品已获票数（非负整数，无票为 0）。`card` 使用现有 `CardPublic` 序列化，含作者公开摘要、双面图片及比例等展示字段，兼容卡片网格。只公开当前参与、整份报名 approved、卡片 approved 且所有者账号 active 的作品；不返回报名对象、联系邮箱、审核原因、审核人或投票人。按 `submittedAt`、`number` 正序，先筛选再分页，不按票数排序。`q` 去除首尾空白后按卡片呼号大小写不敏感包含匹配；纯数字还精确匹配作品编号（`001` 与 `1` 均匹配编号 1），与呼号匹配取并集。
+匿名可读取，支持 `q`、`page`、`limit`（通用分页规则），返回 `{ items: [{ id, number, description, submittedAt, card, voteCount }], page, pages, total, limit }`。`id` 为独立作品 ID，供作品详情与投票使用；`voteCount` 为该作品已获票数（非负整数，无票为 0）。`card` 使用现有 `CardPublic` 序列化，含作者公开摘要、双面图片及比例等展示字段，兼容卡片网格。只公开当前参与、卡片 approved 且卡片仍属于报名人、报名人账号 active 的作品；报名说明的 pending／rejected 不阻止图片展示和投票。`description` 仅在整份报名 approved 时返回审核通过的原文，其他状态返回空字符串，未审核原文不通过列表、详情或投票响应公开；不返回报名对象、联系邮箱、审核原因、审核人或投票人。按 `submittedAt`、`number` 正序，先筛选再分页，不按票数排序。`q` 去除首尾空白后按卡片呼号大小写不敏感包含匹配；纯数字还精确匹配作品编号（`001` 与 `1` 均匹配编号 1），与呼号匹配取并集。
 
 ### GET /api/contests/:eventKey/works/:id
 
-匿名可读取，返回 `{ work: { id, number, description, submittedAt, card, voteCount }, voting }`，作品结构与列表项一致。按作品 ID 查询并执行与公开列表相同的可见性规则，已移除、未通过审核、卡片不可公开或账号不可用的作品返回 404，不通过详情泄露隐藏内容。
+匿名可读取，返回 `{ work: { id, number, description, submittedAt, card, voteCount }, voting }`，作品结构与列表项一致。按作品 ID 查询并执行与公开列表相同的可见性规则，已移除、卡片不可公开、所有权不符或账号不可用的作品返回 404，不通过详情泄露隐藏内容。
 
 ### POST /api/contests/:eventKey/works/:id/vote 🔒
 
@@ -425,7 +425,7 @@ body：`{ fingerprint }`，`fingerprint` 为浏览器本地持久化的随机投
 
 ### GET /api/admin/contests/:eventKey/entries 🔒👑
 
-支持 `status=all|pending|approved|rejected`、`page`、`limit`，返回通用分页结构 `{ items, total, page, limit, pages }`。列表包含报名审核所需字段及参赛者简要信息，不通过公开接口暴露。
+支持 `status=all|pending|approved|rejected`、`page`、`limit`，返回通用分页结构 `{ items, total, page, limit, pages }`。列表包含作品说明审核所需字段及参赛者简要信息，不通过公开接口暴露。
 
 ### GET /api/admin/contests/:eventKey/entries/:id 🔒👑
 
@@ -433,7 +433,7 @@ body：`{ fingerprint }`，`fingerprint` 为浏览器本地持久化的随机投
 
 ### PUT /api/admin/contests/:eventKey/entries/:id/review 🔒👑
 
-body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。驳回必须填写 1–200 个字符的原因；旧版本返回 `409 REVISION_CONFLICT`。实质审核变化递增 `revision`，相同结果与原因的重复审核保持幂等。通过时再次检查所有关联卡片存在、属于报名人、广场状态为 approved，且报名用户可用；没有可用卡片不能通过。审核只改变赛事报名，不代替或改变广场审核。返回 `{ entry }`。
+body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。驳回必须填写 1–200 个字符的原因；旧版本返回 `409 REVISION_CONFLICT`。实质审核变化递增 `revision`，相同结果与原因的重复审核保持幂等。通过时再次检查所有关联卡片存在、属于报名人、广场状态为 approved，且报名用户可用；没有可用卡片不能通过。审核只控制作品说明的公开以及完整评审材料的准入，不代替或改变广场图片审核。pending／rejected 时图片仍可展示与投票，description 为空；approved 后公开说明并允许完整材料进入人工评审。已获得的票数不因说明状态变化而清除。返回 `{ entry }`。
 
 ### GET /api/admin/contests/:eventKey/voting 🔒👑
 

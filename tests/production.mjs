@@ -359,13 +359,39 @@ async function request(base, route, { token, body, headers = {}, method = 'GET' 
     ...(token ? { Authorization: 'Bearer ' + token } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined });
 }
 
-test('judging HTTP refresh and ZIP export include new approved works with private binary responses', async t => {
+test('contest HTTP separates description review from voting and exports newly approved judging materials', async t => {
   const f = await createJudgingFixture();
   databases.set(f.dataDir, f);
   t.after(() => f.cleanup());
   const app = await start(t, f.dataDir);
   const adminRoute = '/api/admin/contests/qsl-design-2026-11/judging';
   const judgeRoute = '/api/contests/qsl-design-2026-11/judging';
+  const worksRoute = '/api/contests/qsl-design-2026-11/works';
+  const reviewRoute = '/api/admin/contests/qsl-design-2026-11/entries/entry/review';
+  await f.db.transaction(unit => { unit.find('contestEntries', e => e.id === 'entry').status = 'pending'; }, { write: true });
+  const votingConfig = await request(app.base, '/api/admin/contests/qsl-design-2026-11/voting', { method: 'PUT', token: f.adminToken,
+    body: { expectedRevision: 0, startsAt: new Date(Date.now() - 60000).toISOString(), endsAt: new Date(Date.now() + 3600000).toISOString() } });
+  assert.equal(votingConfig.status, 200);
+  const pending = await (await request(app.base, worksRoute)).json();
+  assert.equal(pending.items.length, 2);
+  assert.ok(pending.items.every(w => w.description === '' && w.card.frontImage));
+  for (const [index, status] of ['pending', 'rejected'].entries()) {
+    if (status === 'rejected') {
+      const rejected = await request(app.base, reviewRoute, { method: 'PUT', token: f.adminToken, body: { expectedRevision: 1, status, reviewReason: 'private-rejection' } });
+      assert.equal(rejected.status, 200);
+    }
+    const voted = await request(app.base, worksRoute + '/work1/vote', { method: 'POST', token: f.judgeTokens[index], body: { fingerprint: 'early-http-vote-' + index } });
+    assert.equal(voted.status, 200);
+    const data = await voted.json();
+    assert.equal(data.work.description, '');
+    assert.equal(data.work.voteCount, index + 1);
+    assert.ok(!JSON.stringify(data).includes('private-rejection'));
+  }
+  const approved = await request(app.base, reviewRoute, { method: 'PUT', token: f.adminToken, body: { expectedRevision: 2, status: 'approved' } });
+  assert.equal(approved.status, 200);
+  const publicWork = await (await request(app.base, worksRoute + '/work1')).json();
+  assert.equal(publicWork.work.description, 'Frozen description 1');
+  assert.equal(publicWork.work.voteCount, 2, 'approval preserves earlier votes');
   const config = await request(app.base, adminRoute, { method: 'PUT', token: f.adminToken, body: {
     expectedRevision: 0, judgeUserIds: f.ids, deadline: new Date(Date.now() + 3600000).toISOString(),
   } });

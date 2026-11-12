@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const auth = require('./auth');
 const { requireContest } = require('./contests');
-const { visibleWork } = require('./contest-voting');
+const { reviewedWork } = require('./contest-voting');
 const { withImageSlot } = require('./image-variants');
 const { badRequest, conflict, forbidden, notFound, payloadTooLarge } = require('./errors');
 
@@ -113,7 +113,7 @@ async function putSettings(ctx) {
   return { ...await getSettings(ctx), afterCommit: audit(ctx, 'settings.update') };
 }
 function publicSnapshot(ctx) {
-  return ctx.db.data.contestWorks.filter(w => w.eventKey === scope(ctx) && visibleWork(ctx.db, w)).sort((a,b) => a.number-b.number).map(w => {
+  return ctx.db.data.contestWorks.filter(w => w.eventKey === scope(ctx) && reviewedWork(ctx.db, w)).sort((a,b) => a.number-b.number).map(w => {
     const card = ctx.db.find('cards', c => c.id === w.cardId);
     return { id: w.id, number: w.number, title: card.title, description: w.description, front: card.frontImage, back: card.backImage || null };
   });

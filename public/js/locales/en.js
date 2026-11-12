@@ -4,6 +4,19 @@
   const QSL = (window.QSL = window.QSL || {});
   QSL.translations = QSL.translations || {};
   QSL.translations.en = {
+  "作品说明审核通过后展示，不影响图片展示与投票。": "The description will appear after approval. Images remain visible and eligible for voting.",
+  "使用已通过广场审核的卡片报名后，即可在这里展示并参与投票。": "Register with gallery-approved cards to display them here and receive votes.",
+  "作品说明审核": "Description review",
+  "说明审核状态": "Description review status",
+  "作品说明已通过审核": "Description approved",
+  "作品说明未通过审核": "Description not approved",
+  "作品说明审核中": "Description under review",
+  "已通过广场审核的图片在报名后即可展示和接受投票；作品说明审核通过后公开，待审核或驳回不影响图片投票。": "Gallery-approved images are displayed and eligible for voting as soon as registration is submitted. Descriptions become public after approval; pending or rejected descriptions do not affect voting for the images.",
+  "每个账号一份报名，最多选择 2 件作品。已通过广场审核的图片提交报名后即可展示和接受投票；作品说明审核通过后公开，修改报名资料需重新审核说明。": "Each account may register up to 2 entries. Gallery-approved images are displayed and eligible for voting immediately after registration. Descriptions become public after approval; changing registration details requires another description review.",
+  "已通过广场审核的图片报名后即可展示和投票；这里仅审核作品说明，待审核或驳回均不影响图片投票。": "Gallery-approved images are displayed and eligible for voting after registration. This review controls descriptions only; pending or rejected descriptions do not affect voting for the images.",
+  "通过作品说明": "Approve descriptions",
+  "驳回作品说明": "Reject descriptions",
+  "作品说明审核已更新": "Description review updated",
   "请提交当前版本": "Submit the current revision",
   "数据已更新，请刷新后重试": "The data has changed. Refresh and try again.",
   "仅授权的普通用户评委可访问": "Only authorized regular-user judges may access this resource",
