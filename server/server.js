@@ -254,7 +254,7 @@ async function handleApi(req, res, { db, config, url, host }) {
     body = await readJsonBody(req, MAX_BODY_BYTES);
   }
 
-  if (config.production) config.limitAuth(req, res, pathname, body);
+  if (config.production || /^\/api\/contests\/[^/]+\/works\/[^/]+\/vote$/.test(pathname)) config.limitAuth(req, res, pathname, body);
 
   if (pathname === '/api/health') {
     try {

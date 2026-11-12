@@ -83,7 +83,6 @@ function parseDeadline(value) {
 async function putSettings(ctx) {
   auth.requireAdmin(ctx);
   const config = await setting(ctx);
-  if (config && config.frozenAt) throw conflict('JUDGING_STARTED', '开始后不能修改评委或截止时间');
   const body = bodyOf(ctx);
   expected(body.expectedRevision, config ? config.revision : 0);
   const deadline = parseDeadline(body.deadline);
@@ -94,10 +93,22 @@ async function putSettings(ctx) {
   const selected = ids.map(id => ctx.db.find('users', u => u.id === id));
   if (selected.some(u => !u || u.role !== 'user' || u.status !== 'active')) throw badRequest({ judgeUserIds: '评委须为可用普通用户，不能选择管理员' });
   await ctx.db.client.query('INSERT INTO "contestJudging" (id,deadline) VALUES ($1,$2) ON CONFLICT(id) DO UPDATE SET deadline=$2,revision="contestJudging".revision+1', [scope(ctx), deadline]);
-  await ctx.db.client.query('DELETE FROM "contestJudges" WHERE "eventKey"=$1', [scope(ctx)]);
-  for (const [index, user] of selected.entries()) {
+  const previous = await judges(ctx);
+  if (config && config.frozenAt) {
+    await ctx.db.client.query('INSERT INTO "contestJudgingChanges" ("eventKey","actorId","previousConfig","previousJudges","previousScores") VALUES ($1,$2,$3::jsonb,$4::jsonb,$5::jsonb)',
+      [scope(ctx), ctx.user.id, JSON.stringify(config), JSON.stringify(previous), JSON.stringify((await ctx.db.client.query('SELECT * FROM "contestScores" WHERE "eventKey"=$1', [scope(ctx)])).rows)]);
+  }
+  const removed = previous.filter(judge => !ids.includes(judge.userId));
+  for (const judge of removed) {
+    await ctx.db.client.query('DELETE FROM "contestScores" WHERE "eventKey"=$1 AND slot=$2', [scope(ctx), judge.slot]);
+    await ctx.db.client.query('DELETE FROM "contestJudges" WHERE "eventKey"=$1 AND slot=$2', [scope(ctx), judge.slot]);
+  }
+  const retained = previous.filter(judge => ids.includes(judge.userId));
+  const free = [1,2,3,4,5].filter(slot => !retained.some(judge => judge.slot === slot));
+  for (const user of selected) {
+    if (retained.some(judge => judge.userId === user.id)) continue;
     await ctx.db.client.query('INSERT INTO "contestJudges" ("eventKey",slot,"userId",username,uid,"displayName") VALUES ($1,$2,$3,$4,$5,$6)',
-      [scope(ctx), index + 1, user.id, user.username, user.uid, user.displayName || '']);
+      [scope(ctx), free.shift(), user.id, user.username, user.uid, user.displayName || '']);
   }
   return { ...await getSettings(ctx), afterCommit: audit(ctx, 'settings.update') };
 }

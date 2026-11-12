@@ -15,6 +15,7 @@ import './profile-address.mjs';
 import './i18n.mjs';
 import './contest-page.mjs';
 import './judging-page.mjs';
+import './contest-rate-limit.mjs';
 import { testContestJudging } from './contest-judging.mjs';
 test('contest judging: frozen materials, permissions, revisions, cutoff and exports', testContestJudging);
 import './review-webhook.mjs';

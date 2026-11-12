@@ -34,6 +34,8 @@ async function overview(ctx) {
   return {
     body: {
       user: serialize.selfUser(ctx.db, user),
+      canJudgeContest: user.role === 'user' && user.status === 'active' && (await ctx.db.client.query(
+        'SELECT 1 FROM "contestJudges" WHERE "eventKey"=$1 AND "userId"=$2', ['qsl-design-2026-11', user.id])).rowCount > 0,
       stats: serialize.overviewStats(ctx.db, user),
       recentIncoming,
       recentCards,

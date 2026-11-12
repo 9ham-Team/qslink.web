@@ -8,10 +8,14 @@
 
   async function fingerprint() {
     try {
-      if (!window.crypto || !window.crypto.subtle) return '';
-      const source = JSON.stringify([navigator.userAgent, navigator.language, navigator.hardwareConcurrency || 0]);
-      const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
-      return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+      const key = 'qsl.contestVotingBrowser.v1';
+      let token = window.localStorage.getItem(key);
+      if (!/^[a-f0-9]{64}$/.test(token || '')) {
+        const bytes = window.crypto.getRandomValues(new Uint8Array(32));
+        token = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        window.localStorage.setItem(key, token);
+      }
+      return token;
     } catch (_) { return ''; }
   }
 
@@ -63,6 +67,7 @@
           '<section class="g-contest-detail__voting" aria-label="' + text('赛事投票') + '"><strong data-vote-count aria-live="polite"></strong>' +
           '<p class="hint">' + text('每账号本赛事共 5 票，不设每日限制；同一作品只能投 1 次，允许为自己投票。投票后不可撤回。') + '</p>' +
           '<p class="hint">' + text('账号正常可用即可投票，无需拥有广场卡片或报名参赛。') + '</p>' +
+          '<p class="hint">' + text('禁止多账号刷票、脚本投票及付费买票。同一浏览器跨账号合计最多 5 票，系统限制高频请求；共用浏览器请注意共享额度，遇到误拦请联系管理员。') + '</p>' +
           '<p class="hint">' + text('投票时间') + ' · ' + esc(QSL.formatDateTime(voting.startsAt)) + ' — ' + esc(QSL.formatDateTime(voting.endsAt)) + '</p>' +
           '<p class="hint" data-vote-used></p><div class="g-contest-detail__actions"><button type="button" class="btn btn-primary" data-vote></button>' +
           '<button type="button" class="btn btn-soft" data-share>' + QSL.icon('share', 18) + text('分享作品') + '</button></div>' +

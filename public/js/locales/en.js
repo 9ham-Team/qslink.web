@@ -1826,6 +1826,14 @@
   "实物奖品": "Physical prizes",
   "机器 + 人工 + 投票": "Automated + Human + Voting",
   "2026 颁奖日期": "2026 award ceremony date",
-  "奖杯示意图，真实奖杯的图片背景将由参赛卡片制成。": "Trophy concept preview. The actual trophy background will feature participating card designs."
+  "奖杯示意图，真实奖杯的图片背景将由参赛卡片制成。": "Trophy concept preview. The actual trophy background will feature participating card designs.",
+  "配置 5 位正常状态的普通用户。开始后仍可修改评委与截止时间，材料版本保持固定。留任评委保留评分，被替换评委立即失去权限，其评分归档且不再计分，新评委须重新评分。延长已截止的评审会重新开放评分并暂时隐藏结果。": "Choose five active regular users. Judges and the deadline can be changed after starting; materials stay fixed. Retained judges keep their scores. Replaced judges lose access immediately and their scores are archived and excluded; replacements must score again. Extending a closed review reopens scoring and hides results until the new deadline.",
+  "评审已开始，材料已固定": "Judging started; materials are fixed",
+  "开始将固定当前审核通过作品材料；之后可调整评委与截止时间，材料不会重新生成。请确认已保存配置且材料完整。": "Starting freezes the currently approved entry materials. Judges and the deadline can be changed later, without regenerating materials. Make sure the configuration is saved and materials are complete.",
+  "确认调整评审配置": "Confirm judging changes",
+  "留任评委保留评分；被替换评委立即失去权限，旧评分归档且不再计分，新评委须重新评分。修改截止时间可能重新开放评分并隐藏结果。确认保存？": "Retained judges keep their scores. Replaced judges immediately lose access; their scores are archived and excluded. New judges must score again. Changing the deadline may reopen scoring and hide results. Save these changes?",
+  "禁止多账号刷票、脚本投票及付费买票。同一浏览器跨账号合计最多 5 票，系统限制高频请求；共用浏览器请注意共享额度，遇到误拦请联系管理员。": "Multiple-account vote manipulation, automated voting and buying votes are prohibited. Accounts using the same browser share a five-vote limit. High-frequency requests are limited. Shared browsers share the quota; contact an administrator if you are blocked in error.",
+  "无法读取投票浏览器标识，请允许本站存储后重试": "Unable to read the voting browser identifier. Allow site storage and try again.",
+  "此浏览器本赛事的五票额度已用完，请勿切换账号重复投票；如有疑问请联系管理员": "This browser has used all five votes for this contest. Do not switch accounts to cast more votes. Contact an administrator if you need help."
 };
 })();

@@ -203,11 +203,14 @@ body: `{ identifier, password }`（identifier = 用户名或邮箱，大小写�
 ```json
 {
   "user": UserSelf,
+  "canJudgeContest": false,
   "stats": { "cards": 3, "approvedCards": 2, "pendingCards": 1, "likesReceived": 24, "incomingPending": 2, "outgoingPending": 1, "completedExchanges": 4 },
   "recentIncoming": [ExchangeItem × ≤3],
   "recentCards": [CardPublic × ≤3]
 }
 ```
+`canJudgeContest` 仅对当前赛事指定且正常可用的普通用户评委为 true，用于显示个人中心入口；不代替评审接口的实时鉴权。
+
 ### PUT /api/me/profile  🔒
 body: `{ displayName?, callSign?, bio?, avatarColor?, address? }`（address 整体替换；字段校验同 Address）
 → `{ user: UserSelf }`
@@ -364,7 +367,7 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 实物奖品共十名，冠军起步奖为森海克斯 8650；当前审核通过报名人数达到 100 时升级为拓竹 A1 mini / 威诺 VR-N76 二选一，不叠加起步奖。页面展示其余奖品的具体型号、奖状和前三名永久铭牌权益；这些展示不表示已有发奖或铭牌功能。前五名领奖时人工核验操作证号、执照号与呼号一致，报名阶段不收集这些材料。
 
-投票按账号而非呼号计限额：正常可用（active）账号即可投票，无需拥有广场卡片或报名参赛；每账号全赛期累计最多 5 票，可投给五个不同作品，无每日限制，每作品最多投 1 票，投出不可撤回，允许自投。时间窗口与账号、资格、目标作品状态及票数限制均由服务端校验，不能仅依赖前端禁用按钮。票数不直接代表最终得分或获奖结果。
+投票按账号而非呼号计限额：正常可用（active）账号即可投票，无需拥有广场卡片或报名参赛；每账号全赛期累计最多 5 票，可投给五个不同作品，无每日限制，每作品最多投 1 票，投出不可撤回，允许自投。另以随机浏览器标识限制跨账号合计五票，限制来源 IP 高频请求。时间窗口与账号、资格、目标作品状态及票数限制均由服务端校验，不能仅依赖前端禁用按钮。票数不直接代表最终得分或获奖结果。
 
 迁移 `014_qsl_design_contest.sql` 新增报名表与公告范围字段，原有公告保留为全站公告。迁移 `015_contest_entry_cards.sql` 将单卡引用 `cardId` 改为最多 3 张卡片的 `cardIds` 数组（升级时把原引用转换为单元素数组并删除旧列）；旧版程序无法读取升级后的报名表，回滚须另行评估数据兼容性，不能以镜像回退代替数据库恢复。
 
@@ -416,9 +419,9 @@ body：`{ works: [{ cardId, description }], contactEmail, expectedRevision? }`�
 
 ### POST /api/contests/:eventKey/works/:id/vote 🔒
 
-body：`{ fingerprint }`，`fingerprint` 为浏览器诊断摘要字符串（最多 8192 字符），不是原始诊断材料；成功 `200 → { work, voting }`，返回最新作品票数与当前账号投票状态。此端点只追加一票，不提供撤回或改投。允许投给自己的作品，但仍须满足相同资格和限额。
+body：`{ fingerprint }`，`fingerprint` 为浏览器本地持久化的随机投票标识字符串（非空，最多 8192 字符），服务端仅存 HMAC 摘要；成功 `200 → { work, voting }`，返回最新作品票数与当前账号投票状态。此端点只追加一票，不提供撤回或改投。允许投给自己的作品，但仍须满足相同资格和限额。
 
-未登录为 `401`，账号不可用为 `403`；作品不存在或不可公开为 `404`；请求字段无效为 `400`。不在投票时段、同一作品已投或赛事 5 票已用完为 `409`，分别使用 `VOTING_CLOSED`、`WORK_ALREADY_VOTED`、`TOTAL_VOTE_LIMIT`。服务端在事务内校验并以数据库约束保护并发，不因重复请求多记票。公开响应不返回诊断摘要或其他投票人信息；有关诊断摘要用途、保留及注销处理的用户告知仅置于隐私政策，不在赛事规则或投票弹窗重复展示。
+未登录为 `401`，账号不可用为 `403`；作品不存在或不可公开为 `404`；请求字段无效为 `400`。不在投票时段、同一作品已投或赛事 5 票已用完为 `409`，分别使用 `VOTING_CLOSED`、`WORK_ALREADY_VOTED`、`TOTAL_VOTE_LIMIT`。服务端在事务内校验并以数据库约束保护并发，不因重复请求多记票。公开响应不返回标识摘要或其他投票人信息；同一浏览器标识跨账号本赛事合计最多五票，超出返回 `409 BROWSER_VOTE_LIMIT`；空标识返回 `400`。按来源 IP 每 15 分钟最多 30 次投票请求，超出返回 `429 RATE_LIMITED` 和 `Retry-After`（进程内限流，多实例不共享请求频率；浏览器额度由数据库写事务串行保证）。来源 IP 沿用受信代理解析。规则及详情页展示反刷票说明，隐私政策说明随机标识用途与保留。浏览器额度是基础防护，清除存储、更换浏览器或伪造标识可绕过，不等于唯一自然人验证。
 
 ### GET /api/admin/contests/:eventKey/entries 🔒👑
 
@@ -456,7 +459,7 @@ body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。
 
 #### PUT /api/admin/contests/:eventKey/judging 👑
 
-body：`{ expectedRevision, deadline, judgeUserIds: [五个用户ID] }`，截止为含时区的 ISO 时间且在未来。只能在尚未开始时配置；校验账号角色、正常状态与重复项。返回最新 `{ judging }`，版本过期拒绝覆盖。
+body：`{ expectedRevision, deadline, judgeUserIds: [五个用户ID] }`，截止为含时区的 ISO 时间且在未来。开始前后均可配置；校验账号角色、正常状态与重复项。开始后保持材料版本及留任评委的槽位、评分和完成标记，被替换评委立即失去权限，新评委不继承旧评分。旧配置、名单与评分写入私有审计表 `contestJudgingChanges`，不通过公开或评委接口暴露。延长已截止评审将重新开放评分并暂时禁止结果与成绩导出，已下载的结果无法撤回。返回最新 `{ judging }`，版本过期拒绝覆盖。
 
 #### POST /api/admin/contests/:eventKey/judging/start 👑
 

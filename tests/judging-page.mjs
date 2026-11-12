@@ -195,7 +195,7 @@ test('admin saves Beijing deadline with revision, freezes saved config, and load
   const starting = s.click('[data-start]'); await flush(); const start = s.take('POST', ADMIN + '/start'); assert.equal(start.body.expectedRevision, 2);
   start.resolve({ judging: { ...saved, revision: 3, frozenAt: '2026-11-15T00:00:00Z' } }); await starting;
   assert.equal(s.requests.length, 0); assert.equal(s.binaries.length, 0);
-  s.tick(30000); s.take('GET', ADMIN).resolve({ judging: { ...saved, frozenAt: '2026-11-15T00:00:00Z', canViewResults: true } }); await flush();
+  s.tick(30000); s.take('GET', ADMIN).resolve({ judging: { ...saved, revision: 3, frozenAt: '2026-11-15T00:00:00Z', canViewResults: true } }); await flush();
   assert.equal(s.requests.length, 0); const results = s.click('[data-results-load]'); const result = s.take('GET', ADMIN + '/results');
   result.resolve({ judges, items: [{ id: 'work1', number: 1, title: '<script>bad</script>', scores: [{ slot: 1, score: 8, comment: '<img src=x>', submittedAt: null }], complete: false, humanScore: null }] }); await results;
   assert.match(s.body().querySelector('[data-results]').innerHTML, /&lt;script&gt;/); assert.match(s.body().querySelector('[data-results]').innerHTML, /&lt;img/);
@@ -214,6 +214,28 @@ test('admin displays a human score from five saved scores without any completion
     assert.doesNotMatch(result, /最终提交|final submission|submitted and locked|Scoring incomplete|评分未完成/i);
     assert.doesNotMatch(language === 'en' ? result : '', /\p{Script=Han}/u); s.cleanup();
   }
+});
+
+test('admin can edit started judging; polling preserves drafts and stale revisions block saving', async () => {
+  const s = setup({ admin: true });
+  const judges = Array.from({ length: 5 }, (_, index) => ({ slot: index + 1, userId: 'user' + index, username: 'judge' + index }));
+  s.take('GET', ADMIN).resolve({ judging: { ...judging, judges, canViewResults: false } }); await flush();
+  assert.equal(s.body().querySelector('[data-save-config]').disabled, false);
+  assert.equal(s.body().querySelector('[data-start]').disabled, true);
+  const draft = '2026-11-22T08:00:00';
+  s.body().querySelector('[data-deadline]').value = draft;
+  s.tick(30000); s.take('GET', ADMIN).resolve({ judging: { ...judging, judges, canViewResults: false } }); await flush();
+  assert.equal(s.body().querySelector('[data-deadline]').value, draft);
+  const saving = s.click('[data-save-config]'); await flush();
+  const update = s.take('PUT', ADMIN);
+  assert.equal(update.body.expectedRevision, 1);
+  assert.equal(update.body.deadline, '2026-11-22T00:00:00.000Z');
+  const saved = { ...judging, judges, revision: 2, deadline: update.body.deadline, canViewResults: false };
+  update.resolve({ judging: saved }); await saving;
+  s.tick(30000); s.take('GET', ADMIN).resolve({ judging: { ...saved, revision: 3 } }); await flush();
+  assert.equal(s.body().querySelector('[data-save-config]').disabled, true);
+  assert.equal(s.body().querySelector('[data-results]').innerHTML, '');
+  s.cleanup();
 });
 test('all literal judging backend error messages have English translations', async () => {
   const server = await fs.readFile(new URL('../server/lib/contest-judging.js', import.meta.url), 'utf8');

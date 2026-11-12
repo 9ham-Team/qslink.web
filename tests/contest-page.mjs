@@ -99,6 +99,7 @@ for (const route of [path, path + '/alternate']) {
       const text = plain(html);
       assert.ok(page.progress, 'prize progress hook survives rendering');
       assert.ok(page.news, 'news hook survives rendering');
+      assert.ok(html.indexOf('data-news') < html.indexOf('data-prize-progress'), 'news content stays above the prize section');
       assert.match(text, /30\s*\+\s*50\s*\+\s*20|(?:机器评分|(?:AI|machine|automated) scoring)\s*30[^。]{0,45}\+[^。]{0,45}50[^。]{0,45}\+[^。]{0,45}20/i, 'new three-part score summary');
       assert.match(text, /25\.5\s*\+\s*35\s*\+\s*14\s*=\s*74\.5/, 'illustrative score calculation');
       assert.match(text, /0\.5/, 'AI half-point increments');

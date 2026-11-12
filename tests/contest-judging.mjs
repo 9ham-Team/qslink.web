@@ -10,6 +10,7 @@ import { fixture } from './helpers/database.mjs';
 import auth from '../server/lib/auth.js';
 import judging from '../server/lib/contest-judging.js';
 import admin from '../server/lib/api/admin.js';
+import me from '../server/lib/api/me.js';
 import { Database } from '../server/lib/db.js';
 
 const eventKey = 'qsl-design-2026-11';
@@ -122,7 +123,13 @@ export async function testContestJudging() {
     assert.equal(started.revision, 2);
     assert.match(started.materialVersion, /^[a-f0-9]{64}$/);
     assert.equal(started.totalWorks, 2);
-    await rejects(configure(), 409, 'JUDGING_STARTED');
+    await configure({ judgeUserIds: [...f.ids].reverse() });
+    assert.equal((await settings()).materialVersion, started.materialVersion);
+    assert.equal((await own()).judging.slot, 1, 'reordering preserves judge slots');
+    for (const [viewer, allowed] of [['judge1', true], ['outsider', false], ['admin', false]]) {
+      const overview = await f.db.transaction(unit => me.routes.find(r => r.pattern === '/api/me/overview').handler({ db: unit, user: unit.find('users', u => u.id === viewer) }));
+      assert.equal(overview.body.canJudgeContest, allowed);
+    }
     await rejects(start(), 409, 'JUDGING_STARTED');
     const ownBefore = await own();
     assert.equal(ownBefore.judging.slot, 1);
@@ -184,7 +191,11 @@ export async function testContestJudging() {
     await fs.unlink(path.join(f.uploadsDir,'original.png'));
     assert.deepEqual((await own()).items.map(({ title, description }) => ({ title, description })), ownBefore.items.map(({ title, description }) => ({ title, description })));
     assert.deepEqual((await call('GET', imageRoute, { viewer: 'judge1', id: 'work1', side: 'front' })).body, imageBefore);
-    assert.deepEqual((await zip('from=1&to=2')).body, firstZip);
+    const laterArchive = await JSZip.loadAsync((await zip('from=1&to=2')).body);
+    assert.deepEqual(Object.keys(laterArchive.files), Object.keys(archive.files));
+    for (const name of Object.keys(archive.files)) {
+      assert.deepEqual(await laterArchive.file(name)?.async('nodebuffer'), await archive.file(name)?.async('nodebuffer'), 'frozen ZIP content stays fixed: ' + name);
+    }
     // Completion confirmation is optional progress, not a lock or a condition for scoring results.
     const values = [0, 6.1, 7.2, 8.3, 10];
     for (const [index, viewer] of f.ids.entries()) {
@@ -266,9 +277,28 @@ export async function testContestJudging() {
     assert.equal(retained.items[0].humanScore, 36);
     assert.equal(retained.items[0].scores[0].comment, 'private-comment-judge1');
     assert.equal(retained.judges[0].userId, 'judge1');
-    await rejects(configure({ judgeUserIds: ['outsider', ...f.ids.slice(1)] }), 409, 'JUDGING_STARTED');
+    const replacementIds = ['outsider', ...f.ids.slice(1)];
+    const oldRevision = (await settings()).revision;
+    await configure({ judgeUserIds: replacementIds });
+    await rejects(configure({ judgeUserIds: replacementIds, expectedRevision: oldRevision }), 409, 'REVISION_CONFLICT');
+    await rejects(own('judge1'), 401);
+    const replacement = await own('outsider');
+    assert.ok(replacement.items.every(item => item.score === null), 'replacement never inherits scores');
+    assert.equal((await own('judge2')).items[0].score.value, 6.1, 'retained judge keeps saved score');
+    assert.equal((await settings()).materialVersion, started.materialVersion);
+    await rejects(result(), 403, 'FORBIDDEN');
+    await rejects(call('GET', adminPath + '/scores.xlsx'), 403);
+    const archived = await f.db.transaction(async unit => (await unit.client.query('SELECT * FROM "contestJudgingChanges" WHERE "eventKey"=$1 ORDER BY id DESC LIMIT 1', [eventKey])).rows[0]);
+    assert.ok(archived.previousScores.some(score => score.slot === 1 && score.comment === 'private-comment-judge1'));
+    await setDeadline(new Date(Date.now() - 1).toISOString());
+    assert.equal((await result()).items[0].complete, false, 'removed scores do not contribute to results');
+    await configure({ judgeUserIds: ['outsider', 'author', ...f.ids.slice(2)] });
+    await rejects(own('judge2'), 403);
+    await rejects(score('judge2', 'work1', 9), 403);
+    assert.ok((await own('author')).items.every(item => item.score === null));
+    assert.equal((await own('judge3')).items[0].score.value, 7.2);
     const frozenDir = path.join(f.dataDir, 'judging', (await fs.readdir(path.join(f.dataDir,'judging')))[0]);
     await fs.writeFile(path.join(frozenDir,'1-front.webp'), 'corrupt');
-    await rejects(call('GET', imageRoute, { viewer: 'judge2', id: 'work1', side: 'front' }), 409, 'MATERIAL_INTEGRITY');
+    await rejects(call('GET', imageRoute, { viewer: 'judge3', id: 'work1', side: 'front' }), 409, 'MATERIAL_INTEGRITY');
   } finally { await second.close(); await f.cleanup(); }
 }
