@@ -17,7 +17,7 @@ async function testContestMigration() {
       unit.insert('announcements', { id: 'legacy_contest_notice', title: '旧全站公告', body: '升级前正文', status: 'published', eventKey: null, displaySeconds: 30, publishedAt: now, createdAt: now, updatedAt: now });
     }, { write: true });
     // DDL stays outside UnitOfWork: its current collection loader requires the new table.
-    await legacy.db.pool.query(`DROP TABLE ${schema}."contestVotes"; DROP TABLE ${schema}."contestVotingSettings"; DROP TABLE ${schema}."contestWorks"; DROP TRIGGER contest_works_card_delete ON ${schema}.cards; DROP TABLE ${schema}."contestEntries"; DROP FUNCTION ${schema}.scrub_contest_works(); ALTER TABLE ${schema}.announcements DROP COLUMN "eventKey"; DELETE FROM ${schema}.schema_migrations WHERE version >= 14`);
+    await legacy.db.pool.query(`DROP TABLE ${schema}."contestScores"; DROP TABLE ${schema}."contestMaterials"; DROP TABLE ${schema}."contestJudges"; DROP TABLE ${schema}."contestJudging"; DROP TABLE ${schema}."contestVotes"; DROP TABLE ${schema}."contestVotingSettings"; DROP TABLE ${schema}."contestWorks"; DROP TRIGGER contest_works_card_delete ON ${schema}.cards; DROP TABLE ${schema}."contestEntries"; DROP FUNCTION ${schema}.scrub_contest_works(); ALTER TABLE ${schema}.announcements DROP COLUMN "eventKey"; DELETE FROM ${schema}.schema_migrations WHERE version >= 14`);
     assert.equal((await legacy.db.pool.query(`SELECT max(version) AS version FROM ${schema}.schema_migrations`)).rows[0].version, 13);
     await legacy.db.migrate();
     await legacy.db.migrate();
@@ -360,7 +360,7 @@ export async function testContests() {
       try {
         await client.query('BEGIN');
         await client.query(`SET LOCAL search_path TO "${migration.databaseSchema}"`);
-        await client.query('DROP TABLE "contestVotes"; DROP TABLE "contestVotingSettings"; DROP TABLE "contestWorks"; DROP TRIGGER contest_works_card_delete ON cards; DROP TRIGGER contest_works_entry_delete ON "contestEntries"; DROP FUNCTION scrub_contest_works(); ALTER TABLE "contestEntries" ADD COLUMN "cardIds" jsonb, ADD COLUMN description text; DELETE FROM schema_migrations WHERE version >= 16');
+        await client.query('DROP TABLE "contestScores"; DROP TABLE "contestMaterials"; DROP TABLE "contestJudges"; DROP TABLE "contestJudging"; DROP TABLE "contestVotes"; DROP TABLE "contestVotingSettings"; DROP TABLE "contestWorks"; DROP TRIGGER contest_works_card_delete ON cards; DROP TRIGGER contest_works_entry_delete ON "contestEntries"; DROP FUNCTION scrub_contest_works(); ALTER TABLE "contestEntries" ADD COLUMN "cardIds" jsonb, ADD COLUMN description text; DELETE FROM schema_migrations WHERE version >= 16');
         await client.query(`INSERT INTO "contestEntries" (id,"eventKey","userId","cardIds",description,"contactEmail",status,revision,"createdAt","updatedAt") VALUES
           ('older',$1,'owner','["replacement","target"]','旧多卡说明','old@example.test','pending',1,'2026-01-01','2026-01-01'),
           ('newer',$1,'other','["foreign"]','旧单卡说明','old@example.test','pending',1,'2026-02-01','2026-02-01')`, [eventKey]);

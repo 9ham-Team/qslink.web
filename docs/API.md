@@ -353,7 +353,16 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ## 第一届QSLink杯QSL卡片设计大赛
 
-本届 `eventKey` 固定为 `qsl-design-2026-11`，其他赛事键返回 404。公开页面为 `/events/qsl-design-2026-11`，独立作品详情路由为 `/events/qsl-design-2026-11/works/:id`（`:id` 为作品 ID，不是卡片 ID 或展示编号）。本轮提供赛事动态、逐作品报名、报名审核、公开参赛作品及投票，不提供评分计算或证照上传接口。作品列表只读展示票数，不提供快捷投票；投票在作品详情发起。未明确的赛期、完整评分和奖品细则在页面标注待公布。
+本届 `eventKey` 固定为 `qsl-design-2026-11`，其他赛事键返回 404。公开页面为 `/events/qsl-design-2026-11`（另有 `/events/qsl-design-2026-11/alternate` 展示版本），独立作品详情路由为 `/events/qsl-design-2026-11/works/:id`（`:id` 为作品 ID，不是卡片 ID 或展示编号）。本轮提供赛事动态、逐作品报名、报名审核、公开参赛作品、投票及独立人工评审。人工评分使用本届 5 位普通账号评委的独立权限，截止后仅管理员可查看汇总或导出，详见下文。AI 仍由举办方手动调用，后台仅导出固定版本的图文材料与空白模板；不提供 AI 调用或结果导入、投票折分、最终总分／排名、获奖计算、永久铭牌管理或证照上传接口。奖品及前三名永久铭牌权益仍仅作展示说明。作品列表只读展示票数，不提供快捷投票；投票在作品详情发起。未明确的赛期和领奖安排仍标注待公布。
+
+页面公布的总分为 **100 分 = 机器 30 分 + 人工 50 分 + 投票 20 分**：
+
+- 机器评分：3 个 AI 各打 0–10 分，允许 0.5 分档，三者相加，满分 30 分。
+- 人工评分：5 位评委各打 0–10 分，去掉一个最高分和一个最低分，余下 3 位评委的评分取平均再乘 5，满分 50 分。
+- 投票评分：作品前 5 张有效票每票 2 分，最多 10 分；再按有效得票排名平均划为 10 段，从高到低分别得 10、9、8、7、6、5、4、3、2、1 分，同票同段同分；两部分合计最多 20 分。这是规则说明，不改变原有投票资格、限额、计票接口或作品列表排序。
+- 同总分先比较人工评分；人工评分仍相同，由举办方决定。页面算例 `25.5 + 35 + 14 = 74.5` 仅为规则演示，不代表真实作品评分或排名。
+
+实物奖品共十名，冠军起步奖为森海克斯 8650；当前审核通过报名人数达到 100 时升级为拓竹 A1 mini / 威诺 VR-N76 二选一，不叠加起步奖。页面展示其余奖品的具体型号、奖状和前三名永久铭牌权益；这些展示不表示已有发奖或铭牌功能。前五名领奖时人工核验操作证号、执照号与呼号一致，报名阶段不收集这些材料。
 
 投票按账号而非呼号计限额：正常可用（active）账号即可投票，无需拥有广场卡片或报名参赛；每账号全赛期累计最多 5 票，可投给五个不同作品，无每日限制，每作品最多投 1 票，投出不可撤回，允许自投。时间窗口与账号、资格、目标作品状态及票数限制均由服务端校验，不能仅依赖前端禁用按钮。票数不直接代表最终得分或获奖结果。
 
@@ -434,6 +443,56 @@ body：`{ status: "approved" | "rejected", reviewReason?, expectedRevision }`。
 ### GET /api/admin/contests/:eventKey/votes.xlsx 🔒👑
 
 仅管理员，返回真实 XLSX 工作簿二进制，不以 CSV/HTML 改后缀冒充；`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`，`Content-Disposition` 为附件。包含两个工作表：**作品汇总**（作品 ID、固定编号、当前公开/隐藏及报名状态、作者公开资料、提交时间、累计票数）及 **逐票明细**（票 ID、作品 ID/编号、投票账号资料或注销脱敏标记、投票日期与时间，以及仍在保留期内的诊断摘要）。北京时间投票日期与 UTC 时间分别标明时区，保留期已到的摘要不得导出；不导出原始诊断材料。隐藏或删除作品的历史票据仍供计票核对，注销不清空累计票数，相关账号资料须脱敏。未登录为 `401`，非管理员为 `403`，不能仅靠隐藏导出按钮保护。管理操作应记录操作者、赛事及时间的审计信息，不记录原始诊断材料。
+
+### 独立人工评审接口 🔒
+
+本届人工评审不依赖全局新角色。管理员指定恰好 5 个不同的 active 普通账号（`role=user`），评委使用本人会话；管理员不因角色获得评委权限。配置、开始、保存、提交均有版本校验，截止使用服务端实际时间，前端以北京时间显示。开始后名单、截止时间和材料版本锁定，不提供普通改期／替换／重置接口。
+
+所有评审 JSON、图片和导出文件均为私有、`no-store`，图片路径不包含 token。无会话 401，无权限 403，未知材料／赛事 404；版本冲突、未开始写入、已截止写入分别返回 409 `REVISION_CONFLICT`／`JUDGING_NOT_STARTED`／`JUDGING_CLOSED`；完成标记不限制截止前继续修改。客户端不能通过 `userId`、`judgeId` 或作品参数读取／修改另一评委的评分。
+
+#### GET /api/admin/contests/:eventKey/judging 👑
+
+返回 `{ judging }`：`revision`、`deadline`、`frozenAt`、`materialVersion`、`totalWorks`、`judges` 和 `canViewResults`。`totalWorks` 是已冻结作品数量，准备期为 0，不代表实时可参赛作品总量。名单项目包括 `slot`（1–5）、`userId`、`username`、`uid`、`displayName`、`scoredCount`、`submittedAt`。截止前只返回进度，不包含分数、评语、人工项或隐藏结果。名单中的账号信息不通过公开接口或其他评委接口返回。
+
+#### PUT /api/admin/contests/:eventKey/judging 👑
+
+body：`{ expectedRevision, deadline, judgeUserIds: [五个用户ID] }`，截止为含时区的 ISO 时间且在未来。只能在尚未开始时配置；校验账号角色、正常状态与重复项。返回最新 `{ judging }`，版本过期拒绝覆盖。
+
+#### POST /api/admin/contests/:eventKey/judging/start 👑
+
+body：`{ expectedRevision }`。恰有 5 位可用评委、未来截止时间及可评审作品后才能开始。开始时只选取当前满足公开条件的审核通过作品，并固定作品编号、标题、说明、站内正反面图片和材料版本。图片处理在事务外准备，最终短写事务重新核对配置和作品快照，防止处理中改稿混入另一版；失败不发布半份材料。单次最多冻结 1000 件作品、派生图片合计最多 256 MiB，单图最多 10 MiB，输出最长边不超过 1920；超限拒绝而不静默截断。之后原卡修改或删除不自动改变冻结内容。
+
+#### GET /api/contests/:eventKey/judging
+
+仅本届评委，返回 `{ judging, items }`。`judging` 包含 `deadline`、`frozenAt`、`materialVersion`、`totalWorks`、`submittedAt`、`isOpen`、`slot` 及本人整表 `revision`；`items` 为 `{ id, number, title, description, frontUrl, backUrl, score }` 数组，`score` 为 `null` 或 `{ value, comment, revision }`，只含本人评分。未开始且已获授权时返回 `isOpen:false`、空 `items`；截止或提交后仍能读取本人内容。不返回其他评委名单／评分、票数、AI 分数或人工汇总。
+
+#### PUT /api/contests/:eventKey/judging/materials/:id/score
+
+body：`{ expectedRevision, score, comment }`。`score` 必须为 JSON 数字 0–10，最多一位小数；评语最多 1000 字。初次该项版本为 0，后续使用最新该项版本。身份只取会话；不得替别人保存。开始后且未截止即可写入，包括已标记完成之后；成功会清除本人的 `submittedAt` 完成标记。返回 `{ score: { value, comment, revision }, judging }`，个人整表 `revision` 也递增，供完成标记并发校验。
+
+#### POST /api/contests/:eventKey/judging/submit
+
+body：`{ expectedRevision }`，版本为本人最新整表 `judging.revision`。此接口仅设置可选的完成标记，不提前锁定评分。全部冻结作品均已保存且未截止时可确认或再次确认，更新 `submittedAt` 与整表版本，成功返回 `{ judging }`。之后仍可随时修改，保存改分会清除完成标记；仅到截止时间才统一停止写入。截止后按各项最新已保存分数汇总，未标记完成不影响有效性，缺分保持为空、不补为 0。
+
+#### GET /api/contests/:eventKey/judging/materials/:id/front 或 /back
+
+仅本届评委或管理员鉴权读取冻结图片；没有背面的材料返回 404。返回受保护图片二进制，不返回磁盘路径或任意原图地址。前端使用 Authorization Bearer 获取 Blob，离页回收对象 URL。
+
+#### GET /api/admin/contests/:eventKey/judging/materials.zip 👑
+
+管理员可在开始后下载，query `from`／`to` 按固定作品编号选择闭区间，单包最多 20 件作品，单图最多 10 MiB、材料包受 64 MiB 总量限制。按编号目录包含正面、可选背面与作品说明，附材料版本、SHA-256 清单、规则和空白 AI 评分模板；不存在的背面不伪造图片。没有评委分、评语、联系邮箱、寄送资料或投票明细，也不自动调用或发送到 AI。作品卡面可能自带个人信息，外发前需自行检查授权范围。本导出不受成绩截止限制，因为不含成绩。
+
+#### GET /api/admin/contests/:eventKey/judging/results 👑
+
+评审截止前返回 403（包括所有评委已提前提交时），不提前解锁。截止后返回 `{ materialVersion, deadline, judges, items }`；作品含 `id`、`number`、`title`、`scores: [{slot,score,comment,submittedAt}]`、`humanScore` 与 `complete`。该作品缺任一评委已保存评分时，人工项为 `null`／未完成；五位均有已保存评分即可去掉一个最高、一个最低，余三均分乘 5，四舍五入两位小数，不要求设置完成标记。原始评分保留，不产生最终总分、总排名或获奖名单。
+
+#### GET /api/admin/contests/:eventKey/judging/scores.xlsx 👑
+
+仅管理员、截止后，提前返回 403。返回真实 XLSX，包含作品汇总、五评委逐项评分／评语、提交状态及材料版本、截止与人工项计算说明。未完成项为空并明确标记，不以 0 冒充；不导出账号密码、会话或投票明细。下载携带 Bearer，不把令牌写入 URL。管理写入和导出记录操作者、赛事、动作和时间，审计日志不记录分数、评语、令牌或图片字节。
+
+已开始且未截止期间，管理员不能通过用户管理重置固定评委密码，返回 `409 JUDGING_ACCOUNT_LOCKED`，避免经管理接口接管评委账号绕过成绩隔离；评委本人修改密码仍沿用既有流程。举办方仍须核实评委身份、避免共用账号，不能保证抵抗账号主动共享、串通或已有凭据泄露。
+
+应用层保密不阻止数据库／服务器运维读取。冻结材料是独立留存，不随公开卡片删除自动销毁；运营方应按内容授权和撤回请求处理留存，部署备份需同时涵盖数据库与冻结文件。
 
 ### 赛事动态与全站公告隔离
 

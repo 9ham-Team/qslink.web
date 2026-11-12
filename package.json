@@ -24,6 +24,7 @@
     "@alicloud/openapi-client": "0.4.15",
     "@alicloud/tea-util": "1.4.11",
     "exceljs": "4.4.0",
+    "jszip": "3.10.2",
     "pg": "8.23.1",
     "sharp": "0.35.5"
   },

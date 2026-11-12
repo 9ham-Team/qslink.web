@@ -1,14 +1,16 @@
 ---
 name: qslink-deploy-dev
-description: Commit QSLink changes to the team dev branch and deploy the tested GHCR image to the test server. Use for 推送团队dev、部署测试服 or 回滚测试服. Do not use for production or diagnosis alone.
+description: Publish QSLink changes through a team-internal PR into dev, verify the merged commit's CI and GHCR image, and deploy to the test server. Use for 提交推送并部署测试服、通过 PR 合入 dev 后部署、明确授权的直接推送团队 dev or 回滚测试服. Do not use for production or diagnosis alone.
 ---
 
 # QSLink dev 发布与测试服部署
 
 ## 授权与范围
 
-- 严格按用户本次授权执行提交、推送、部署或回滚。仅创建/修改此 Skill、排查问题、询问部署方式，不构成发布授权。
-- 用户明确要求“提交/推送到团队 dev 并部署测试服”时，执行完整流程；仅要求部署时，不自动提交本地修改。
+- 严格按用户本次授权执行提交、推送、创建 PR、合并、部署或回滚。仅创建/修改此 Skill、排查问题、询问部署方式，不构成发布授权，也不将一次授权沿用到未来任务。
+- 默认采用“功能分支 → 团队内部 PR → 合入 dev → 核验合并提交的 CI 与镜像 → 部署测试服”。仅在用户明确要求直接推送团队 dev 时采用直推流程；“提交推送并部署测试服”不等于授权直接推送 dev。
+- 用户已授权完整 PR 发布流程，或明确选择“通过团队内部 PR 合入 dev 后部署”时，授权覆盖本次提交、推送功能分支、创建 PR、检查通过后合并及部署，无需逐步重复确认。只有部分授权时，完成已授权的准备和验证，再就缺少的操作授权询问；创建 PR 与合并 PR 分别核对授权。
+- 仅要求部署时，不自动提交本地修改或合并 PR；从团队 dev 的已发布提交开始核对。
 - 不操作 main/生产环境，不强推、不清理数据卷、不修改 Git 配置。不自动合并或提交无关改动。
 - 遵循当前会话的 Git 安全规则、工具权限和提交消息要求。不要将凭据、容器环境变量或私钥写入日志或项目文件。
 
@@ -38,22 +40,33 @@ description: Commit QSLink changes to the team dev branch and deploy the tested 
 2. 确认这次改动范围；如混有无法判断归属的修改，询问用户，不默认全部打包。使用明确文件列表暂存，禁用 `git add .` 和 `git add -A`。
 3. 若无需创建提交，直接记录待发布 SHA；不要创建空提交。
 4. 仅在用户授权提交时创建提交。遵循当前运行环境要求传入消息，不假设 Windows PowerShell 支持 Bash heredoc。
-5. 核对团队远端 dev 的最新状态，确认可以快进推送。分叉或冲突时停止并说明，不强制覆盖，也不未经授权 rebase/合并。
-6. 当前分支确为 dev 时推送 `git push upstream dev`；若不在 dev，先说明并确认目标策略，不盲目推送同名旧分支。
-7. 记录发布提交完整 SHA，并核对团队远端 dev 指向该 SHA。推送失败不得继续声称发布完成。
+5. 更新并核对团队远端 dev。新任务默认从最新 `upstream/dev` 创建 `codex/<主题>` 功能分支；已有本次功能分支时先检查差异，保留所有无关修改，不在已合并的旧分支继续堆积任务。
+6. 执行与改动相符的本地检查，检查暂存与未暂存差异后提交。记录功能分支完整 SHA；它与后续 dev 的合并提交 SHA 不同。
+
+## 2. 通过团队内部 PR 合入 dev（默认）
+
+1. 核对团队写权限，将本次功能分支推送到 `upstream`，不要误推个人 `origin` 或旧的本地 dev。无团队写权限时停止团队发布流程并说明，不假设个人仓库具有有效 fork 关系。
+2. 查询同一 head 分支、base 为 dev 的开放 PR，已有则复用，避免重复创建。创建时 base/head 仓库均为 `9ham-Team/qslink.web`，base 为 `dev`，head 为本次功能分支。说明问题、最终行为、实际验证及限制；多行正文使用结构化参数或 `gh --body-file`。环境提供 PR 附件工具时，将创建或继续处理的 PR 附到当前聊天。
+3. 检查 PR 最终差异、完整 head SHA、可合并状态及该 head 对应的最新 CI；确认没有混入无关提交。PR 的 `API smoke tests` 必须成功；PR 不发布镜像，`Publish image to GHCR` 跳过属于预期，不能据此部署。
+4. 获准合并后使用 **merge commit** 合入 dev。使用 `gh pr merge` 时可用 `--merge --match-head-commit <已核验的完整head SHA>` 防止合入检查后变化的代码。不绕过失败检查或保护规则；失败、取消、head 变化或冲突时停止发布，先说明，不擅自扩大修复范围。
+5. 查询 PR 已合并状态及实际 merge commit 完整 SHA，重新获取并核对 `upstream/dev` 指向该 SHA。后续 CI、镜像和容器修订都以此 **dev 合并提交 SHA** 为目标，不能继续使用功能分支 head 或 PR 的临时测试合并 SHA。
+
+### 仅在明确授权时直接推送 dev
+
+核对远端 dev 最新 SHA 及本次提交范围，确认远端 dev 是待推送提交的祖先，可普通快进推送。当前就在 dev 时可用 `git push upstream dev`；当前在本次功能分支且用户已授权从该分支直推 dev 时，明确说明目标并使用 `git push upstream HEAD:dev`，不要推送同名旧的本地 dev。分叉或冲突时停止，不强推、不未经授权 rebase/合并。推送后核对远端 dev 指向实际目标完整 SHA，再进入下节。
 
 网络故障先看具体错误。历史上 GitHub 访问曾使用命令级代理覆盖；不要硬编码旧局域网代理，不修改 Git 配置，只有核实当前可用代理后才用 `git -c` 临时覆盖。
 
-## 2. 等待对应 SHA 的 CI 与镜像
+## 3. 等待 dev 目标 SHA 的 CI 与镜像
 
 1. 读取当前工作流，确认团队仓库 dev 推送触发 CI。
-2. 使用已有 GitHub CLI、认证 API 或浏览器工具查询 **对应完整 SHA** 的运行，不以最近一次绿色记录代替。
+2. 使用已有 GitHub CLI、认证 API 或浏览器工具查询 **dev 目标完整 SHA** 的 push 运行；PR 流程使用实际 merge commit SHA，直推流程使用实际推送 SHA。不能以 PR 的绿色记录或另一次绿色运行代替。可用 `gh run list --repo 9ham-Team/qslink.web --commit <完整SHA>` 定位，再查询具体运行。
 3. 当前工作流先运行 API smoke tests，再运行 Publish image to GHCR。两项必须均成功；失败、取消或被后续推送替代时停止并报告。
 4. 记录运行 URL、SHA、镜像 digest。工作流发布 dev 标签及 `sha-<完整SHA>` 标签，OCI 标签包含源修订。
 5. CI 完成后重新核对远端 dev。若有并发发布，确认要部署哪个版本；不要把浮动 dev 标签误当固定提交。
 6. 工具不可用或未授权时如实报告并请求必要访问，不虚构 CI/镜像结果。
 
-## 3. 连接并部署测试服
+## 4. 连接并部署测试服
 
 1. 读取最新 `deployment/deploy-dev.sh`。使用用户已有且经核实的 SSH 别名、账户与认证方式连接 43.142.58.20；不要猜测用户名、私钥位置或远端脚本路径。
 2. SSH 使用非交互模式和已有主机信任；不要禁用主机密钥检查。首次信任或缺凭据时请用户处理。
@@ -65,16 +78,16 @@ description: Commit QSLink changes to the team dev branch and deploy the tested 
 8. 若无法排除 dev 标签并发更新，停止并协商固定 SHA 镜像部署；不要悄悄修改现有脚本或部署非预期版本。
 9. 记录脚本输出的真实备份容器名称。不要沿用历史备份名称，也不要主动删除成功部署留下的备份。
 
-## 4. 部署后验证
+## 5. 部署后验证
 
 - 检查应用容器 running 且 healthy，实际镜像 ID 和 OCI 修订对应目标 SHA。
 - 核对端口及数据卷挂载未改变，数据库容器未被替换或清空。
 - 请求测试入口和 `/api/config`，检查 HTTP 状态及合理 JSON 响应；不要仅依据 docker start 成功判断服务可用。
 - 对本次修改涉及的页面做针对性验证。浏览器交互先遵循浏览器技能；手机场景可使用已授权 ADB/CDP。
 - 区分“部署成功”“接口健康”“视觉问题已修复”。没有实际验证就明确未验证，不将 CI 或健康检查当作修复证据。
-- 发布摘要只报告有证据的提交 SHA、分支、CI 链接、镜像修订/digest、健康状态、备份名称、测试地址和验证边界。
+- 发布摘要记录功能提交、PR 链接及合并状态、dev 实际部署 SHA、该 SHA 的 CI 链接、镜像修订/digest、健康状态、备份名称、测试地址、验证边界和剩余工作区修改；区分已提交、已合并、CI 通过与部署完成。
 
-## 5. 失败恢复与回滚
+## 6. 失败恢复与回滚
 
 - 部署失败先检查脚本是否已恢复旧容器，并验证恢复后的健康状态。不要反复重跑掩盖最初错误。
 - 不删除数据库、上传卷，不执行 `docker compose down --volumes`、`docker system prune` 或未知范围清理。
