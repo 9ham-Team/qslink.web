@@ -1819,6 +1819,7 @@
   "作品总分相同时，按人工评分得分高低进行排名；如人工评分也一致，交由赛事举办方做最终排名。": "If entries tie on total score, the higher human judging score ranks first. If their human scores also tie, the contest organizer determines the final ranking.",
   "作品票数不等于最终得分；完整评分维度与争议处理以赛事方公布为准，页面不提供自动评分或获奖计算。": "An entry's vote count is not its final score. Full judging criteria and dispute procedures are subject to the organizer's announcements; this page does not automatically calculate scores or determine winners.",
   "第一届": "1st Edition",
+  "杯": " Cup",
   "上传你的 QSL 卡片，参与评选，赢取十强好礼。": "Upload your QSL cards, enter the contest, and compete for top 10 prizes.",
   "报名通道开放中 · 截止日期待公布": "Entries open · Deadline to be announced",
   "名": " winners",
