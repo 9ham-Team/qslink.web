@@ -25,3 +25,8 @@ desktop.ini
 /promo
 /.trae
 docs/METTING_SUMMARY.md
+
+# Vue3 migration generated output — vue3
+/dist-public-vue3/
+/test-results-vue3/
+/playwright-report-vue3/

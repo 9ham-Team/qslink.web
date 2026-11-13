@@ -1,0 +1,143 @@
+name: QSLink CI — vue3
+
+on:
+  pull_request:
+    branches: [dev-vue3]
+  push:
+    branches: [dev-vue3]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-vue3-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-vue3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      QSL_DOMAIN: vue3.example.test
+      POSTGRES_PASSWORD: ci-only-vue3-postgres
+      QSL_DB_PASSWORD: ci-only-vue3-app
+      QSL_TEST_DATABASE_URL: postgresql://qslink_test:ci-only-vue3-test@127.0.0.1:5432/qslink_test
+    services:
+      postgres-vue3:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: qslink_test
+          POSTGRES_PASSWORD: ci-only-vue3-test
+          POSTGRES_DB: qslink_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U qslink_test -d qslink_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check development-line suffixes — vue3
+        env:
+          QSL_PR_TITLE_VUE3: ${{ github.event.pull_request.title }}
+          QSL_HEAD_SHA_VUE3: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node tools/check-history-vue3.mjs
+      - name: Check deployment scripts — vue3
+        run: |
+          bash -n deployment/deploy-dev.sh
+          bash -n deployment/deploy-dev-vue3.sh
+          bash -n deployment/bootstrap-dev-vue3.sh
+      - name: Install locked dependencies — vue3
+        run: npm ci --include=optional
+      - name: Types, components and production assets — vue3
+        run: |
+          npm run check:vue3
+          npm run test:vue3
+          npm run build:vue3
+      - name: Existing business and production isolation — vue3
+        run: |
+          npm test
+          npm run test:production
+      - name: Browser regression against isolated fixtures — vue3
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e:vue3
+      - name: Validate and build independent image — vue3
+        run: |
+          docker compose -p qslink-vue3-ci -f compose.yaml -f compose-vue3.yaml config --quiet
+          created_v3=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "QSL_CREATED_VUE3=$created_v3" >> "$GITHUB_ENV"
+          docker compose -p qslink-vue3-ci -f compose.yaml -f compose-vue3.yaml build --build-arg "QSL_BUILD_REVISION=${{ github.sha }}" --build-arg "QSL_BUILD_CREATED=$created_v3" app
+      - name: Verify isolated production container — vue3
+        run: |
+          docker compose -p qslink-vue3-ci -f compose.yaml -f compose-vue3.yaml up -d --wait db
+          printf '%s' '{"username":"ci_vue3","email":"vue3@example.test","password":"CI-Only-Vue3-42!"}' | docker compose -p qslink-vue3-ci -f compose.yaml -f compose-vue3.yaml run --rm -T --no-deps app node server/init-admin.js
+          docker compose -p qslink-vue3-ci -f compose.yaml -f compose-vue3.yaml up -d --wait app
+          docker compose -p qslink-vue3-ci -f compose.yaml -f compose-vue3.yaml exec -T -e EXPECTED_REVISION="${{ github.sha }}" -e EXPECTED_CREATED="$QSL_CREATED_VUE3" app node -e "Promise.all(['/api/config','/space/012345678','/build-vue3/entry-vue3.js','/legal/terms.en.html'].map(async p=>{const r=await fetch('http://127.0.0.1:8787'+p);if(!r.ok)throw Error(p);if(p==='/api/config'){const c=await r.json();if(c.demo||c.demoAccounts.length||c.build?.revision!==process.env.EXPECTED_REVISION||c.build?.created!==process.env.EXPECTED_CREATED)throw Error('config')}})).catch(e=>{console.error(e.message);process.exit(1)})"
+          image_v3=$(docker compose -p qslink-vue3-ci -f compose.yaml -f compose-vue3.yaml images -q app)
+          test "$(docker image inspect "$image_v3" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "${{ github.sha }}"
+          test "$(docker image inspect "$image_v3" --format '{{index .Config.Labels "org.opencontainers.image.created"}}')" = "$QSL_CREATED_VUE3"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-results-vue3
+          path: test-results-vue3/
+
+  publish-vue3:
+    name: Publish image to GHCR — vue3
+    needs: test-vue3
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/dev-vue3'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select image and build time — vue3
+        id: image-vue3
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "name=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish tested image — vue3
+        id: build-vue3
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile-vue3
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.image-vue3.outputs.name }}:dev-vue3
+            ${{ steps.image-vue3.outputs.name }}:sha-${{ github.sha }}-vue3
+          build-args: |
+            QSL_BUILD_REVISION=${{ github.sha }}
+            QSL_BUILD_CREATED=${{ steps.image-vue3.outputs.created }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.image-vue3.outputs.created }}
+          cache-from: type=gha,scope=qslink-linux-amd64-vue3
+          cache-to: type=gha,mode=max,scope=qslink-linux-amd64-vue3
+          provenance: mode=min
+          sbom: true
+      - name: Record published image — vue3
+        env:
+          IMAGE_VUE3: ${{ steps.image-vue3.outputs.name }}
+          DIGEST_VUE3: ${{ steps.build-vue3.outputs.digest }}
+        run: |
+          printf '### Published image — vue3\n\nImage: `%s:sha-%s-vue3`\n\nDigest: `%s`\n' "$IMAGE_VUE3" "$GITHUB_SHA" "$DIGEST_VUE3" >> "$GITHUB_STEP_SUMMARY"

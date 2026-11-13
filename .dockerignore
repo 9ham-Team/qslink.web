@@ -9,3 +9,10 @@
 !public/
 !public/**
 server/seed.js
+
+# Vue3 builder inputs — vue3
+!client-vue3/
+!client-vue3/**
+!tools/
+!tools/build-vue3.mjs
+!Dockerfile-vue3

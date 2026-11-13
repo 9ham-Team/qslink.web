@@ -14,7 +14,13 @@
     "test:production": "node tools/run-tests.mjs production",
     "db:import-json": "node server/import-json.js",
     "db:local": "node tools/local-postgres.mjs",
-    "shot": "node tools/shot.mjs"
+    "shot": "node tools/shot.mjs",
+    "build:vue3": "node tools/build-vue3.mjs",
+    "start:vue3": "node tools/start-vue3.mjs",
+    "dev:vue3": "node tools/build-vue3.mjs && node tools/start-vue3.mjs --watch",
+    "check:vue3": "vue-tsc --project client-vue3/tsconfig-vue3.json --noEmit",
+    "test:vue3": "vitest run --config client-vue3/vitest.config-vue3.mjs",
+    "test:e2e:vue3": "node tools/test-browser-vue3.mjs"
   },
   "engines": {
     "node": ">=20.9.0"
@@ -29,7 +35,21 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
-    "embedded-postgres": "17.10.0-beta.17"
+    "@playwright/test": "1.65.0",
+    "@vitejs/plugin-vue": "6.0.11",
+    "@vue/test-utils": "2.4.11",
+    "embedded-postgres": "17.10.0-beta.17",
+    "jsdom": "31.0.1",
+    "typescript": "5.9.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0",
+    "vue": "3.5.45",
+    "vue-tsc": "3.3.14"
+  },
+  "overrides": {
+    "@vue/test-utils": {
+      "js-beautify": "1.14.8"
+    }
   },
   "license": "AGPL-3.0-only",
   "directories": {

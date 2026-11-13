@@ -1,0 +1,6 @@
+# Isolated Vue3 image build; invoke with -p qslink-vue3 and distinct credentials — vue3
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile-vue3

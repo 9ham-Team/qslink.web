@@ -1,5 +1,11 @@
 # AGENTS.md — QSLink agent 接手指南
 
+## Vue3 长期开发线约定 — vue3
+
+当任务位于 `dev-vue3` 或以 `-vue3` 结尾的迁移功能分支时，先读 [Vue3 迁移指引](Vue3迁移指引-vue3/README-vue3.md)。`dev-vue3` 是与原 `dev` 平级的长期集成分支，本轮创建基线为团队 `dev` 的 `f3289231bb3fd50941980eb146b5e5667095b034`；不得按临时分支自动删除、改名、回合原 `dev` 或部署到原测试服。此开发线已获用户授权引入 Vue3 与构建链，替代下文的原生前端默认约束。
+
+所有此开发线新增的任务文件基名、迁移专用目录、npm 命令、功能分支及后续提交/PR 标题均以 `vue3` 标识结尾（扩展名前为 `-vue3`，命令为 `:vue3`，提交/PR 标题以 ` — vue3` 结尾）。例如 `Space-vue3.vue`、`build:vue3`、`codex/space-sort-vue3`、`feat: migrate public space — vue3`。固定入口 `AGENTS.md`、`package.json`、`package-lock.json`、`.gitignore`、`.dockerignore` 及既有业务文件维持原路径；其 Vue3 修改必须在迁移进度中登记。标准 `dev`/`main` 不自动接收此开发线变更；提交、推送和部署仍分别遵循授权边界。
+
 适用于整个仓库。目标：让没有历史会话的新 agent 能定位实现、安全修改、验证并按授权交付。本文是导航与执行约定，不替代具体契约；平台指令及用户当前明确要求优先。遇到文档与实现冲突，先核对并说明，不猜测。
 
 ## 1. 先了解项目

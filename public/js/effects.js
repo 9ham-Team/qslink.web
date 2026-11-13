@@ -662,6 +662,7 @@
     }
     var target = e.target;
     if (!target || typeof target.closest !== 'function') return;
+    if (target.closest('[data-vue3]')) { resetPointer(); return; } // Component DOM belongs to Vue3 — vue3
     var tiltEl = null;
     var magEl = null;
     try {
@@ -714,6 +715,7 @@
     if (reduced()) return;
     var target = e.target;
     if (!target || typeof target.closest !== 'function') return;
+    if (target.closest('[data-vue3]')) return; // Do not append ripple nodes into Vue3 buttons — vue3
     var el = null;
     var explicit = false;
     try { el = target.closest('[data-ripple]'); } catch (err) { return; }

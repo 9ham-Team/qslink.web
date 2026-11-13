@@ -54,8 +54,12 @@ function readConfig(env = process.env) {
   const dataDir = path.resolve(
     env.QSL_DATA_DIR || path.join(__dirname, '..', '..', 'data'),
   );
-  const publicDir = path.resolve(__dirname, '..', '..', 'public');
-  if (dataDir === publicDir || dataDir.startsWith(publicDir + path.sep))
+  const originalPublicDir = path.resolve(__dirname, '..', '..', 'public');
+  // Vue3 build entry is opt-in; keep both static roots outside user data — vue3
+  const publicDir = env.QSL_PUBLIC_DIR_VUE3
+    ? path.resolve(env.QSL_PUBLIC_DIR_VUE3)
+    : originalPublicDir;
+  if ([publicDir, originalPublicDir].some(dir => dataDir === dir || dataDir.startsWith(dir + path.sep)))
     throw new Error('数据目录不能位于 public 内');
   return {
     env: mode,
