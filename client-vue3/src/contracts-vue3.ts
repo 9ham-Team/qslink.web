@@ -41,6 +41,8 @@ export interface SpaceResponseVue3 {
 export interface RouteContextVue3 {
   params: Record<string, string>;
   query: URLSearchParams;
+  fromPath?: string | null;
+  navigation?: 'push' | 'replace' | 'pop' | 'render';
 }
 
 export interface ServicesVue3 {

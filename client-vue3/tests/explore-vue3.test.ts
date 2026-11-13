@@ -1,10 +1,11 @@
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
 import ExploreVue3 from '../src/pages/Explore-vue3.vue';
 import type { CardPageVue3, CardVue3, ServicesVue3 } from '../src/contracts-vue3';
 
 let wrapper: VueWrapper;
-afterEach(() => { wrapper?.unmount(); vi.useRealTimers(); });
+beforeEach(() => { vi.stubGlobal('scrollTo', vi.fn()); });
+afterEach(() => { wrapper?.unmount(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 const owner = { uid: '012345678', displayName: 'Test', joinedAt: '2026-01-01', stats: { cards: 24, likesReceived: 0 } };
 function result(id = 'a', page = 1): CardPageVue3 {
   return { items: [{ id, title: '<script>card</script>', stock: null, liked: false, likeCount: 0, ratio: { w: 3, h: 2 }, owner } as CardVue3], total: 24, page, pages: 2 };

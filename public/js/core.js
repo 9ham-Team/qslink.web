@@ -143,7 +143,7 @@
       QSL.emit('route', QSL.router.current);
       return;
     }
-    renderRoute({ scroll: !opts.keepScroll });
+    renderRoute({ scroll: !opts.keepScroll, navigation: opts.replace ? 'replace' : 'push' }); // Vue3 history context — vue3
   };
 
   QSL.currentPath = function () {
@@ -212,7 +212,9 @@
     const payloadBase = {
       path: location.pathname,
       query: new URLSearchParams(location.search),
-      hash: location.hash
+      hash: location.hash,
+      fromPath: QSL.router.current ? QSL.router.current.path : null,
+      navigation: opts.navigation || 'render' // Additional context only; legacy routing stays authoritative — vue3
     };
     const matched = matchRoute(location.pathname);
 
@@ -306,7 +308,7 @@
     cleanup: null,
     render: renderRoute,
     start: function () {
-      window.addEventListener('popstate', () => renderRoute({ scroll: false }));
+      window.addEventListener('popstate', () => renderRoute({ scroll: false, navigation: 'pop' }));
       // 内部链接统一走前端路由
       document.addEventListener('click', function (e) {
         if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;

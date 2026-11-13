@@ -47,9 +47,10 @@ test('loads a 25-card collection through all pages without duplicates — vue3',
   await expect(page.locator('#app')).toHaveCSS('opacity', '1');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('explore-vue3.png') });
-  await page.getByRole('button', { name: '加载更多', exact: true }).click();
-  await expect(page.locator('.qsl-tile')).toHaveCount(24);
-  await page.getByRole('button', { name: '加载更多', exact: true }).click();
+  await expect(page.getByRole('button', { name: '加载更多', exact: true })).toHaveCount(0);
+  await page.locator('[data-infinite-vue3]').scrollIntoViewIfNeeded();
+  await expect.poll(() => page.locator('.qsl-tile').count()).toBeGreaterThan(12);
+  if (await page.locator('.qsl-tile').count() < 25) await page.locator('[data-infinite-vue3]').scrollIntoViewIfNeeded();
   await expect(page.locator('.qsl-tile')).toHaveCount(25);
   await expect(page.locator('.g-explore__end')).toBeVisible();
   expect(pages).toEqual([1, 2, 3]);
@@ -72,9 +73,11 @@ test('retries a failed append on the same page and keeps the displayed collectio
   });
   await page.goto('/explore');
   await expect(page.locator('.qsl-tile')).toHaveCount(12);
-  await page.getByRole('button', { name: '加载更多', exact: true }).click();
+  await page.locator('[data-infinite-vue3]').scrollIntoViewIfNeeded();
   await expect(page.locator('.g-error-panel')).toBeVisible();
   await expect(page.locator('.qsl-tile')).toHaveCount(12);
+  await page.waitForTimeout(400);
+  expect(pages).toEqual([1, 2]); // A visible sentinel must not retry a failed page by itself.
   await page.locator('.g-error-panel').getByRole('button', { name: '重新加载', exact: true }).click();
   await expect(page.locator('.qsl-tile')).toHaveCount(13);
   expect(pages).toEqual([1, 2, 2]);

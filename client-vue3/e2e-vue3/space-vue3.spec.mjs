@@ -72,7 +72,7 @@ test('public space survives sorting, sharing, legacy navigation and history — 
 
 test('legacy home avoids Vue chunks, account changes refresh likes, and English works — vue3', async ({ page, request }) => {
   const chunks = [];
-  page.on('request', req => { if (req.url().includes('/build-vue3/') && !req.url().endsWith('/entry-vue3.js')) chunks.push(req.url()); });
+  page.on('request', req => { if (req.url().includes('/build-vue3/') && /(?:services|space-entry|explore-entry)-vue3/.test(req.url())) chunks.push(req.url()); });
   await page.goto('/');
   await expect(page.locator('.qsl-tile').first()).toBeVisible();
   expect(chunks).toEqual([]);

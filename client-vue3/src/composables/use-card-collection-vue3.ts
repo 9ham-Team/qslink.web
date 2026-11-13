@@ -21,6 +21,7 @@ export function useCardCollectionVue3<Response>(options: {
   let alive = true;
   let generation = 0;
   let controller: AbortController | undefined;
+  let retryPages = 0;
 
   function cancel() {
     generation++;
@@ -33,9 +34,47 @@ export function useCardCollectionVue3<Response>(options: {
     items.value = [];
     page.value = pages.value = total.value = 0;
     loaded.value = retryReset.value = false;
+    retryPages = 0;
+  }
+  function restore(value: CardPageVue3) {
+    clear();
+    items.value = value.items;
+    page.value = value.page; pages.value = value.pages; total.value = value.total;
+    loaded.value = true;
+  }
+  async function refresh(targetPages = page.value) {
+    if (!alive) return;
+    controller?.abort();
+    controller = new AbortController();
+    const signal = controller.signal;
+    const request = ++generation;
+    loading.value = true; error.value = null;
+    try {
+      const fresh: CardVue3[] = [];
+      let response!: Response;
+      let result!: CardPageVue3;
+      for (let current = 1; current <= Math.max(1, targetPages); current++) {
+        response = await options.fetch(current, signal);
+        if (!alive || request !== generation || signal.aborted) return;
+        result = options.pageOf(response);
+        const ids = new Set(fresh.map(card => card.id));
+        fresh.push(...result.items.filter(card => !ids.has(card.id)));
+        if (current >= result.pages) break;
+      }
+      items.value = fresh; page.value = result.page; pages.value = result.pages; total.value = result.total;
+      loaded.value = true; retryReset.value = false; retryPages = 0;
+      options.onSuccess?.(response, false);
+    } catch (failure) {
+      if (!alive || request !== generation || signal.aborted) return;
+      error.value = failure && typeof failure === 'object' ? failure as CollectionErrorVue3 : {};
+      retryReset.value = true; retryPages = targetPages;
+      options.onError?.(error.value);
+    } finally { if (alive && request === generation) loading.value = false; }
   }
   async function load(reset = false) {
     if (!alive || (loading.value && !reset)) return;
+    if (!reset && retryPages) return refresh(retryPages);
+    retryPages = 0;
     reset = reset || retryReset.value || !loaded.value;
     controller?.abort();
     controller = new AbortController();
@@ -71,5 +110,5 @@ export function useCardCollectionVue3<Response>(options: {
     if (card) Object.assign(card, result);
   }
   onBeforeUnmount(() => { alive = false; cancel(); });
-  return { items, page, pages, total, loading, loaded, error, retryReset, hasMore, load, cancel, clear, liked };
+  return { items, page, pages, total, loading, loaded, error, retryReset, hasMore, load, cancel, clear, restore, refresh, liked };
 }

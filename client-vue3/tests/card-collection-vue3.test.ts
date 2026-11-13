@@ -78,3 +78,24 @@ it('prevents duplicate load-more submissions while a request is pending — vue3
   expect(fetch).toHaveBeenCalledOnce();
   resolve(result(['a'])); await pending;
 });
+
+it('revalidates cached pages and removes unavailable cards without appending duplicates — vue3', async () => {
+  const { collection: c, fetch } = setup(vi.fn().mockResolvedValueOnce(result(['fresh']))
+    .mockResolvedValueOnce(result(['second'], 2)));
+  c.restore({ items: result(['withdrawn']).items, page: 2, pages: 2, total: 24 });
+  await c.refresh();
+  expect(fetch.mock.calls.map(call => call[0])).toEqual([1, 2]);
+  expect(c.items.value.map(card => card.id)).toEqual(['fresh', 'second']);
+  expect(c.page.value).toBe(2);
+});
+
+it('retains the cached collection on failed validation and retries the saved page range — vue3', async () => {
+  const { collection: c, fetch } = setup(vi.fn().mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce(result(['a'])).mockResolvedValueOnce(result(['b'], 2)));
+  c.restore({ items: result(['cached']).items, page: 2, pages: 2, total: 24 });
+  await c.refresh();
+  expect(c.items.value[0].id).toBe('cached');
+  await c.load();
+  expect(fetch.mock.calls.map(call => call[0])).toEqual([1, 1, 2]);
+  expect(c.items.value.map(card => card.id)).toEqual(['a', 'b']);
+});
