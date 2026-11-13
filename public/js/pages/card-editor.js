@@ -81,11 +81,13 @@
       submitting: false,
       processing: 0,
       leaving: false,
-      alive: true
+      alive: true,
+      contest: { optIn: false, description: '', count: 0, cardInEntry: false, known: false, work: null }
     };
     let viewer = null;
     let editorCard = null;
     let stockModal = null;
+    let contestModal = null;
     const imageProcessor = QSL.imageUpload.createProcessor();
 
     const ratioChips = RATIO_PRESETS.map((preset) =>
@@ -108,9 +110,9 @@
           '<button class="btn btn-primary" type="button" data-submit>' + ico('check', 17) + ("<span>" + QSL.escapeHtml(QSL.t("提交审核")) + "</span></button>")
       }) +
       (isEdit ? '' : '<section class="f-contest-entry-guide" aria-labelledby="fEditorContestTitle"><div class="f-contest-entry-guide-copy">' +
-        '<h2 id="fEditorContestTitle">' + ico('trophy', 20) + esc(QSL.t('参赛提醒：卡片审核通过后，还需提交比赛报名')) + '</h2>' +
-        '<p>' + esc(QSL.t('想参加第一届 QSLink 杯 QSL 卡片设计大赛？请在卡片通过广场审核后，前往比赛报名页选择 1–2 件作品，填写作品说明和联系邮箱并提交。已报名的作品和状态也在报名页查看。')) + '</p>' +
-        '<ol><li>' + esc(QSL.t('上传卡片并通过广场审核')) + '</li><li>' + esc(QSL.t('填写作品说明和联系邮箱')) + '</li><li>' + esc(QSL.t('提交比赛报名')) + '</li></ol></div>' +
+        '<h2 id="fEditorContestTitle">' + ico('trophy', 20) + esc(QSL.t('参赛提醒：可在提交卡片时勾选自动参赛')) + '</h2>' +
+        '<p>' + esc(QSL.t('想参加第一届 QSLink 杯 QSL 卡片设计大赛？可在下方勾选「审核通过后自动参赛」并填写参赛说明，卡片通过广场审核时将连同说明一起审核并自动参赛；也可以先上传，通过后前往比赛报名页选择 1–2 件作品。每个账号最多 2 件参赛作品。')) + '</p>' +
+        '<ol><li>' + esc(QSL.t('上传卡片并通过广场审核')) + '</li><li>' + esc(QSL.t('勾选自动参赛并填写说明，或审核通过后手动报名')) + '</li><li>' + esc(QSL.t('审核通过后自动参赛，或在报名页查看状态')) + '</li></ol></div>' +
         '<a class="btn btn-primary" href="/events/qsl-design-2026-11/registration" data-link>' + esc(QSL.t('比赛报名 / 查看状态')) + ico('arrow-right', 16) + '</a></section>') +
       '<div class="f-editor-notice" id="fEditorNotice" hidden></div>' +
       '<div class="f-editor">' +
@@ -174,6 +176,16 @@
       '</section>' +
 
       ("<div class=\"f-form-card\"><label class=\"f-consent\"><input type=\"checkbox\" name=\"contentConsent\"><span>" + QSL.escapeHtml(QSL.t("我确认拥有本次卡片内容的必要权利，同意")) + "<a href=\"/legal/terms.html\" target=\"_blank\" rel=\"noopener\">" + QSL.escapeHtml(QSL.t("用户条款及其中的内容授权")) + "</a>" + QSL.escapeHtml(QSL.t("，并已阅读")) + "<a href=\"/legal/privacy.html\" target=\"_blank\" rel=\"noopener\">" + QSL.escapeHtml(QSL.t("隐私说明")) + "</a>" + QSL.escapeHtml(QSL.t("。审核通过后卡片将公开展示，图片通过公开链接提供，请勿包含私人收件地址或电话。")) + "</span></label><p class=\"f-error\" data-consent-error role=\"alert\" hidden></p></div>") +
+      '<div class="f-form-card f-contest-auto" data-contest-auto>' +
+      ('<label class="f-consent f-contest-auto-toggle"><input type="checkbox" name="contestOptIn" data-contest-optin><span><b>' + QSL.escapeHtml(QSL.t("审核通过后自动参赛")) + '</b><span class="f-contest-auto-copy">' + QSL.escapeHtml(QSL.t("勾选后填写参赛说明；参赛说明与卡片一起审核，通过后自动进入第一届 QSLink 杯 QSL 卡片设计大赛。每个账号最多 2 件参赛作品。")) + '</span></span></label>') +
+      '<div class="f-contest-auto-body" data-contest-auto-body hidden>' +
+      '<p class="hint" data-contest-auto-status role="status"></p>' +
+      '<div class="f-contest-auto-preview" data-contest-preview hidden></div>' +
+      '<button class="btn btn-soft btn-sm" type="button" data-contest-description-edit>' + ico('edit', 15) + ("<span>" + QSL.escapeHtml(QSL.t("编辑参赛说明")) + "</span>") + '</button>' +
+      '</div>' +
+      '<p class="hint" data-contest-limit hidden></p>' +
+      '<p class="f-error" data-contest-error role="alert" hidden></p>' +
+      '</div>' +
       '<div class="f-editor-actions">' +
       ("<a class=\"btn btn-ghost\" href=\"/dashboard/cards\">" + QSL.escapeHtml(QSL.t("取消")) + "</a>") +
       '<span class="f-unsaved" data-unsaved hidden>' + ico('alert', 14) + (" " + QSL.escapeHtml(QSL.t("有未保存的修改")) + "</span>") +
@@ -218,6 +230,143 @@
     const unsavedEl = container.querySelector('[data-unsaved]');
     const stageEl = container.querySelector('#fPreviewStage');
     const submitButtons = Array.from(container.querySelectorAll('[data-submit]'));
+    const contestCheckbox = container.querySelector('[data-contest-optin]');
+    const contestBody = container.querySelector('[data-contest-auto-body]');
+    const contestStatus = container.querySelector('[data-contest-auto-status]');
+    const contestPreview = container.querySelector('[data-contest-preview]');
+    const contestLimit = container.querySelector('[data-contest-limit]');
+    const contestError = container.querySelector('[data-contest-error]');
+    const contestEdit = container.querySelector('[data-contest-description-edit]');
+
+    function contestLength(value) {
+      return Array.from(String(value || '').trim()).length;
+    }
+
+    function contestLimitReached() {
+      return state.contest.known && state.contest.count >= 2 && !state.contest.cardInEntry;
+    }
+
+    function paintContest() {
+      if (!contestCheckbox) return;
+      contestCheckbox.checked = state.contest.optIn;
+      contestCheckbox.disabled = contestLimitReached() && !state.contest.optIn;
+      if (contestBody) contestBody.hidden = !state.contest.optIn;
+      const reached = contestLimitReached();
+      if (contestLimit) {
+        contestLimit.hidden = !reached;
+        if (reached) {
+          contestLimit.textContent = QSL.t("你的参赛作品已达 2 件（含比赛报名中的作品），无法再自动参赛；如需更换，请前往比赛报名调整。");
+        }
+      }
+      const description = state.contest.description.trim();
+      if (contestPreview) {
+        contestPreview.hidden = !state.contest.optIn || !description;
+        if (description) contestPreview.textContent = description;
+      }
+      if (contestStatus) {
+        if (!state.contest.optIn) contestStatus.textContent = '';
+        else if (state.contest.work && state.contest.work.number != null) {
+          contestStatus.textContent = QSL.t("已在参赛作品中（编号 {number}）；修改参赛说明后需随卡片重新审核。",
+            { number: String(state.contest.work.number).padStart(3, '0') });
+        } else {
+          contestStatus.textContent = QSL.t("提交后与卡片一起审核，审核通过即自动参赛。");
+        }
+      }
+    }
+
+    function openContestModal() {
+      if (contestModal || state.submitting) return;
+      if (contestLimitReached() && !state.contest.optIn) {
+        if (contestCheckbox) contestCheckbox.checked = false;
+        QSL.toast(QSL.t("你的参赛作品已达 2 件，无法再自动参赛；如需更换，请前往比赛报名调整。"), 'error');
+        return;
+      }
+      const modalEvents = new AbortController();
+      const modal = QSL.modal({
+        title: QSL.t("参赛说明"),
+        content: '<div class="f-contest-auto-editor">' +
+          '<label class="field"><span class="label">' + QSL.t("参赛说明") + '<i class="req">*</i></span>' +
+          '<textarea class="textarea" rows="8" required data-contest-text aria-describedby="contest-auto-hint contest-auto-count contest-auto-error">' +
+          esc(state.contest.description) + '</textarea></label>' +
+          '<p class="hint" id="contest-auto-hint">' + QSL.t("请填写 1–2000 字参赛说明。说明将与卡片一起审核，通过后公开展示。") + '</p>' +
+          '<p class="hint" id="contest-auto-count" data-contest-count role="status"></p>' +
+          '<p class="f-modal-error" id="contest-auto-error" data-contest-modal-error role="alert" hidden></p></div>',
+        onClose: function () {
+          modalEvents.abort();
+          contestModal = null;
+          if (state.alive) {
+            paintContest();
+            if (contestCheckbox) contestCheckbox.focus({ preventScroll: true });
+          }
+        },
+        actions: [
+          { label: QSL.t("取消"), type: 'ghost' },
+          { label: QSL.t("保存说明"), type: 'primary', closeOnClick: false, onClick: function () {
+            const value = input.value.trim();
+            const length = contestLength(value);
+            if (!length || length > 2000) {
+              error.textContent = QSL.t("参赛说明须为 1–2000 字");
+              error.hidden = false;
+              input.setAttribute('aria-invalid', 'true');
+              input.focus();
+              return false;
+            }
+            state.contest.optIn = true;
+            state.contest.description = value;
+            paintContest();
+            markDirty();
+            modal.close();
+            return false;
+          } }
+        ]
+      });
+      contestModal = modal;
+      const input = modal.body.querySelector('[data-contest-text]');
+      const count = modal.body.querySelector('[data-contest-count]');
+      const error = modal.body.querySelector('[data-contest-modal-error]');
+      function paintCount() {
+        const length = contestLength(input.value);
+        count.textContent = QSL.t('{n} / 2000 字', { n: length });
+        count.classList.toggle('is-invalid', length > 2000);
+        input.removeAttribute('aria-invalid');
+        error.hidden = true;
+      }
+      input.addEventListener('input', paintCount, { signal: modalEvents.signal });
+      paintCount();
+      input.focus();
+    }
+
+    async function loadContestState() {
+      try {
+        const data = await QSL.api.get('/api/contests/qsl-design-2026-11/entry');
+        if (!state.alive) return;
+        const works = (data.entry && data.entry.works) || [];
+        state.contest.count = works.length;
+        state.contest.cardInEntry = !!cardId && works.some((work) => work.cardId === cardId);
+        state.contest.known = true;
+        paintContest();
+      } catch (err) {
+        // 不阻塞上传：服务端仍会在提交时校验 2 件上限。
+      }
+    }
+
+    if (contestCheckbox) {
+      contestCheckbox.addEventListener('change', function () {
+        if (contestCheckbox.checked) {
+          if (contestLimitReached()) {
+            contestCheckbox.checked = false;
+            QSL.toast(QSL.t("你的参赛作品已达 2 件，无法再自动参赛；如需更换，请前往比赛报名调整。"), 'error');
+            return;
+          }
+          openContestModal();
+          return;
+        }
+        state.contest.optIn = false;
+        paintContest();
+        markDirty();
+      });
+    }
+    if (contestEdit) contestEdit.addEventListener('click', openContestModal);
 
     function paintStock() {
       stockInput.innerHTML = '<span>' + (editorCard.stock == null ? QSL.t("未设置（不限制换卡）") : esc(editorCard.stock) + (" " + QSL.t("张"))) + '</span>' + ico('edit', 16);
@@ -518,6 +667,16 @@
           err.textContent = '';
         }
       });
+      if (contestError) {
+        contestError.hidden = true;
+        contestError.textContent = '';
+      }
+    }
+
+    function showContestError(message) {
+      if (!contestError) return;
+      contestError.hidden = false;
+      contestError.textContent = message || '';
     }
 
     function showFieldError(field, message) {
@@ -540,6 +699,11 @@
         const field = aliases[key] || aliases[short] || short;
         if (field === 'ratioW' || field === 'ratioH') {
           showFieldError('ratio', fields[key]);
+          mapped++;
+          return;
+        }
+        if (field === 'contestOptIn' || field === 'contestDescription') {
+          showContestError(fields[key]);
           mapped++;
           return;
         }
@@ -619,6 +783,15 @@
         consent.focus();
         return;
       }
+      const contestOn = !!(contestCheckbox && contestCheckbox.checked);
+      if (contestOn) {
+        const length = contestLength(state.contest.description);
+        if (!length || length > 2000) {
+          showContestError(QSL.t("参赛说明须为 1–2000 字"));
+          openContestModal();
+          return;
+        }
+      }
       const values = collectValues();
       const errors = validate(values);
       if (errors.length) {
@@ -645,8 +818,10 @@
           callSign: values.callSign,
           notes: values.notes,
           ratio: { w: values.ratio.w, h: values.ratio.h },
-          frontImage: values.frontImage
+          frontImage: values.frontImage,
+          contestOptIn: contestOn
         };
+        if (contestOn) payload.contestDescription = state.contest.description.trim();
         if (values.backImage) payload.backImage = values.backImage;
         if (!isEdit) payload.stock = values.stock;
         let result;
@@ -658,7 +833,10 @@
         if (result && result.card && result.card.status) {
           // 新建默认 pending；编辑后同样回到待审核
         }
-        QSL.toast(isEdit ? QSL.t("修改已提交，需重新审核") : QSL.t('卡片已提交审核。想参赛，请在审核通过后前往「比赛报名」完成报名。'), 'success', isEdit ? undefined : 6000);
+        QSL.toast(isEdit
+          ? (contestOn ? QSL.t("修改已提交，需重新审核；通过后保持自动参赛") : QSL.t("修改已提交，需重新审核"))
+          : (contestOn ? QSL.t("卡片已提交审核，通过后将自动参赛") : QSL.t('卡片已提交审核。想参赛，请在审核通过后前往「比赛报名」完成报名。')),
+        'success', isEdit ? undefined : 6000);
         if (QSL.fx && typeof QSL.fx.confetti === 'function') {
           try { QSL.fx.confetti(); } catch (e) { /* ignore */ }
         }
@@ -702,6 +880,11 @@
       updateCounter('notes', 500);
       const ratio = card.ratio && card.ratio.w && card.ratio.h ? card.ratio : { w: 3, h: 2 };
       state.ratio = { w: ratio.w, h: ratio.h };
+      state.contest.optIn = card.contestOptIn === true;
+      state.contest.description = card.contestDescription || '';
+      state.contest.work = card.contestWork || null;
+      state.contest.cardInEntry = !!card.contestWork;
+      paintContest();
       ratioWInput.value = String(state.ratio.w);
       ratioHInput.value = String(state.ratio.h);
       syncRatioChips();
@@ -758,13 +941,16 @@
       callSignInput.value = user.callSign || '';
       paintPreviewMeta();
       syncRatioChips();
+      paintContest();
       mountViewer();
     } else {
       paintPreviewMeta();
       syncRatioChips();
+      paintContest();
       mountViewer();
       loadCard();
     }
+    loadContestState();
 
     /* ---------------- 未保存内容守卫 ---------------- */
     function onBeforeUnload(event) {
@@ -802,6 +988,7 @@
       state.alive = false;
       imageProcessor.destroy();
       if (stockModal) stockModal.close();
+      if (contestModal) contestModal.close();
       window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('dragover', preventWindowDrop);
       window.removeEventListener('drop', preventWindowDrop);

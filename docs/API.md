@@ -235,8 +235,11 @@ body: `{ currentPassword, newPassword }` → `{ ok: true }`；错误 400 `VALIDA
 ### POST /api/cards  🔒
 
 另须提交 `acceptTerms: true`、`termsVersion: "2026-10-25"`、`acceptContentLicense: true`，确认本次卡片内容授权。服务器保存版本、时间及确认账号；缺失或不匹配返回 `400 VALIDATION`（`legalConsent`），且不写入图片。
-body: `{ title, callSign?, band?, mode?, notes?, stock?, ratio: {w,h}, frontImage, backImage? }`
+body: `{ title, callSign?, band?, mode?, notes?, stock?, ratio: {w,h}, frontImage, backImage?, contestOptIn?, contestDescription? }`
 - `stock` 为公开的剩余库存：0–2147483647 的 JSON 整数或 null，省略创建时默认 null（未设置，不限制换卡）。字符串、负数、小数等返回 400 `VALIDATION`，错误字段为 `stock`。`CardPublic` / `CardDetail` 均返回此字段。库存 0 的卡片仍公开展示、可点赞和分享，但详情 `canApply: false`。
+- `contestOptIn` 为可省略的布尔值，默认 `false`。为 `true` 时 `contestDescription` 必填，去除首尾空白后为 1–2000 个 Unicode 字符且禁止 NUL；为 `false` 时忽略说明并清空。说明与卡片一起进入人工审核，服务端按账号校验参赛作品上限：自动参赛与手动报名共用每届 2 件上限，已在报名中的本卡片可继续更新，超出返回 400（字段 `contestOptIn`）。
+- 只有 owner 或 admin 的 `CardDetail`、管理员卡片列表/待审核列表和编辑响应包含 `contestOptIn`、`contestDescription`；公开列表、分享页和作品公开接口不返回说明原文。owner/admin 的 `CardDetail` 另含 `contestWork: { id, number, entryStatus } | null`。
+- 卡片由管理员审核通过时，若 `contestOptIn: true`，服务端在同一事务内创建或更新赛事作品；仅当报名中的全部当前作品都来自自动参赛且对应卡片均为 approved 时，整份报名自动通过（说明公开展示）。任一作品来自手动报名或仍不可用时，报名保持原审核状态，需在比赛报名审核中单独处理。卡片内容、自动参赛选项或说明修改会重置赛事审核；owner 明确取消自动参赛时，同时停用该卡片的参赛作品。
 - `callSign` 选填，去除首尾空白、≤20 个字符；服务端不强制格式或大写。
 - `band` / `mode` 为兼容字段，v3 起可省略或传空字符串；仍接受、保存并返回 ≤20 个字符的值，但前端不再填写或展示为筛选项。
 - 正面图片必需；背面可省略或为空，返回空字符串，由前端显示占位背面。
@@ -247,7 +250,7 @@ body: `{ title, callSign?, band?, mode?, notes?, stock?, ratio: {w,h}, frontImag
 ### PUT /api/cards/:id  🔒
 
 所有者编辑时须再次提交上述三个确认字段，服务器更新该卡片的授权记录。管理员编辑他人的卡片不替代所有者授权，不修改已有确认记录。旧账号和卡片无确认记录时保持 NULL，不推定已经授权；授权记录不包含在公开 API 响应中。
-owner 或 admin。body 同上（字段可选）。普通 owner 修改后 `status` 重置为 `pending`（admin 修改不重置，除非显式传 status）。
+owner 或 admin。body 同上（字段可选）。普通 owner 修改后 `status` 重置为 `pending`（admin 修改不重置，除非显式传 status）。owner 将 `contestOptIn` 从 `true` 改为 `false` 时撤回该卡片的自动参赛作品；未提交该字段时保留原值。管理员将卡片设为 `approved` 时按自动参赛规则同步赛事作品，响应额外返回 `contestAutoEntry: { status: "entered", entryStatus, workId, number }` 或 `{ status: "skipped", reason: "limit" | "description" | "user" }`。
 
 普通用户每次成功编辑后重新发送待审核提醒（即使原状态已是 pending）；管理员仅在非 pending → pending 时发送。与创建卡片使用同一 Webhook 配置及失败语义；审核通过、拒绝、删除、请求失败或事务回滚不发送待审核提醒。`PUT /api/admin/cards/:id` 同样遵守管理员触发规则。
 
@@ -306,7 +309,7 @@ body: `{ reason? }` → `{ exchange }`
   "exchanges": { "total": 7, "pending": 3, "approved": 2, "completed": 1, "rejected": 1 },
   "likes": 88,
   "recentUsers": [UserPublic × 5],
-  "pendingCards": [CardPublic × 10] ,
+  "pendingCards": [CardPublic × 10，含 contestOptIn / contestDescription],
   "recentExchanges": [ExchangeItem × 5]
 }
 ```
@@ -320,12 +323,13 @@ body 可选：`{ displayName, callSign, bio, email, role, status, avatarColor, a
 ### DELETE /api/admin/users/:id
 - 不能删除自己、不能删除最后一个 admin。级联删除其卡片、申请、点赞、session。→ `{ ok: true }`
 ### GET /api/admin/cards
-query：`status`（all/pending/approved/rejected）、`q`、`page`、`limit`。→ 分页列表（CardPublic + `owner.status`、`shareToken`、`rejectReason`）
+query：`status`（all/pending/approved/rejected）、`q`、`page`、`limit`。→ 分页列表（CardPublic + `owner.status`、`shareToken`、`rejectReason`、`contestOptIn`、`contestDescription`）
 ### PUT /api/admin/cards/:id
-body 可选：`{ title, callSign, band, mode, notes, ratio, frontImage, backImage, status, rejectReason }`（band/mode 兼容字段，可省略）
+body 可选：`{ title, callSign, band, mode, notes, ratio, frontImage, backImage, status, rejectReason, contestOptIn, contestDescription }`（band/mode 兼容字段，可省略）
 - `status` 可为 approved/rejected/pending；设为 approved 时清空 rejectReason。
 - 非 approved → approved 时提交后向卡片主人发送通过邮件，触发及失败语义同 `PUT /api/cards/:id`。
-→ `{ card }`
+- 卡片含自动参赛选项时，管理员列表/详情返回 `contestOptIn`、`contestDescription`，便于与卡片一起审核；设为 approved 时在同一事务内创建或更新赛事作品，成功后返回 `contestAutoEntry`（结构同上）。作品已达 2 件、联系方式/说明无效或账号不可用时卡片仍可通过，自动参赛标记为 skipped，管理端应提示。
+→ `{ card, contestAutoEntry? }`
 ### DELETE /api/admin/cards/:id → `{ ok: true }`
 ### GET /api/admin/exchanges
 query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双方地址与卡片、用户信息，`direction` 固定为 `admin`）
@@ -404,6 +408,7 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 body：`{ works: [{ cardId, description }], contactEmail, expectedRevision? }`，`works` 必须包含 1–2 张不重复的卡片，每张作品的 `description` 必填，去除首尾空白后为 1–2000 个 Unicode 字符，禁止 NUL。不再接收报名总说明或以 `cardIds` 选择作品。首次可省略 `expectedRevision`，更新已有报名必须携带当前版本。服务端逐张检查所选卡片属于当前用户且已通过广场审核，客户端不能指定报名用户、审核状态或审核人。
 
 - 每账号本届仅保留一份报名，数据库唯一约束保护并发请求；待审核、驳回、通过后修改均更新原记录。历史超额作品不自动删除，读取仍完整返回；再次提交须由用户明确调整至最多 2 件，不能由客户端静默截断。
+- 上传卡片时勾选自动参赛的作品在卡片审核通过后由服务端写入同一份报名与作品集合，使用账号注册邮箱作为首次报名的联系邮箱，并与手动报名共用 2 件上限。自动参赛说明随卡片审核；报名中的全部当前作品都来自自动参赛且卡片均为 approved 时，报名状态自动变为 approved。存在手动报名作品或卡片不可用时保持原报名状态，仍需报名审核。
 - 有效修改递增 `revision`、转为 `pending` 并清空旧审核信息；没有实际变化的重复保存不撤销审核结果。
 - 旧版本更新返回 `409`，需重新读取再提交；非法字段为 `400`，未登录为 `401`。
 - 修改作品选择、逐作品说明或联系邮箱，整份报名重新待审核；任一当前作品卡片内容变化或失去广场通过状态时同样重新待审核，仅库存变化不影响赛事审核。删卡清除作品的卡片/报名关联及说明并保留编号墓碑，报名保留；删除用户清理报名及所有作品个人内容，编号不回收。

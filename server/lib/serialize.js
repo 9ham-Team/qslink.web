@@ -136,7 +136,7 @@ function exchangeCountForCard(db, cardId) {
 
 /**
  * CardPublic。
- * @param {object} options { shareToken, rejectReason, ownerStatus }
+ * @param {object} options { shareToken, rejectReason, ownerStatus, contest }
  */
 function cardPublic(db, card, viewer, options = {}) {
   const owner = cardOwner(db, card);
@@ -164,12 +164,22 @@ function cardPublic(db, card, viewer, options = {}) {
   };
   if (options.shareToken) result.shareToken = card.shortToken;
   if (options.rejectReason) result.rejectReason = card.rejectReason || null;
+  if (options.contest) {
+    result.contestOptIn = card.contestOptIn === true;
+    result.contestDescription = card.contestDescription || '';
+  }
   return result;
 }
 
 /** CardDetail：CardPublic + canApply / isOwner / shareToken / myExchange */
 function cardDetail(db, card, viewer) {
-  const base = cardPublic(db, card, viewer);
+  const privileged = !!viewer && (viewer.id === card.ownerId || viewer.role === 'admin');
+  const base = cardPublic(db, card, viewer, { contest: privileged });
+  if (privileged) {
+    const work = db.data.contestWorks.find((item) => item.cardId === card.id && item.active);
+    const entry = work && db.find('contestEntries', (item) => item.id === work.entryId);
+    base.contestWork = work ? { id: work.id, number: work.number, entryStatus: entry ? entry.status : null } : null;
+  }
   const rawOwner = findUser(db, card.ownerId);
   const ownerActive = !!rawOwner && rawOwner.status !== 'banned';
   const isOwner = !!viewer && viewer.id === card.ownerId;

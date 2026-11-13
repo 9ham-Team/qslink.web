@@ -98,6 +98,49 @@
   }
   function imageSrc(src) { return src || QSL.PLACEHOLDER_IMAGE || ''; }
 
+  function contestAutoInfo(card, compact) {
+    if (!card || !card.contestOptIn) return '';
+    return '<div class="a-contest-auto-info' + (compact ? ' is-compact' : '') + '">' +
+      '<span class="a-contest-auto-tag">' + ico('trophy', 14) + esc(QSL.t("自动参赛")) + '</span>' +
+      '<p>' + esc(card.contestDescription || QSL.t("参赛说明缺失，无法自动参赛")) + '</p></div>';
+  }
+
+  function confirmAutoContestEntry(card) {
+    if (!card || !card.contestOptIn) return Promise.resolve(true);
+    return new Promise(function (resolve) {
+      let settled = false;
+      const modal = QSL.modal({
+        title: QSL.t("通过审核并自动参赛"),
+        content: '<p class="modal-text">' + esc(QSL.t("该卡片勾选了「审核通过后自动参赛」。通过后卡片将公开展示，参赛说明也将公开并参与投票。")) + '</p>' +
+          '<div class="a-info-block"><h4>' + esc(QSL.t("参赛说明")) + '</h4><p class="a-quote a-contest-text">' +
+          esc(card.contestDescription || '') + '</p></div>',
+        onClose: function () {
+          if (settled) return;
+          settled = true;
+          resolve(false);
+        },
+        actions: [
+          { label: QSL.t("取消"), type: 'ghost' },
+          { label: QSL.t("通过并参赛"), type: 'primary', onClick: function () {
+            settled = true;
+            resolve(true);
+          } }
+        ]
+      });
+      if (!modal.el) {
+        settled = true;
+        resolve(true);
+      }
+    });
+  }
+
+  function autoEntrySkippedText(result) {
+    if (!result || result.status !== 'skipped') return '';
+    if (result.reason === 'limit') return QSL.t("卡片已通过，但该账号参赛作品已达 2 件，未自动参赛。");
+    if (result.reason === 'description') return QSL.t("卡片已通过，但参赛说明无效，未自动参赛。");
+    return QSL.t("卡片已通过，但账号不可用，未自动参赛。");
+  }
+
   function userCell(user, isSelf) {
     const u = user || {};
     const name = u.displayName || u.username || QSL.t("未知用户");
@@ -708,7 +751,7 @@
       '</h2><span class="a-toolbar-spacer"></span><label class="a-filter">' + esc(QSL.t("说明审核状态")) +
       '<select class="select a-select" data-contest-status>' + CARD_STATUS_TABS.map(function (item) {
         return '<option value="' + item.key + '"' + (item.key === state.status ? ' selected' : '') + '>' + esc(item.label) + '</option>';
-      }).join('') + '</select></label></div><p class="muted">' + esc(QSL.t("已通过广场审核的图片报名后即可展示和投票；这里仅审核作品说明，待审核或驳回均不影响图片投票。")) +
+      }).join('') + '</select></label></div><p class="muted">' + esc(QSL.t("自动参赛的说明随广场卡片审核一并通过，通常无需在这里重复审核；此列表可查看全部报名，并审核手动报名及修改后的说明。图片审核通过后即可展示和投票，说明待审核或驳回不影响图片投票。")) +
       '</p><div class="a-cardlist" data-contest-list></div><div class="pagination a-pager" data-contest-pager></div></section>' +
       '<section class="a-contest-section" data-contest-announcements></section>');
     const job = ++owner.jobs.contest;
@@ -1001,6 +1044,7 @@
       '<span class="a-meta-item">' + ico('clock', 14) + (QSL.t("提交于") + " ") + esc(timeAgo(card.createdAt)) + '</span>' +
       (card.callSign ? badge(card.callSign, 'slate') : '') +
       '</div>' +
+      contestAutoInfo(card, true) +
       '<div class="a-pending-actions">' +
       '<button class="btn btn-primary btn-sm" type="button" data-act="approve-card" data-id="' + escAttr(id) + '">' +
       ico('check', 15) + (QSL.escapeHtml(QSL.t("通过")) + "</button>") +
@@ -1116,10 +1160,14 @@
   async function auditPendingCard(root, card, act, btn) {
     if (act === 'approve-card') {
       if (btn.disabled) return;
+      if (!(await confirmAutoContestEntry(card))) return;
       animateBusy(btn, true, QSL.t("通过中…"));
       try {
-        await QSL.api.admin.updateCard(card.id, { status: 'approved' });
-        toast('「' + (card.title || QSL.t("卡片")) + QSL.t("」已通过审核"), 'success');
+        const result = await QSL.api.admin.updateCard(card.id, { status: 'approved' });
+        toast('「' + (card.title || QSL.t("卡片")) + QSL.t("」已通过审核") +
+          (result && result.contestAutoEntry && result.contestAutoEntry.status === 'entered' ? QSL.t("，并已自动参赛") : ''), 'success');
+        const skipped = autoEntrySkippedText(result && result.contestAutoEntry);
+        if (skipped) toast(skipped, 'info', 6000);
         celebrate(btn);
         removePendingTile(root, card.id, 'approved');
         refreshStatsQuiet();
@@ -1803,6 +1851,7 @@
       '<div class="a-cardrow-head"><h3 class="a-cardrow-title" title="' + escAttr(title) + '">' + esc(title) + '</h3>' +
       statusBadge(status) + '</div>' +
       (card.notes ? '<p class="a-cardrow-notes clamp-2">' + esc(card.notes) + '</p>' : '') +
+      contestAutoInfo(card) +
       '<div class="a-cardrow-meta">' +
       '<span class="a-cardrow-owner">' + QSL.ownerLine(owner) + '</span>' +
       '<span class="a-meta-item">' + ico('antenna', 14) + esc(card.callSign || '—') + '</span>' +
@@ -1822,10 +1871,14 @@
   async function auditListCard(root, card, act, btn) {
     if (act === 'approve-card') {
       if (btn.disabled) return;
+      if (!(await confirmAutoContestEntry(card))) return;
       animateBusy(btn, true, QSL.t("通过中…"));
       try {
-        await QSL.api.admin.updateCard(card.id, { status: 'approved' });
-        toast('「' + (card.title || QSL.t("卡片")) + QSL.t("」已通过审核"), 'success');
+        const result = await QSL.api.admin.updateCard(card.id, { status: 'approved' });
+        toast('「' + (card.title || QSL.t("卡片")) + QSL.t("」已通过审核") +
+          (result && result.contestAutoEntry && result.contestAutoEntry.status === 'entered' ? QSL.t("，并已自动参赛") : ''), 'success');
+        const skipped = autoEntrySkippedText(result && result.contestAutoEntry);
+        if (skipped) toast(skipped, 'info', 6000);
         celebrate(btn);
         if (isLive(root, 'cards')) loadCards(root, S.cards.page);
         refreshStatsQuiet();
@@ -1890,6 +1943,9 @@
       QSL.field({ label: QSL.t("拒绝原因"), hint: QSL.t("会展示给卡片作者"), input: '<input class="input" name="rejectReason" type="text" maxlength="200" value="' + escAttr(card.rejectReason || '') + '">' }) +
       '</div></div>' +
       '<div class="span-2">' + QSL.field({ label: QSL.t("卡片简介"), input: '<textarea class="textarea" name="notes" rows="3" maxlength="300">' + esc(card.notes || '') + '</textarea>' }) + '</div>' +
+      (card.contestOptIn ? '<div class="span-2"><div class="a-contest-auto-readonly"><h4>' + esc(QSL.t("自动参赛说明")) +
+        '</h4><p class="a-quote a-contest-text">' + esc(card.contestDescription || QSL.t("参赛说明缺失，无法自动参赛")) + '</p>' +
+        '<small class="muted">' + esc(QSL.t("保存为「已通过」时，卡片与参赛说明将一起生效。")) + '</small></div></div>' : '') +
       '</div></form>';
 
     const modal = QSL.modal({
@@ -1926,8 +1982,11 @@
             };
             if (data.status === 'rejected') body.rejectReason = data.rejectReason || '';
             try {
-              await QSL.api.admin.updateCard(card.id, body);
-              toast(QSL.t("卡片信息已更新"), 'success');
+              const result = await QSL.api.admin.updateCard(card.id, body);
+              toast(QSL.t("卡片信息已更新") +
+                (result && result.contestAutoEntry && result.contestAutoEntry.status === 'entered' ? QSL.t("，并已自动参赛") : ''), 'success');
+              const skipped = autoEntrySkippedText(result && result.contestAutoEntry);
+              if (skipped) toast(skipped, 'info', 6000);
               refreshStatsQuiet();
               if (isLive(S.root, 'cards')) loadCards(S.root, S.cards.page);
               modal.close();

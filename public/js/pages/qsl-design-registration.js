@@ -145,7 +145,7 @@
         showPanel(statusHtml + '<p>' + text('暂无可参赛卡片。请先上传卡片并通过广场审核，再回来报名。') + '</p>' + links, animate, focus);
         return;
       }
-      showPanel(statusHtml + '<p class="f-contest-form-intro">' + text('每个账号一份报名，最多选择 2 件作品。已通过广场审核的图片提交报名后即可展示和接受投票；作品说明审核通过后公开，修改报名资料需重新审核说明。') + '</p>' +
+      showPanel(statusHtml + '<p class="f-contest-form-intro">' + text('每个账号一份报名，最多选择 2 件作品；上传卡片时勾选「审核通过后自动参赛」的作品也计入此上限。已通过广场审核的图片提交报名后即可展示和接受投票；作品说明审核通过后公开，修改报名资料需重新审核说明。') + '</p>' +
         '<form data-entry-form><div class="field" role="group" aria-label="' + text('参赛卡片') + '">' +
           '<span class="label">' + text('参赛卡片') + '<i class="req">*</i></span>' +
           '<div class="f-contest-cards"><div class="f-contest-selected" data-selected-cards></div>' +

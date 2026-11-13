@@ -17,7 +17,7 @@ async function testContestMigration() {
       unit.insert('announcements', { id: 'legacy_contest_notice', title: '旧全站公告', body: '升级前正文', status: 'published', eventKey: null, displaySeconds: 30, publishedAt: now, createdAt: now, updatedAt: now });
     }, { write: true });
     // DDL stays outside UnitOfWork: its current collection loader requires the new table.
-    await legacy.db.pool.query(`DROP TABLE ${schema}."contestJudgingChanges"; DROP TABLE ${schema}."contestScores"; DROP TABLE ${schema}."contestMaterials"; DROP TABLE ${schema}."contestJudges"; DROP TABLE ${schema}."contestJudging"; DROP TABLE ${schema}."contestVotes"; DROP TABLE ${schema}."contestVotingSettings"; DROP TABLE ${schema}."contestWorks"; DROP TRIGGER contest_works_card_delete ON ${schema}.cards; DROP TABLE ${schema}."contestEntries"; DROP FUNCTION ${schema}.scrub_contest_works(); ALTER TABLE ${schema}.announcements DROP COLUMN "eventKey"; DELETE FROM ${schema}.schema_migrations WHERE version >= 14`);
+    await legacy.db.pool.query(`DROP TABLE ${schema}."contestJudgingChanges"; DROP TABLE ${schema}."contestScores"; DROP TABLE ${schema}."contestMaterials"; DROP TABLE ${schema}."contestJudges"; DROP TABLE ${schema}."contestJudging"; DROP TABLE ${schema}."contestVotes"; DROP TABLE ${schema}."contestVotingSettings"; DROP TABLE ${schema}."contestWorks"; DROP TRIGGER contest_works_card_delete ON ${schema}.cards; DROP TABLE ${schema}."contestEntries"; DROP FUNCTION ${schema}.scrub_contest_works(); ALTER TABLE ${schema}.announcements DROP COLUMN "eventKey"; ALTER TABLE ${schema}.cards DROP COLUMN "contestOptIn", DROP COLUMN "contestDescription"; DELETE FROM ${schema}.schema_migrations WHERE version >= 14`);
     assert.equal((await legacy.db.pool.query(`SELECT max(version) AS version FROM ${schema}.schema_migrations`)).rows[0].version, 13);
     await legacy.db.migrate();
     await legacy.db.migrate();
@@ -38,6 +38,94 @@ const entryPath = publicPath + '/entry';
 const adminPath = '/api/admin/contests/:eventKey/entries';
 const detailPath = adminPath + '/:id';
 const reviewPath = detailPath + '/review';
+
+async function testAutoEntry() {
+  const f = await fixture();
+  const now = new Date().toISOString();
+  const user = (id, role = 'user') => ({ id, username: id, email: id + '@example.test', displayName: id, callSign: '', bio: '', avatarColor: '#123456', role, status: 'active', passwordHash: 'test-only', address: null, createdAt: now, updatedAt: now });
+  const card = (id, extra = {}) => ({ id, ownerId: 'owner', title: id, callSign: '', band: '', mode: '', notes: '', stock: null, backImage: '', ratio: { w: 3, h: 2 }, frontImage: '/uploads/test.png', shareToken: 'auto_' + id, status: 'pending', rejectReason: null, contestOptIn: true, contestDescription: '参赛说明 ' + id, createdAt: now, updatedAt: now, ...extra });
+  async function call(routes, method, pattern, { viewer = 'owner', id, body, query = '', db = f.db } = {}) {
+    const route = routes.find(item => item.method === method && item.pattern === pattern);
+    assert.ok(route, method + ' ' + pattern + ' is registered');
+    return db.transaction(unit => route.handler({ db: unit, user: viewer ? unit.find('users', item => item.id === viewer) : null, params: { eventKey, id }, body, query: new URLSearchParams(query), config: {} }), { write: method !== 'GET' });
+  }
+  const approve = id => call(admin.routes, 'PUT', '/api/admin/cards/:id', { viewer: 'admin', id, body: { status: 'approved' } });
+  const entry = () => call(contests.routes, 'GET', entryPath).then(result => result.body.entry);
+  const publicWorks = () => call(contests.routes, 'GET', publicPath + '/works', { viewer: null }).then(result => result.body);
+  try {
+    await f.db.transaction(unit => {
+      unit.insert('users', user('owner'));
+      unit.insert('users', user('admin', 'admin'));
+      ['a', 'b', 'c', 'd'].forEach(id => unit.insert('cards', card(id)));
+    }, { write: true });
+
+    await assert.rejects(call(cards.routes, 'PUT', '/api/cards/:id', {
+      id: 'a', body: withLegalConsent('PUT', '/api/cards/a', { contestOptIn: true })
+    }), err => err.status === 400 && !!err.fields && err.fields.contestDescription === '参赛说明需为 1-2000 个字符');
+
+    let result = await approve('a');
+    assert.equal(result.body.contestAutoEntry.status, 'entered');
+    let own = await entry();
+    assert.equal(own.status, 'approved');
+    assert.deepEqual(own.cardIds, ['a']);
+    assert.equal(own.contactEmail, 'owner@example.test');
+    assert.equal(own.works[0].number, 1);
+    assert.equal(own.works[0].description, '参赛说明 a');
+
+    result = await approve('b');
+    assert.equal(result.body.contestAutoEntry.status, 'entered');
+    own = await entry();
+    assert.deepEqual(own.works.map(work => work.cardId), ['a', 'b']);
+    assert.equal(own.status, 'approved');
+    const approvedRevision = own.revision;
+    result = await approve('b');
+    assert.equal(result.body.contestAutoEntry.status, 'entered');
+    own = await entry();
+    assert.equal(own.revision, approvedRevision, 'repeated approval is idempotent');
+    assert.equal((await publicWorks()).total, 2, 'auto entries are published after card approval');
+    assert.ok((await publicWorks()).items.every(work => work.description.startsWith('参赛说明')));
+
+    result = await approve('c');
+    assert.equal(result.body.contestAutoEntry.status, 'skipped');
+    assert.equal(result.body.contestAutoEntry.reason, 'limit');
+    assert.equal(result.body.card.status, 'approved', 'gallery approval still succeeds at the contest limit');
+    assert.equal((await entry()).works.length, 2);
+
+    await assert.rejects(call(cards.routes, 'PUT', '/api/cards/:id', {
+      id: 'd', body: withLegalConsent('PUT', '/api/cards/d', { contestOptIn: true, contestDescription: '第四件' })
+    }), err => err.status === 400 && !!err.fields && !!err.fields.contestOptIn);
+
+    await call(cards.routes, 'PUT', '/api/cards/:id', {
+      id: 'a', body: withLegalConsent('PUT', '/api/cards/a', { contestOptIn: false })
+    });
+    own = await entry();
+    assert.deepEqual(own.works.map(work => work.cardId), ['b']);
+    assert.equal(own.status, 'pending', 'withdrawing an auto entry requires another review');
+    assert.equal((await publicWorks()).total, 1, 'withdrawn work is no longer public');
+    assert.equal((await publicWorks()).items[0].description, '', 'pending review hides the remaining description');
+
+    result = await approve('c');
+    assert.equal(result.body.contestAutoEntry.status, 'entered', 'a freed slot can be used by re-approving a card');
+    own = await entry();
+    assert.deepEqual(own.works.map(work => work.cardId), ['b', 'c']);
+    assert.equal(own.status, 'approved');
+    assert.equal((await publicWorks()).total, 2);
+
+    await call(contests.routes, 'PUT', entryPath, { body: {
+      works: [{ cardId: 'b', description: '手动修改说明' }, { cardId: 'c', description: '参赛说明 c' }],
+      contactEmail: own.contactEmail, expectedRevision: own.revision
+    } });
+    own = await entry();
+    assert.equal(own.status, 'pending');
+    result = await approve('c');
+    assert.equal(result.body.contestAutoEntry.entryStatus, 'pending');
+    own = await entry();
+    assert.equal(own.status, 'pending', 'manually edited description is not auto-approved by another card');
+    assert.equal(own.works.find(work => work.cardId === 'b').description, '手动修改说明');
+  } finally {
+    await f.cleanup();
+  }
+}
 
 async function testContestVoting() {
   const f = await fixture();
@@ -376,7 +464,7 @@ export async function testContests() {
       try {
         await client.query('BEGIN');
         await client.query(`SET LOCAL search_path TO "${migration.databaseSchema}"`);
-        await client.query('DROP TABLE "contestJudgingChanges"; DROP TABLE "contestScores"; DROP TABLE "contestMaterials"; DROP TABLE "contestJudges"; DROP TABLE "contestJudging"; DROP TABLE "contestVotes"; DROP TABLE "contestVotingSettings"; DROP TABLE "contestWorks"; DROP TRIGGER contest_works_card_delete ON cards; DROP TRIGGER contest_works_entry_delete ON "contestEntries"; DROP FUNCTION scrub_contest_works(); ALTER TABLE "contestEntries" ADD COLUMN "cardIds" jsonb, ADD COLUMN description text; DELETE FROM schema_migrations WHERE version >= 16');
+        await client.query('DROP TABLE "contestJudgingChanges"; DROP TABLE "contestScores"; DROP TABLE "contestMaterials"; DROP TABLE "contestJudges"; DROP TABLE "contestJudging"; DROP TABLE "contestVotes"; DROP TABLE "contestVotingSettings"; DROP TABLE "contestWorks"; DROP TRIGGER contest_works_card_delete ON cards; DROP TRIGGER contest_works_entry_delete ON "contestEntries"; DROP FUNCTION scrub_contest_works(); ALTER TABLE "contestEntries" ADD COLUMN "cardIds" jsonb, ADD COLUMN description text; ALTER TABLE cards DROP COLUMN "contestOptIn", DROP COLUMN "contestDescription"; DELETE FROM schema_migrations WHERE version >= 16');
         await client.query(`INSERT INTO "contestEntries" (id,"eventKey","userId","cardIds",description,"contactEmail",status,revision,"createdAt","updatedAt") VALUES
           ('older',$1,'owner','["replacement","target"]','旧多卡说明','old@example.test','pending',1,'2026-01-01','2026-01-01'),
           ('newer',$1,'other','["foreign"]','旧单卡说明','old@example.test','pending',1,'2026-02-01','2026-02-01')`, [eventKey]);
@@ -654,8 +742,9 @@ export async function testContests() {
     await f.db.transaction(unit => {
       assert.ok(unit.data.contestWorks.filter(work => [1, 2].includes(work.number)).every(work => work.cardId === null && work.entryId === null && work.description === ''));
     });
+    await testAutoEntry();
     await testContestVoting();
-    console.log('[contests] migration, numbered works, permissions, privacy, search, pagination, revisions, moderation, tombstones and voting passed');
+    console.log('[contests] migration, numbered works, permissions, privacy, search, pagination, revisions, moderation, tombstones, auto entry and voting passed');
   } finally {
     await second.close();
     await f.cleanup();

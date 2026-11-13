@@ -2,7 +2,7 @@
 
 /** 卡片路由：公共广场、详情、分享页、创建/编辑/删除、点赞、分享链接 */
 
-const { notFound, forbidden } = require('../errors');
+const { notFound, forbidden, badRequest } = require('../errors');
 const {
   isObj,
   str,
@@ -19,6 +19,7 @@ const serialize = require('../serialize');
 const { createShortToken } = require('../short-token');
 const { reviewAfterCommit } = require('../review-webhook');
 const { approvedMailAfterCommit } = require('../card-review-mail');
+const contests = require('../contests');
 
 function byCreatedDesc(a, b) {
   return (b.createdAt || '').localeCompare(a.createdAt || '');
@@ -110,6 +111,9 @@ async function publicByShareToken(ctx) {
 async function create(ctx) {
   const user = auth.requireUser(ctx);
   const payload = validateCardCreate(ctx.body || {});
+  if (payload.contestOptIn && !contests.canAutoEnter(ctx.db, user.id)) {
+    throw badRequest({ contestOptIn: '每个账号最多提交 2 件参赛作品，请先在比赛报名页调整' });
+  }
   const contentConsent = { ...require('../legal').requireAcceptance(ctx.body, true), userId: user.id };
 
   const frontImage = await saveImage(payload.frontImage, ctx.uploadsDir, 'frontImage');
@@ -128,6 +132,8 @@ async function create(ctx) {
     mode: payload.mode,
     notes: payload.notes,
     stock: payload.stock,
+    contestOptIn: payload.contestOptIn,
+    contestDescription: payload.contestDescription,
     ratio: payload.ratio,
     frontImage,
     backImage,
@@ -160,6 +166,9 @@ async function update(ctx) {
   if (!isOwner && !isAdmin) throw forbidden('只能修改自己的卡片');
 
   const patch = validateCardUpdate(isObj(ctx.body) ? ctx.body : {}, { allowStatus: isAdmin });
+  if (patch.contestOptIn === true && !contests.canAutoEnter(ctx.db, card.ownerId, card.id)) {
+    throw badRequest({ contestOptIn: '每个账号最多提交 2 件参赛作品，请先在比赛报名页调整' });
+  }
   // An administrator moderating someone else's card cannot consent for its owner.
   if (isOwner) {
     patch.contentConsent = { ...require('../legal').requireAcceptance(ctx.body, true), userId: user.id };
@@ -175,6 +184,7 @@ async function update(ctx) {
   }
 
   const previousStatus = card.status;
+  const wasContestOptIn = card.contestOptIn === true;
   const before = structuredClone(card);
   Object.assign(card, patch);
   if (!isAdmin) {
@@ -185,14 +195,21 @@ async function update(ctx) {
     card.rejectReason = null;
   }
   card.updatedAt = new Date().toISOString();
-  require('../contests').invalidateCardEntries(ctx.db, before, card);
+  if (wasContestOptIn && patch.contestOptIn === false) {
+    contests.removeAutoEntry(ctx.db, card, card.updatedAt);
+  }
+  contests.invalidateCardEntries(ctx.db, before, card);
+  const autoEntry = card.status === 'approved'
+    ? contests.syncAutoEntry(ctx.db, card, user.id, card.updatedAt)
+    : null;
   await ctx.db.save();
 
   return {
     afterCommit: approvedMailAfterCommit(ctx, card, previousStatus) ||
       (!isAdmin || previousStatus !== 'pending' ? reviewAfterCommit(ctx, card, 'resubmitted') : undefined),
     body: {
-      card: serialize.cardPublic(ctx.db, card, user, { shareToken: true, rejectReason: true }),
+      card: serialize.cardPublic(ctx.db, card, user, { shareToken: true, rejectReason: true, contest: true }),
+      ...(autoEntry ? { contestAutoEntry: autoEntry } : {}),
     },
   };
 }
