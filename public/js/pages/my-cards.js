@@ -140,6 +140,11 @@
         desc: QSL.t("管理你上传的双面 QSL 卡片：编辑、分享，或查看审核状态。"),
         actions: '<a class="btn btn-primary" href="/dashboard/cards/new">' + ico('upload', 17) + ("<span>" + QSL.escapeHtml(QSL.t("上传新卡片")) + "</span></a>")
       }) +
+      '<section class="f-contest-entry-guide" aria-labelledby="fMyCardsContestTitle"><div class="f-contest-entry-guide-copy">' +
+      '<h2 id="fMyCardsContestTitle">' + ico('trophy', 20) + esc(QSL.t('参赛提醒：卡片审核通过后，还需提交比赛报名')) + '</h2>' +
+      '<p>' + esc(QSL.t('想参加第一届 QSLink 杯 QSL 卡片设计大赛？请在卡片通过广场审核后，前往比赛报名页选择 1–2 件作品，填写作品说明和联系邮箱并提交。已报名的作品和状态也在报名页查看。')) + '</p>' +
+      '<ol><li>' + esc(QSL.t('上传卡片并通过广场审核')) + '</li><li>' + esc(QSL.t('填写作品说明和联系邮箱')) + '</li><li>' + esc(QSL.t('提交比赛报名')) + '</li></ol></div>' +
+      '<a class="btn btn-primary" href="/events/qsl-design-2026-11/registration" data-link>' + esc(QSL.t('比赛报名 / 查看状态')) + ico('arrow-right', 16) + '</a></section>' +
       '<div class="f-cards-toolbar" data-reveal>' +
       ("<div class=\"f-filters\" role=\"tablist\" aria-label=\"" + QSL.escapeHtml(QSL.t("卡片状态筛选")) + "\">") +
       FILTERS.map((f) =>
