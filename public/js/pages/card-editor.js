@@ -107,6 +107,11 @@
           '<a class="btn btn-ghost" href="/dashboard/cards">' + ico('arrow-left', 16) + ("<span>" + QSL.escapeHtml(QSL.t("返回我的卡片")) + "</span></a>") +
           '<button class="btn btn-primary" type="button" data-submit>' + ico('check', 17) + ("<span>" + QSL.escapeHtml(QSL.t("提交审核")) + "</span></button>")
       }) +
+      (isEdit ? '' : '<section class="f-contest-entry-guide" aria-labelledby="fEditorContestTitle"><div class="f-contest-entry-guide-copy">' +
+        '<h2 id="fEditorContestTitle">' + ico('trophy', 20) + esc(QSL.t('参赛提醒：卡片审核通过后，还需提交比赛报名')) + '</h2>' +
+        '<p>' + esc(QSL.t('想参加第一届 QSLink 杯 QSL 卡片设计大赛？请在卡片通过广场审核后，前往比赛报名页选择 1–2 件作品，填写作品说明和联系邮箱并提交。已报名的作品和状态也在报名页查看。')) + '</p>' +
+        '<ol><li>' + esc(QSL.t('上传卡片并通过广场审核')) + '</li><li>' + esc(QSL.t('填写作品说明和联系邮箱')) + '</li><li>' + esc(QSL.t('提交比赛报名')) + '</li></ol></div>' +
+        '<a class="btn btn-primary" href="/events/qsl-design-2026-11/registration" data-link>' + esc(QSL.t('比赛报名 / 查看状态')) + ico('arrow-right', 16) + '</a></section>') +
       '<div class="f-editor-notice" id="fEditorNotice" hidden></div>' +
       '<div class="f-editor">' +
       '<div class="f-editor-form" id="fEditorForm">' +
@@ -653,7 +658,7 @@
         if (result && result.card && result.card.status) {
           // 新建默认 pending；编辑后同样回到待审核
         }
-        QSL.toast(isEdit ? QSL.t("修改已提交，需重新审核") : QSL.t("已提交审核，通过后将出现在卡片广场"), 'success');
+        QSL.toast(isEdit ? QSL.t("修改已提交，需重新审核") : QSL.t('卡片已提交审核。想参赛，请在审核通过后前往「比赛报名」完成报名。'), 'success', isEdit ? undefined : 6000);
         if (QSL.fx && typeof QSL.fx.confetti === 'function') {
           try { QSL.fx.confetti(); } catch (e) { /* ignore */ }
         }

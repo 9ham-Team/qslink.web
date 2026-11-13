@@ -1236,6 +1236,19 @@ html[lang="en"] .f-visual-card {
   color: #b45309;
 }
 .f-my-cards-empty { padding: 8px 0 20px; }
+.f-contest-entry-guide { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 24px; margin-bottom: 24px; padding: 20px 24px; border: 1px solid var(--line-strong); border-left: 4px solid var(--brand-deep); border-radius: var(--r-md); background: linear-gradient(110deg, var(--surface-solid), #e8faf4); }
+.f-contest-entry-guide-copy { flex: 1 1 440px; min-width: 0; }
+.f-contest-entry-guide h2 { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px; color: var(--ink); font-size: 16px; line-height: 1.6; }
+.f-contest-entry-guide h2 .icon { flex-shrink: 0; margin-top: 3px; color: var(--brand-deep); }
+.f-contest-entry-guide p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.8; }
+.f-contest-entry-guide ol { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 12px 0 0; padding-left: 20px; color: var(--brand-deep); font-size: 12px; line-height: 1.7; }
+.f-contest-entry-guide .btn { max-width: 100%; white-space: normal; }
+@media (max-width: 640px) {
+  .f-contest-entry-guide { gap: 14px; padding: 16px; }
+  .f-contest-entry-guide-copy { flex-basis: 100%; }
+  .f-contest-entry-guide h2 { font-size: 15px; }
+  .f-contest-entry-guide ol { display: block; }
+}
 .f-my-cards-empty .empty-state { margin-top: 10px; }
 
 /* ============================================================
