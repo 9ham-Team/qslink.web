@@ -2,11 +2,14 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import AvatarVue3 from './Avatar-vue3.vue';
 import type { CardVue3, ServicesVue3 } from '../contracts-vue3';
+import { usePointerTiltVue3 } from '../composables/use-pointer-tilt-vue3';
 
 const props = defineProps<{ card: CardVue3; services: ServicesVue3 }>();
 const emit = defineEmits<{ liked: [id: string, result: { liked: boolean; likeCount: number }] }>();
 const image = ref<HTMLImageElement>();
 const busy = ref(false);
+const tile = ref<HTMLElement>();
+usePointerTiltVue3(tile);
 let active = true;
 let generation = 0;
 let resize: ResizeObserver | undefined;
@@ -47,7 +50,7 @@ async function like() {
 </script>
 
 <template>
-  <article class="qsl-tile" :data-card-id="card.id">
+  <article ref="tile" class="qsl-tile" :data-card-id="card.id" data-tilt>
     <div class="qsl-tile-frame">
       <a class="qsl-tile-media" :href="'/card/' + card.id" data-link :aria-label="card.title || services.t('查看卡片')">
         <span class="qsl-tile-img" :style="{ aspectRatio: (card.ratio?.w || 3) + ' / ' + (card.ratio?.h || 2) }">

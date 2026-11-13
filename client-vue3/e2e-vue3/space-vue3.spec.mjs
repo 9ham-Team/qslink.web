@@ -1,5 +1,41 @@
 import { test, expect } from '@playwright/test';
 
+test('mouse tilt follows direction, resets, and respects reduced motion — vue3', async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name === 'mobile-vue3', 'Mouse hover requires a fine pointer');
+  const cards = await (await request.get('/api/cards?limit=1')).json();
+  await page.goto('/space/' + cards.items[0].owner.uid);
+  const tile = page.locator('[data-vue3] .qsl-tile').first();
+  await expect(tile).toBeVisible();
+  await expect(page.locator('#app')).toHaveCSS('opacity', '1');
+  await expect.poll(() => tile.locator('img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+  const src = await tile.locator('img').evaluate(img => img.currentSrc);
+  const imageRequests = [];
+  page.on('request', req => { if (req.url().includes('/uploads/')) imageRequests.push(req.url()); });
+  const box = await tile.boundingBox();
+  const angle = property => tile.evaluate((el, prop) => parseFloat(el.style.getPropertyValue(prop)) || 0, property);
+  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height * 0.2);
+  await expect.poll(() => angle('--fx-tilt-y')).toBeGreaterThan(0);
+  await expect.poll(() => angle('--fx-tilt-x')).toBeGreaterThan(0);
+  await expect.poll(() => tile.evaluate(el => {
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+    return Math.abs(matrix.m13) + Math.abs(matrix.m23);
+  })).toBeGreaterThan(0.001);
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.8);
+  await expect.poll(() => angle('--fx-tilt-y')).toBeLessThan(0);
+  await expect.poll(() => angle('--fx-tilt-x')).toBeLessThan(0);
+  expect(await tile.locator('img').evaluate(img => img.currentSrc)).toBe(src);
+  expect(imageRequests).toEqual([]);
+  await page.mouse.move(0, 0);
+  await expect(tile).not.toHaveClass(/fx-tilt-active/);
+  await expect.poll(() => angle('--fx-tilt-y')).toBe(0);
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.2);
+  await expect(tile).toHaveClass(/fx-tilt-active/);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(tile).not.toHaveClass(/fx-tilt-active/);
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.6);
+  await expect.poll(() => angle('--fx-tilt-y')).toBe(0);
+});
+
 test('public space survives sorting, sharing, legacy navigation and history — vue3', async ({ page, request }, testInfo) => {
   const errors = [];
   page.on('pageerror', err => errors.push(err.message));
