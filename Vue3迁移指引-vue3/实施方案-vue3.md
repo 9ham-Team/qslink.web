@@ -4,9 +4,9 @@
 
 ## 路由与状态所有权 — vue3
 
-当前仍由 `QSL.router` 独占 history 和所有路由守卫。构建脚本复制遗留静态资源，替换生成 HTML 中的 `space.js` 和 `app.js` 加载入口，由 `entry-vue3.ts` 先注册主页桥接，再启动旧外壳。公开主页的 Vue 和业务组件仅在访问 `/space/:uid` 时加载。
+当前仍由 `QSL.router` 独占 history 和所有路由守卫。构建脚本复制遗留静态资源，替换生成 HTML 中的 `space.js`、`explore.js` 和 `app.js` 加载入口，由 `entry-vue3.ts` 先注册两个 Vue 页面桥接，再启动旧外壳。公开主页和广场各自按路由加载页面块，共享框架、卡片及服务模块；原首页等未迁页面不立即加载 Vue 运行时。
 
-桥接 render 同步返回 cleanup，同时监听 `route:before`，覆盖旧路由器尚未保存 cleanup 的窗口。页面离开时立即失效，迟到的模块不会挂载。Vue 独占 `[data-vue3="space"]` 子树；外壳拥有导航、页脚、toast、modal 和背景。共享 effects 的指针/水波纹跳过 Vue 子树，Vue 页面不使用旧层会修改节点的 `data-reveal`/`data-count` 标记。
+桥接 render 同步返回 cleanup，同时监听 `route:before`，覆盖旧路由器尚未保存 cleanup 的窗口。页面离开时立即失效，迟到的模块不会挂载。Vue 独占 `[data-vue3="space"]` / `[data-vue3="explore"]` 子树；外壳拥有导航、页脚、toast、modal 和背景。共享 effects 的指针/水波纹跳过 Vue 子树，Vue 页面不使用旧层会修改节点的 `data-reveal`/`data-count` 标记。鼠标倾斜、点赞心跳由 Vue 卡片自己管理；点赞彩纸通过服务适配在组件子树之外使用现有图层。
 
 会话依然来自现有 QSL API 和 `QSL.state`，通过 services 适配注入组件。组件不另存 token；账号变动时中止请求、关闭分享、重取带访问者点赞状态的数据。未迁移页面不依赖 Vue。
 

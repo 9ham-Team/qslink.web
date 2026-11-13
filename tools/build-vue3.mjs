@@ -10,14 +10,15 @@ const source = path.join(root, 'public');
 await fs.rm(output, { recursive: true, force: true });
 await fs.cp(source, output, { recursive: true });
 const original = await fs.readFile(path.join(source, 'index.html'), 'utf8');
-for (const entry of ['/js/pages/space.js', '/js/app.js']) {
+for (const entry of ['/js/pages/space.js', '/js/pages/explore.js', '/js/app.js']) {
   if (original.split('<script src="' + entry + '"></script>').length !== 2)
     throw new Error('Vue3 entry must match exactly once: ' + entry);
 }
 const html = original
   .replace('<script src="/js/pages/space.js"></script>', '')
+  .replace('<script src="/js/pages/explore.js"></script>', '')
   .replace('<script src="/js/app.js"></script>', '<script type="module" src="/build-vue3/entry-vue3.js"></script>');
 await build({ configFile: path.join(root, 'client-vue3/vite.config-vue3.mjs') });
 await fs.writeFile(path.join(output, 'index.html'), html);
-await fs.writeFile(path.join(output, 'migration-vue3.json'), JSON.stringify({ framework: 'vue3', migratedRoutes: ['/space/:uid'], router: 'legacy' }));
-console.log('Vue3 build: dist-public-vue3 (space route migrated; legacy shell retained)');
+await fs.writeFile(path.join(output, 'migration-vue3.json'), JSON.stringify({ framework: 'vue3', migratedRoutes: ['/space/:uid', '/explore'], router: 'legacy' }));
+console.log('Vue3 build: dist-public-vue3 (space/explore migrated; legacy shell retained)');

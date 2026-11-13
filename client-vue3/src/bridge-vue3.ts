@@ -6,13 +6,25 @@ export function registerSpaceVue3(
   qsl: LegacyQslVue3,
   load: () => Promise<{ mountSpaceVue3: MountVue3 }> = () => import('./space-entry-vue3'),
 ) {
-  qsl.registerPage('space', {
-    title: qsl.t('个人主页'),
+  registerPageVue3(qsl, { name: 'space', title: '个人主页', loading: '正在接收这位火腿的电波…', error: '主页加载失败',
+    load: () => load().then(module => module.mountSpaceVue3) });
+}
+
+export function registerExploreVue3(qsl: LegacyQslVue3) {
+  registerPageVue3(qsl, { name: 'explore', title: '卡片广场', loading: '正在寻找卡片…', error: '卡片加载失败',
+    load: () => import('./explore-entry-vue3').then(module => module.mountExploreVue3) });
+}
+
+export function registerPageVue3(qsl: LegacyQslVue3, page: {
+  name: string; title: string; loading: string; error: string; load: () => Promise<MountVue3>;
+}) {
+  qsl.registerPage(page.name, {
+    title: qsl.t(page.title),
     render(root, ctx) {
       const host = document.createElement('div');
-      host.dataset.vue3 = 'space';
-      host.innerHTML = '<div class="container g-space"><p role="status">' +
-        qsl.escapeHtml(qsl.t('正在接收这位火腿的电波…')) + '</p></div>';
+      host.dataset.vue3 = page.name;
+      host.innerHTML = '<div class="container section"><p role="status">' +
+        qsl.escapeHtml(qsl.t(page.loading)) + '</p></div>';
       root.replaceChildren(host);
       let active = true;
       let unmount: (() => void) | undefined;
@@ -29,17 +41,17 @@ export function registerSpaceVue3(
       off = qsl.on('route:before', dispose);
       const mount = async () => {
         try {
-          const module = await load();
+          const mountPage = await page.load();
           if (!active) return;
-          unmount = module.mountSpaceVue3(host, ctx, qsl);
+          unmount = mountPage(host, ctx, qsl);
           if (!active) unmount();
         } catch (err) {
           if (!active) return;
-          host.innerHTML = '<div class="container g-space g-error-panel"><h1>' +
-            qsl.escapeHtml(qsl.t('主页加载失败')) + '</h1><button class="btn btn-primary" type="button">' +
+          host.innerHTML = '<div class="container g-error-panel"><h1>' +
+            qsl.escapeHtml(qsl.t(page.error)) + '</h1><button class="btn btn-primary" type="button">' +
             qsl.escapeHtml(qsl.t('重新加载')) + '</button></div>';
           host.querySelector('button')!.onclick = () => { void mount(); };
-          qsl.toast(err instanceof Error ? err.message : qsl.t('主页加载失败'), 'error');
+          qsl.toast(err instanceof Error ? err.message : qsl.t(page.error), 'error');
         }
       };
       void mount();

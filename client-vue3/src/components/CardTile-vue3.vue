@@ -8,6 +8,9 @@ const props = defineProps<{ card: CardVue3; services: ServicesVue3 }>();
 const emit = defineEmits<{ liked: [id: string, result: { liked: boolean; likeCount: number }] }>();
 const image = ref<HTMLImageElement>();
 const busy = ref(false);
+const heartbeat = ref(false);
+let heartbeatTimer = 0;
+function resetHeartbeat() { window.clearTimeout(heartbeatTimer); heartbeatTimer = 0; heartbeat.value = false; }
 const tile = ref<HTMLElement>();
 usePointerTiltVue3(tile);
 let active = true;
@@ -26,10 +29,10 @@ onMounted(() => {
   applyImage();
 });
 watch(() => props.card.frontImage, applyImage);
-const offAuth = props.services.onAuth(() => { generation++; busy.value = false; });
-onBeforeUnmount(() => { active = false; generation++; resize?.disconnect(); offAuth(); });
+const offAuth = props.services.onAuth(() => { generation++; busy.value = false; resetHeartbeat(); });
+onBeforeUnmount(() => { active = false; generation++; resize?.disconnect(); offAuth(); resetHeartbeat(); });
 
-async function like() {
+async function like(event: MouseEvent) {
   if (busy.value) return;
   if (!props.services.user()) {
     props.services.toast(props.services.t('登录后即可点赞收藏'), 'info');
@@ -37,10 +40,18 @@ async function like() {
     return;
   }
   busy.value = true;
+  resetHeartbeat();
   const request = ++generation;
   try {
     const result = await props.services.likeCard(props.card.id);
-    if (active && generation === request) emit('liked', props.card.id, result);
+    if (active && generation === request) {
+      emit('liked', props.card.id, result);
+      if (result.liked && typeof window.matchMedia === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        heartbeat.value = true;
+        heartbeatTimer = window.setTimeout(resetHeartbeat, 760);
+        props.services.celebrate(event.clientX, event.clientY);
+      }
+    }
   } catch (err) {
     if (active && generation === request) props.services.toast(err instanceof Error ? err.message : props.services.t('点赞失败'), 'error');
   } finally {
@@ -59,8 +70,8 @@ async function like() {
         <span class="qsl-tile-sheen"></span>
         <span class="qsl-tile-3d"><span>{{ services.t('3D 预览') }}</span></span>
       </a>
-      <button class="qsl-like" :class="{ 'is-liked': card.liked }" type="button" :disabled="busy"
-        :aria-label="services.t('点赞')" :title="services.t('点赞')" @click.stop.prevent="like">
+      <button class="qsl-like" :class="{ 'is-liked': card.liked, 'fx-heartbeat': heartbeat }" type="button" :disabled="busy"
+        :aria-label="services.t('点赞')" :title="services.t('点赞')" @click.stop.prevent="like" @animationend="resetHeartbeat">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg>
         <span class="qsl-like-count">{{ services.formatNumber(card.likeCount || 0) }}</span>
       </button>

@@ -16,6 +16,7 @@ function services() {
     t: source => source, user: () => null,
     onAuth: fn => { auth.add(fn); return () => auth.delete(fn); },
     getSpace: vi.fn().mockResolvedValue(response()),
+    listCards: vi.fn(), setQuery: vi.fn(), celebrate: vi.fn(),
     likeCard: vi.fn().mockResolvedValue({ liked: true, likeCount: 1 }),
     image: vi.fn(), placeholder: '/assets/stamp.svg', formatDate: x => x,
     formatNumber: x => String(x), navigate: vi.fn(), toast: vi.fn(), share: vi.fn(() => ({ close })),
@@ -148,4 +149,20 @@ it('does not mount a late chunk after navigation and returns idempotent cleanup 
   expect(mountSpaceVue3).not.toHaveBeenCalled();
   expect(off).toHaveBeenCalledOnce();
   expect(root.childElementCount).toBe(0);
+});
+
+it('retains like feedback and clears its timer on unmount — vue3', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
+  const { service } = services();
+  service.user = () => ({ uid: user.uid });
+  const wrapper = mount(CardTileVue3, { props: { card: card('a'), services: service } });
+  vi.useFakeTimers();
+  try {
+    await wrapper.find('.qsl-like').trigger('click', { clientX: 50, clientY: 60 });
+    await flushPromises();
+    expect(service.celebrate).toHaveBeenCalledWith(50, 60);
+    expect(wrapper.find('.qsl-like').classes()).toContain('fx-heartbeat');
+    wrapper.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally { vi.useRealTimers(); }
 });

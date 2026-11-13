@@ -1,14 +1,23 @@
-import type { LegacyQslVue3, ServicesVue3 } from './contracts-vue3';
+import type { CardPageVue3, LegacyQslVue3, ServicesVue3, SpaceResponseVue3 } from './contracts-vue3';
 
 export function createServicesVue3(qsl: LegacyQslVue3): ServicesVue3 {
   return {
     t: qsl.t,
     user: () => qsl.state.user,
     onAuth: fn => qsl.on('auth', fn),
-    getSpace: (uid, sort, page, signal) => qsl.api.get(
+    getSpace: (uid, sort, page, signal) => qsl.api.get<SpaceResponseVue3>(
       '/api/public/spaces/' + encodeURIComponent(uid) + '?' + new URLSearchParams({ sort, page: String(page), limit: '12' }),
       { signal },
     ),
+    listCards: (filters, page, signal) => {
+      const query = new URLSearchParams({ sort: filters.sort, page: String(page), limit: '12' });
+      if (filters.callSign) query.set('callSign', filters.callSign);
+      return qsl.api.get<CardPageVue3>('/api/cards?' + query, { signal });
+    },
+    setQuery: patch => {
+      try { qsl.setQuery(patch); } catch { /* History limits must not prevent filtering. */ }
+    },
+    celebrate: (x, y) => { qsl.fx?.confetti(x, y); },
     likeCard: id => qsl.api.cards.like(id),
     image: (img, src, width) => qsl.images.apply(img, src, width),
     placeholder: qsl.PLACEHOLDER_IMAGE,

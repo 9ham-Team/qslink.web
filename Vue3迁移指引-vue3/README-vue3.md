@@ -26,7 +26,7 @@ npm run build:vue3
 npm run start:vue3
 ```
 
-`start:vue3` 从生成的 `dist-public-vue3/` 提供页面，默认仍为 `127.0.0.1:8787`。当前 `/space/:uid` 是 Vue 页面，其余页面保留原实现。`npm start` 仍提供 `public/` 中的原生版本，便于对照；两个实例须使用不同端口和独立数据环境。
+`start:vue3` 从生成的 `dist-public-vue3/` 提供页面，默认仍为 `127.0.0.1:8787`。当前源码中的 `/space/:uid` 与 `/explore` 是 Vue 页面，其余页面保留原实现。工作区源码不代表测试站已更新，实际发布版本见进度及发布记录。`npm start` 仍提供 `public/` 中的原生版本，便于对照；两个实例须使用不同端口和独立数据环境。
 
 `npm run dev:vue3` 先构建，再监听后端修改；**当前没有前端 HMR**，修改 Vue 源码后重新执行 `npm run build:vue3` 并刷新。生成目录不提交，不直接修改产物。公共 API 和上传图片始终同源。
 

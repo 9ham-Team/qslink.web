@@ -70,10 +70,10 @@ test('public space survives sorting, sharing, legacy navigation and history — 
   expect(errors).toEqual([]);
 });
 
-test('legacy routes avoid the Vue chunk, account changes refresh likes, and English works — vue3', async ({ page, request }) => {
+test('legacy home avoids Vue chunks, account changes refresh likes, and English works — vue3', async ({ page, request }) => {
   const chunks = [];
-  page.on('request', req => { if (req.url().includes('/build-vue3/space-entry-')) chunks.push(req.url()); });
-  await page.goto('/explore');
+  page.on('request', req => { if (req.url().includes('/build-vue3/') && !req.url().endsWith('/entry-vue3.js')) chunks.push(req.url()); });
+  await page.goto('/');
   await expect(page.locator('.qsl-tile').first()).toBeVisible();
   expect(chunks).toEqual([]);
   const config = await (await request.get('/api/config')).json();

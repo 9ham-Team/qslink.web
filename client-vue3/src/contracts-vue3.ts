@@ -20,14 +20,26 @@ export interface CardVue3 {
   owner: PublicUserVue3;
 }
 
+export interface CardPageVue3 {
+  items: CardVue3[];
+  total: number;
+  page: number;
+  pages: number;
+}
+
+export interface CardFiltersVue3 {
+  callSign: string;
+  sort: 'latest' | 'popular' | 'oldest';
+}
+
 export interface SpaceResponseVue3 {
   user: PublicUserVue3;
-  cards: { items: CardVue3[]; total: number; page: number; pages: number };
+  cards: CardPageVue3;
   url: string | null;
 }
 
 export interface RouteContextVue3 {
-  params: { uid: string };
+  params: Record<string, string>;
   query: URLSearchParams;
 }
 
@@ -36,6 +48,9 @@ export interface ServicesVue3 {
   user(): { uid?: string } | null;
   onAuth(fn: (user: { uid?: string } | null) => void): () => void;
   getSpace(uid: string, sort: string, page: number, signal: AbortSignal): Promise<SpaceResponseVue3>;
+  listCards(filters: CardFiltersVue3, page: number, signal: AbortSignal): Promise<CardPageVue3>;
+  setQuery(patch: Record<string, string | null>): void;
+  celebrate(x: number, y: number): void;
   likeCard(id: string): Promise<{ liked: boolean; likeCount: number }>;
   image(img: HTMLImageElement, src: string, width: number): void;
   placeholder: string;
@@ -50,7 +65,7 @@ export interface LegacyQslVue3 {
   t: ServicesVue3['t'];
   state: { user: { uid?: string } | null };
   api: {
-    get(path: string, options?: { signal: AbortSignal }): Promise<SpaceResponseVue3>;
+    get<T>(path: string, options?: { signal: AbortSignal }): Promise<T>;
     cards: { like: ServicesVue3['likeCard'] };
   };
   images: { apply: ServicesVue3['image'] };
@@ -59,6 +74,8 @@ export interface LegacyQslVue3 {
   formatNumber: ServicesVue3['formatNumber'];
   navigate: ServicesVue3['navigate'];
   toast: ServicesVue3['toast'];
+  setQuery: ServicesVue3['setQuery'];
+  fx?: { confetti(x: number, y: number): void };
   escapeHtml(value: unknown): string;
   copyText(text: string, message: string): Promise<unknown>;
   modal(options: unknown): { close(): void; body: HTMLElement };
