@@ -4,6 +4,13 @@
   const QSL = (window.QSL = window.QSL || {});
   QSL.translations = QSL.translations || {};
   QSL.translations.en = {
+  "参赛提醒：卡片审核通过后，还需提交比赛报名": "Contest reminder: complete your contest registration after card approval",
+  "想参加第一届 QSLink 杯 QSL 卡片设计大赛？请在卡片通过广场审核后，前往比赛报名页选择 1–2 件作品，填写作品说明和联系邮箱并提交。已报名的作品和状态也在报名页查看。": "Entering the first QSLink Cup QSL Card Design Contest? After your cards pass gallery review, open Contest registration, select 1–2 entries, add a description for each and your contact email, then submit. You can also check your registered entries and status there.",
+  "上传卡片并通过广场审核": "Upload cards and pass gallery review",
+  "填写作品说明和联系邮箱": "Add descriptions and a contact email",
+  "提交比赛报名": "Submit contest registration",
+  "比赛报名 / 查看状态": "Contest registration / Check status",
+  "卡片已提交审核。想参赛，请在审核通过后前往「比赛报名」完成报名。": "Your card was submitted for review. To enter the contest, complete Contest registration after approval.",
   "作品说明审核通过后展示，不影响图片展示与投票。": "The description will appear after approval. Images remain visible and eligible for voting.",
   "使用已通过广场审核的卡片报名后，即可在这里展示并参与投票。": "Register with gallery-approved cards to display them here and receive votes.",
   "作品说明审核": "Description review",
