@@ -76,6 +76,30 @@ function optionalText(value, field, max, label, fields) {
   return text;
 }
 
+/** 卡片上传时可选「审核通过后自动参赛」；说明与卡片一起审核。 */
+function parseContestAutoEntry(body, fields, patch) {
+  if (hasOwn(body, 'contestDescription') && !hasOwn(body, 'contestOptIn')) {
+    fields.contestOptIn = '请先选择是否自动参赛';
+    return;
+  }
+  if (!hasOwn(body, 'contestOptIn')) return;
+  if (typeof body.contestOptIn !== 'boolean') {
+    fields.contestOptIn = '自动参赛选项格式不正确';
+    return;
+  }
+  patch.contestOptIn = body.contestOptIn;
+  if (!body.contestOptIn) {
+    patch.contestDescription = null;
+    return;
+  }
+  const description = str(body.contestDescription);
+  if (!description || size(description) > 2000 || description.includes('\0')) {
+    fields.contestDescription = '参赛说明需为 1-2000 个字符';
+  } else {
+    patch.contestDescription = description;
+  }
+}
+
 function parseRatio(raw, fields, field = 'ratio') {
   if (
     !isObj(raw) ||
@@ -225,9 +249,12 @@ function validateCardCreate(input) {
   const notes = optionalText(body.notes, 'notes', LIMITS.notes, '备注', fields);
   const ratio = parseRatio(body.ratio, fields);
   const images = validateCardImages(body.frontImage, body.backImage, fields);
+  const contest = {};
+  parseContestAutoEntry(body, fields, contest);
 
   if (Object.keys(fields).length) throw badRequest(fields, '请检查卡片信息');
-  return { title, callSign, band, mode, notes, ratio, stock: hasOwn(body, 'stock') ? validateStock(body.stock) : null, ...images };
+  return { title, callSign, band, mode, notes, ratio, stock: hasOwn(body, 'stock') ? validateStock(body.stock) : null,
+    ...images, contestOptIn: contest.contestOptIn === true, contestDescription: contest.contestDescription || null };
 }
 
 /** PUT /api/cards/:id 与 PUT /api/admin/cards/:id（allowStatus 仅管理员） */
@@ -244,6 +271,9 @@ function validateCardUpdate(input, { allowStatus = false } = {}) {
   if (hasOwn(body, 'mode')) patch.mode = optionalText(body.mode, 'mode', LIMITS.mode, '模式', fields);
   if (hasOwn(body, 'notes')) patch.notes = optionalText(body.notes, 'notes', LIMITS.notes, '备注', fields);
   if (hasOwn(body, 'ratio')) patch.ratio = parseRatio(body.ratio, fields);
+  if (hasOwn(body, 'contestOptIn') || hasOwn(body, 'contestDescription')) {
+    parseContestAutoEntry(body, fields, patch);
+  }
 
   if (hasOwn(body, 'frontImage')) {
     if (typeof body.frontImage !== 'string' || !body.frontImage.trim()) {

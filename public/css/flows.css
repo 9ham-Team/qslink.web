@@ -2349,6 +2349,20 @@ html[lang="en"] .f-visual-card {
 .f-consent { display: flex; align-items: flex-start; gap: 10px; line-height: 1.8; font-size: 14px; cursor: pointer; }
 .f-consent input { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 4px; accent-color: #0eaf8f; }
 .f-consent a { color: #087d69; text-decoration: underline; text-underline-offset: 3px; }
+.f-contest-auto-toggle b { display: block; font-weight: 700; }
+.f-contest-auto-copy { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.f-contest-auto-body {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line);
+}
+.f-contest-auto-body[hidden] { display: none; }
+.f-contest-auto-preview {
+  width: 100%; padding: 12px 14px; border-radius: 10px;
+  background: var(--surface-2); color: var(--ink, #173d35);
+  font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.f-contest-auto-preview[hidden] { display: none; }
+.f-contest-auto .f-error { margin-top: 10px; }
 
 /* Registration consent: keep the native checkbox semantics and animate its visual state. */
 .f-auth-page-reg .f-consent input[type="checkbox"] {

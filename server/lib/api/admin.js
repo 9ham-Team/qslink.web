@@ -30,7 +30,7 @@ function byUpdatedDesc(a, b) {
 }
 
 function alwaysVisible() {
-  return { shareToken: true, rejectReason: true, ownerStatus: true };
+  return { shareToken: true, rejectReason: true, ownerStatus: true, contest: true };
 }
 
 /** 当前管理员尝试禁用/降级时，保证站点始终至少有一个管理员 */
@@ -251,10 +251,16 @@ async function updateCard(ctx) {
   if (patch.status === 'approved' || patch.status === 'pending') card.rejectReason = null;
   card.updatedAt = new Date().toISOString();
   require('../contests').invalidateCardEntries(ctx.db, before, card);
+  const autoEntry = card.status === 'approved'
+    ? require('../contests').syncAutoEntry(ctx.db, card, admin.id, card.updatedAt)
+    : null;
   await ctx.db.save();
 
   return {
-    body: { card: serialize.cardPublic(ctx.db, card, admin, alwaysVisible()) },
+    body: {
+      card: serialize.cardPublic(ctx.db, card, admin, alwaysVisible()),
+      ...(autoEntry ? { contestAutoEntry: autoEntry } : {}),
+    },
     afterCommit: approvedMailAfterCommit(ctx, card, previousStatus) ||
       (previousStatus !== 'pending' ? reviewAfterCommit(ctx, card, 'resubmitted') : undefined),
   };
