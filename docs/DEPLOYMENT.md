@@ -68,7 +68,7 @@ QSL_MAIL_ENV_FILE=/root/qslink-test/mail.env bash /root/deploy-dev.sh
 
 暂时没有域名时，可将 `QSL_DOMAIN` 设为服务器公网 IP，并通过 `docker compose -f compose.yaml -f compose.ip.yaml ...` 使用 IP 部署覆盖配置。它配置 Let’s Encrypt `shortlived` IP 证书、TLS-ALPN 验证和 2GB 主机的保守内存限制；仍保持 HTTPS 来源校验，不启用明文生产登录。需要支持 IP 签发的较新 Caddy、可用的出站 ACME 连接及公网 443 入站。Caddy 持久化证书并自动续期；短期证书尤其需要监测续期失败。
 
-直接运行 Node 时必须先 `npm ci --omit=dev`。必填 DATABASE_URL；生产还必须设置 NODE_ENV=production、独立绝对路径 QSL_DATA_DIR、HTTPS 的 QSL_PUBLIC_ORIGIN，并关闭 QSL_SEED_DEMO。QSL_DB_SCHEMA 默认 public。外部数据库必须按服务商要求校验 TLS。详见 POSTGRESQL.md。
+本分支默认 Dockerfile 已包含 Vue 前端构建。直接运行 Node 时先 `npm ci --include=optional` 与 `npm run build`，再执行 `npm start`；运行包可在构建后裁剪开发依赖，但须保留 dist-public 与 optional 依赖。必填 DATABASE_URL；生产还必须设置 NODE_ENV=production、独立绝对路径 QSL_DATA_DIR、HTTPS 的 QSL_PUBLIC_ORIGIN，并关闭 QSL_SEED_DEMO。QSL_DB_SCHEMA 默认 public。外部数据库必须按服务商要求校验 TLS。详见 POSTGRESQL.md。
 
 QSL_TRUST_PROXY 仅在应用端口被隔离、所有请求来自可信代理时启用。Compose 已覆盖 X-Real-IP 并隔离 app 端口。认证限流为单进程内存限流，不能替代公网网关的抗滥用保护。
 

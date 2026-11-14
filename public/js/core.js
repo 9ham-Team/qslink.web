@@ -38,8 +38,10 @@
   };
   QSL.refreshUser = async function () {
     if (!QSL.api || !QSL.api.token()) { QSL.setUser(null); return null; }
+    const reqToken = QSL.api.token();
     try {
       const data = await QSL.api.auth.me({ skipAuthClear: true });
+      if (QSL.api.token() !== reqToken) return null;
       QSL.setUser(data.user);
       return data.user;
     } catch (err) {
@@ -130,20 +132,58 @@
     return true;
   };
 
+  let leaveGuard = null;
+  let popLeaving = false;
+  let suppressPopCount = 0;
+  let currentIdx = (history.state && typeof history.state._qslIdx === 'number') ? history.state._qslIdx : 0;
+
   QSL.navigate = function (to, options) {
     const opts = options || {};
     const target = typeof to === 'string' ? to : '/';
     const next = new URL(target, location.href);
     const samePage = next.pathname === location.pathname && next.search === location.search;
-    if (opts.replace) history.replaceState({}, '', target);
-    else history.pushState({}, '', target);
-    // Anchor links within the current page must preserve its loaded layout.
-    if (samePage && next.hash && QSL.scrollToHash()) {
-      if (QSL.router.current) QSL.router.current.hash = next.hash;
-      QSL.emit('route', QSL.router.current);
+    if (samePage && next.hash) {
+      if (opts.replace) {
+        history.replaceState(Object.assign({}, history.state || {}, { _qslIdx: currentIdx }), '', target);
+      } else {
+        currentIdx += 1;
+        history.pushState({ _qslIdx: currentIdx }, '', target);
+      }
+      // Anchor links within the current page must preserve its loaded layout.
+      if (QSL.scrollToHash()) {
+        if (QSL.router.current) QSL.router.current.hash = next.hash;
+        QSL.emit('route', QSL.router.current);
+        return;
+      }
+      renderRoute({ scroll: !opts.keepScroll, navigation: opts.replace ? 'replace' : 'push' }); // Vue3 history context — vue3
       return;
     }
-    renderRoute({ scroll: !opts.keepScroll, navigation: opts.replace ? 'replace' : 'push' }); // Vue3 history context — vue3
+    const commitNavigate = () => {
+      if (opts.replace) {
+        history.replaceState(Object.assign({}, history.state || {}, { _qslIdx: currentIdx }), '', target);
+      } else {
+        currentIdx += 1;
+        history.pushState({ _qslIdx: currentIdx }, '', target);
+      }
+      renderRoute({ scroll: !opts.keepScroll, navigation: opts.replace ? 'replace' : 'push' }); // Vue3 history context — vue3
+    };
+    if (leaveGuard) {
+      const guard = leaveGuard;
+      const decision = guard({ type: 'navigate', to: target });
+      if (decision === true) {
+        if (leaveGuard === guard) leaveGuard = null;
+        commitNavigate();
+        return;
+      }
+      if (decision === false) return;
+      Promise.resolve(decision).then((ok) => {
+        if (!ok) return;
+        if (leaveGuard === guard) leaveGuard = null;
+        commitNavigate();
+      }, () => {});
+      return;
+    }
+    commitNavigate();
   };
 
   QSL.currentPath = function () {
@@ -156,11 +196,16 @@
   };
 
   function safeNext(raw) {
-    if (!raw) return null;
+    if (!raw || typeof raw !== 'string') return null;
     try {
       const decoded = decodeURIComponent(raw);
-      if (!decoded.startsWith('/') || decoded.startsWith('//')) return null;
-      if (decoded.startsWith('/login') || decoded.startsWith('/register')) return null;
+      if (!decoded.startsWith('/') || decoded.startsWith('//') || decoded.startsWith('/\\')) return null;
+      if (/[\r\n\t\0\\]/.test(decoded.split(/[?#]/)[0])) return null;
+      const parsed = new URL(decoded, 'https://qsl.local');
+      if (parsed.origin !== 'https://qsl.local') return null;
+      if (!parsed.pathname.startsWith('/') || parsed.pathname.startsWith('//')) return null;
+      if (parsed.pathname === '/login' || parsed.pathname.startsWith('/login/') ||
+          parsed.pathname === '/register' || parsed.pathname.startsWith('/register/')) return null;
       return decoded;
     } catch (e) { return null; }
   }
@@ -303,12 +348,72 @@
     QSL.emit('route:after', payload);
   }
 
+  let routerStarted = false;
   QSL.router = {
     current: null,
     cleanup: null,
     render: renderRoute,
+    setLeaveGuard: function (fn) {
+      leaveGuard = typeof fn === 'function' ? fn : null;
+      return function () {
+        if (leaveGuard === fn) leaveGuard = null;
+      };
+    },
     start: function () {
-      window.addEventListener('popstate', () => renderRoute({ scroll: false, navigation: 'pop' }));
+      if (routerStarted) return;
+      routerStarted = true;
+      try {
+        if (!history.state || typeof history.state._qslIdx !== 'number') {
+          history.replaceState(Object.assign({}, history.state || {}, { _qslIdx: currentIdx }), '');
+        }
+      } catch (e) { /* 忽略受限历史状态 */ }
+      window.addEventListener('popstate', () => {
+        const stateIdx = history.state && typeof history.state._qslIdx === 'number' ? history.state._qslIdx : null;
+        if (suppressPopCount > 0) {
+          suppressPopCount -= 1;
+          if (stateIdx !== null) currentIdx = stateIdx;
+          return;
+        }
+        const nextUrl = location.pathname + location.search + location.hash;
+        if (leaveGuard) {
+          const fromIdx = currentIdx;
+          const deltaBack = stateIdx !== null ? fromIdx - stateIdx : 0;
+          if (popLeaving) {
+            if (deltaBack !== 0) {
+              suppressPopCount += 1;
+              history.go(deltaBack);
+            }
+            return;
+          }
+          const guard = leaveGuard;
+          const decision = guard({ type: 'pop', to: nextUrl });
+          if (decision === true) {
+            if (leaveGuard === guard) leaveGuard = null;
+            if (stateIdx !== null) currentIdx = stateIdx;
+            renderRoute({ scroll: false, navigation: 'pop' });
+            return;
+          }
+          if (deltaBack !== 0) {
+            suppressPopCount += 1;
+            history.go(deltaBack);
+          }
+          if (decision === false) return;
+          popLeaving = true;
+          Promise.resolve(decision).then((ok) => {
+            popLeaving = false;
+            if (!ok) return;
+            if (leaveGuard === guard) leaveGuard = null;
+            if (stateIdx !== null && stateIdx !== currentIdx) {
+              history.go(stateIdx - currentIdx);
+            } else {
+              renderRoute({ scroll: false, navigation: 'pop' });
+            }
+          }, () => { popLeaving = false; });
+          return;
+        }
+        if (stateIdx !== null) currentIdx = stateIdx;
+        renderRoute({ scroll: false, navigation: 'pop' });
+      });
       // 内部链接统一走前端路由
       document.addEventListener('click', function (e) {
         if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -402,7 +507,7 @@
     });
     const search = params.toString();
     const url = location.pathname + (search ? '?' + search : '') + location.hash;
-    history.replaceState(history.state || {}, '', url);
+    history.replaceState(Object.assign({}, history.state || {}, { _qslIdx: currentIdx }), '', url);
     if (options && options.navigate) renderRoute({ scroll: false });
     return url;
   };

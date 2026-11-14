@@ -1,6 +1,6 @@
 # QSLink 前端契约 v1（所有队友必读）
 
-> 前端无构建步骤、无第三方运行时依赖、无 CDN。纯原生 HTML/CSS/JS（ES2020，普通 `<script>` 全局命名空间）；允许且需要请求本站 `/api` 和 `/uploads`，不依赖外部字体、图片或脚本资源。此约束不表示后端无依赖或不访问外部服务：后端使用 PostgreSQL，注册验证码邮件由服务端调用邮件服务发送。
+> 本分支前端默认采用 Vue3/TypeScript/Vite，路由由 Vue Router、用户及配置由 Pinia 持有；源码位于 `client/`，经 `npm run build` 生成 `dist-public/`。原生后台及共享 QSL 接口继续兼容，public 原生页面用于显式对照；仍不依赖外部 CDN、字体或脚本资源。此约束不表示后端无依赖或不访问外部服务：后端使用 PostgreSQL，注册验证码邮件由服务端调用邮件服务发送。
 > 中英文界面（zh-CN / en），首次访问按浏览器语言选择，无法匹配时默认中文。风格：清新、明亮、通透、优雅；多种细腻动效。
 > **API 行为见 `docs/API.md`；与文档不符时核实现行前后端实现，并同步维护文档。**
 
@@ -24,6 +24,8 @@
 - 页面局部 HTML ID 只在自身 render 输出内使用；全局 ID 仅：`site-header`、`app`、`site-footer`、`toast-root`、`modal-root`、`fx-layer`。
 
 ## 2. index.html 脚本加载顺序
+
+默认 Vue 构建由 `client/src/entry.ts` 启动，输出 `/build/entry.js`，并移除已迁移页面与原 app.js 的 script 标签。下列顺序描述 `public/` 原生对照和共享兼容模块；新增 Vue 页面通过 `client/src/router.ts` 注册按需路由，不再手工加入普通页面 script。
 
 ```
 css/base.css → components.css → gallery.css → flows.css → admin.css → animations.css

@@ -1,5 +1,9 @@
 # QSLink 协作指南
 
+## dev-vue3 长期开发线说明
+
+本分支以 Vue3 为默认版本，源码/配置/脚本采用普通名称，入口为 `npm run build && npm start`；本线功能 PR 的 base 为 `dev-vue3`，不自动合回原 dev/main。原生对照使用 `npm run start:legacy`。命名、默认入口及独立 44381 发布身份以 [Vue3 迁移指引](Vue3迁移指引-vue3/README-vue3.md) 为准；下文原 dev/main 发布流程不构成本线合并或部署授权。
+
 本文同时面向人类开发者和 AI agent。团队采用「从团队 dev 创建功能分支 → 团队内部 PR 整合到 dev → PR 合入团队 main → 打标签 → 手动部署 → main 回同步 dev」的流程。
 
 ## 1. 分支、远程与职责
@@ -67,7 +71,7 @@ git switch -c feature/card-search upstream/dev
 4. **仅在用户明确授权 commit 时创建提交。** 完成修改或验证不构成提交授权；未获授权时保留工作区改动并报告。
 5. 获准提交后，明确暂存本次任务文件，避免用无差别暂存把其他人的工作带入提交。
 
-项目使用 Node.js ≥ 20.9（CI 和生产镜像为 24）和 PostgreSQL 17。先执行 `npm ci` 安装锁定依赖，无需前端构建。常用检查：
+本分支使用 Node.js ≥24.15.0（CI/镜像为 Node 24）、PostgreSQL 17 和 Vue3 默认构建。执行 `npm ci --include=optional`、`npm run check`、`npm run test:unit` 和 `npm run build`；浏览器回归使用 `npm run test:e2e`。常用检查：
 
 ```powershell
 git diff --check

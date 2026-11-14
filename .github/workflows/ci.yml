@@ -2,9 +2,9 @@ name: QSLink CI
 
 on:
   pull_request:
-    branches: [dev, main]
+    branches: [dev-vue3, dev, main]
   push:
-    branches: [dev, main]
+    branches: [dev-vue3, dev, main]
     tags: ['v*']
   workflow_dispatch:
 
@@ -19,7 +19,7 @@ jobs:
   test:
     name: API smoke tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       QSL_DOMAIN: qsl.example.com
       POSTGRES_PASSWORD: ci-only-isolated-postgres-password
@@ -49,11 +49,33 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --include=optional
 
+      - name: Check deployment script syntax
+        run: |
+          bash -n deployment/deploy-dev.sh
+          bash -n deployment/bootstrap-dev.sh
+
+      - name: Check and build frontend
+        run: |
+          npm run check
+          npm run test:unit
+          npm run build
+
       - name: Run tests
         run: npm test
 
       - name: Verify production isolation
         run: npm run test:production
+
+      - name: Browser regression with isolated fixtures
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-results
+          path: test-results/
 
       - name: Validate production Compose config
         run: |
@@ -76,6 +98,7 @@ jobs:
           printf '%s' '{"username":"ci_operator","email":"ci@example.test","password":"CI-Only-Admin-42!"}' | docker compose -p qslink-ci run --rm -T --no-deps app node server/init-admin.js
           docker compose -p qslink-ci up -d --wait app
           docker compose -p qslink-ci exec -T -e EXPECTED_REVISION="${{ github.sha }}" -e EXPECTED_CREATED="$QSL_BUILD_CREATED" -e QSL_BUILD_REVISION=spoofed -e QSL_BUILD_CREATED=spoofed app node -e "fetch('http://127.0.0.1:8787/api/config').then(async r=>{const c=await r.json();if(!r.ok||c.demo||c.demoAccounts.length||c.build?.revision!==process.env.EXPECTED_REVISION||c.build?.created!==process.env.EXPECTED_CREATED)process.exit(1)})"
+          docker compose -p qslink-ci exec -T app node -e "Promise.all(['/build/entry.js','/migration.json','/admin','/legal/terms.en.html'].map(async p=>{const r=await fetch('http://127.0.0.1:8787'+p);if(!r.ok)throw Error(p)})).catch(e=>{console.error(e.message);process.exit(1)})"
           image_id=$(docker compose -p qslink-ci images -q app)
           test "$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "${{ github.sha }}"
           test "$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.created"}}')" = "$QSL_BUILD_CREATED"
@@ -91,7 +114,8 @@ jobs:
     needs: test
     if: >-
       github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/main' ||
+      (github.ref == 'refs/heads/dev-vue3' ||
+       github.ref == 'refs/heads/main' ||
        github.ref == 'refs/heads/dev' ||
        startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
@@ -122,6 +146,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=long,prefix=sha-
+            type=raw,value=sha-${{ github.sha }}-vue3,enable=${{ github.ref == 'refs/heads/dev-vue3' }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Set up Docker Buildx

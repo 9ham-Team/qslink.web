@@ -103,6 +103,7 @@
   var state = {
     inited: false,
     booted: false,
+    externalBackground: false,
     layer: null,
     canvas: null,
     ctx: null,
@@ -160,6 +161,7 @@
    * 一、背景层 #fx-layer（极光 / 光斑 / 微粒）
    * ============================================================ */
   function ensureLayer() {
+    if (state.externalBackground) return null;
     var layer = doc.getElementById('fx-layer');
     if (!layer) {
       layer = doc.createElement('div');
@@ -255,7 +257,7 @@
   }
 
   function startBackground() {
-    if (!state.inited) return;
+    if (!state.inited || state.externalBackground) return;
     // 高 DPR 手机同时合成全屏动态背景和快速翻面的卡图时会耗尽瓦片预算。
     // 由组件挂载/卸载触发的 enhance 同步状态，不在每帧查询 DOM。
     var cardScene = !!(mqCardScene && mqCardScene.matches && doc.querySelector('.card3d'));
@@ -794,7 +796,7 @@
         var node = m.target;
         if (isEl(node) && typeof node.closest === 'function') {
           try {
-            if (node.closest('[data-count], [data-ripple], #fx-layer, .fx-confetti-layer, .fx-ripple')) continue;
+            if (node.closest('[data-count], [data-ripple], #fx-layer, .fx-confetti-layer, .fx-ripple, [data-vue3]')) continue;
           } catch (e) { /* ignore */ }
         }
         relevant = true;
@@ -858,9 +860,15 @@
    * 七、公开 API
    * ============================================================ */
 
+  fx.setExternalBackground = function (enabled) {
+    state.externalBackground = !!enabled;
+    if (state.externalBackground) stopBackground();
+  };
+
   /** app.js 启动后调用一次：挂载背景层、绑定路由与全局交互。 */
-  fx.init = function () {
+  fx.init = function (opts) {
     try {
+      if (opts && opts.externalBackground) fx.setExternalBackground(true);
       if (state.inited) return;
       state.inited = true;
       if (!doc.body) {

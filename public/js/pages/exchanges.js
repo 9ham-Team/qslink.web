@@ -83,7 +83,13 @@
     );
   }
 
+  let activeExchangeRequestModal = null;
+
   function openExchangeRequest(card) {
+    if (activeExchangeRequestModal) {
+      const existing = activeExchangeRequestModal;
+      return { close: () => existing.close() };
+    }
     const currentUser = QSL.state.user;
     const target = card || {};
 
@@ -180,7 +186,10 @@
       title: QSL.t("申请换卡"),
       size: 'lg',
       content: content,
-      onClose: function () { closed = true; logJob++; logEvents.abort(); offAuth(); offRoute(); selectedLogs.clear(); },
+      onClose: function () {
+        if (activeExchangeRequestModal === modal) activeExchangeRequestModal = null;
+        closed = true; logJob++; logEvents.abort(); offAuth(); offRoute(); selectedLogs.clear();
+      },
       actions: [
         { label: QSL.t("取消"), type: 'ghost' },
         {
@@ -189,6 +198,7 @@
         }
       ]
     });
+    activeExchangeRequestModal = modal;
     const body = modal.body;
     const formEl = body.querySelector('[data-xreq-form]');
     const alertEl = body.querySelector('[data-xreq-alert]');
@@ -442,6 +452,7 @@
 
     void submitBtn;
     void formEl;
+    return { close: () => modal.close() };
   }
 
   /* ============================================================
@@ -1037,10 +1048,11 @@
     recordsHtml: submittedLogsHtml,
     open(card) {
       try {
-        openExchangeRequest(card);
+        return openExchangeRequest(card) || null;
       } catch (err) {
         console.error('[QSL.exchangeRequest]', err);
         QSL.toast(QSL.t("申请换卡面板打开失败，请刷新后重试"), 'error');
+        return null;
       }
     }
   };

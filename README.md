@@ -11,7 +11,7 @@ QSLink 是一个为业余无线电爱好者（HAM）打造的 QSL 卡片交换�
 | 模块 | 能力 |
 | --- | --- |
 | 账户系统 | 注册 / 登录 / 退出、会话鉴权（7 天 Bearer Token）、密码 scrypt 加盐哈希、个人资料与收件地址、密码修改 |
-| 卡片工坊 | 正反两面图片上传（PNG/JPEG/WebP/SVG，拖拽 + 预览）、自定义宽高比例（3:2 / 2:3 / 4:3 / 16:9 / 任意整数比）、标题 / 呼号 / 简介、实时 3D 预览、重新编辑 |
+| 卡片工坊 | 正反两面图片上传（PNG/JPEG/WebP，拖拽 + 预览）、自定义宽高比例（3:2 / 2:3 / 4:3 / 16:9 / 任意整数比）、标题 / 呼号 / 简介、实时 3D 预览、重新编辑 |
 | 3D 展示 | 纯 CSS 3D 双面卡片：真实卡纸厚度、拖拽旋转 + 惯性、随指针流动的光泽、空闲自动旋转、双击翻转、触摸支持、任意比例不变形 |
 | 卡片广场 | 按呼号搜索、最新 / 最热排序、分页、点赞（含彩纸动效）、分享链接 |
 | 换卡流程 | 申请时填写地址与留言；卡片主人在"收到的申请"中同意 / 拒绝；同意后双方可见收件地址并复制；可标记完成；支持撤回与重新申请 |
@@ -22,11 +22,12 @@ QSLink 是一个为业余无线电爱好者（HAM）打造的 QSL 卡片交换�
 
 ## 🚀 快速开始
 
-环境要求：**Node.js ≥ 20.9**（CI 和生产镜像使用 Node 24）和 **PostgreSQL 17**。先用 `npm ci` 安装锁定依赖，无需前端构建。数据库连接与本地启动见 [PostgreSQL 指南](docs/POSTGRESQL.md)。
+本分支默认前端为 **Vue 3 + TypeScript + Vite / Vue Router / Pinia**。环境要求：**Node.js ≥24.15.0**（CI/镜像使用 Node 24）和 **PostgreSQL 17**。先安装锁定依赖并构建前端。数据库连接与本地启动见 [PostgreSQL 指南](docs/POSTGRESQL.md)。
 
 ```bash
 cd qsl-card-exchange
-npm ci
+npm ci --include=optional
+npm run build
 # 先配置独立开发库的 DATABASE_URL，或按 PostgreSQL 指南运行 npm run db:local
 npm start            # 默认空库，不自动创建演示账号
 npm run demo         # 显式本地演示模式，默认 http://127.0.0.1:8787
@@ -94,6 +95,10 @@ QSLink 只发送 `{"msgtype":"text","text":{"content":"审核消息"}}`，不配
 ## 🧪 测试
 
 ```bash
+npm run check        # Vue / TypeScript 类型检查
+npm run test:unit    # 前端组件与适配测试
+npm run build        # 生成 dist-public/
+npm run test:e2e     # 隔离数据库浏览器回归
 npm test             # 启动隔离实例跑完整 API 端到端冒烟测试（tests/smoke.mjs）
 npm run test:production # 验证空库、生产配置、管理员初始化、限流与演示隔离
 node tools/shot.mjs http://127.0.0.1:8787/ shot.png 1440 1000   # 无头浏览器截图
@@ -110,7 +115,9 @@ qsl-card-exchange/
 │   ├── lib/                # 数据层、鉴权、校验、上传、领域路由
 │   ├── seed.js             # 演示数据与程序化 SVG QSL 卡片生成
 │   └── lib/                # 数据层、鉴权、校验、上传、领域路由
-├── public/                 # 原生前端（无需构建）
+├── client/                 # Vue 页面、路由、Pinia、组件测试与 e2e
+├── dist-public/            # 默认运行静态产物（生成，不提交）
+├── public/                 # 共享静态资源、原生后台与对照入口
 │   ├── index.html
 │   ├── css/                # base / components / gallery / flows / admin / animations
 │   ├── js/                 # core / api / ui / effects / card3d / pages / app
@@ -120,6 +127,8 @@ qsl-card-exchange/
 ├── tests/                  # 端到端冒烟测试
 └── tools/                  # 截图工具
 ```
+
+源码/配置/脚本使用普通文件名；迁移文档保留 Vue3 标识，见 [迁移指引](Vue3迁移指引-vue3/README-vue3.md)。默认 Dockerfile 构建 Vue 前端；原生对照请使用 `npm run start:legacy`。
 
 ## 📚 文档
 

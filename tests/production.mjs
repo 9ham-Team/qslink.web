@@ -860,7 +860,9 @@ test('build metadata is validated from the fixed build file and footer uses HKT'
     assert.equal(readBuild(value), 'null');
   }
   const source = await fs.readFile(path.join(ROOT, 'public/js/core.js'), 'utf8');
-  const context = { window: {}, document: {}, console, URLSearchParams, Intl, Map, Set };
+  // core.js initializes browser-history bookkeeping before exposing helpers.
+  const context = { window: {}, document: {}, console, URLSearchParams, Intl, Map, Set,
+    history: { state: null, replaceState(state) { this.state = state; } } };
   vm.runInNewContext(source, context);
   const format = context.window.QSL.footerBuildText;
   assert.equal(format({ revision, created }), '版本 ' + revision.slice(0, 7) + ' · 镜像构建于 2026-10-28 02:35 HKT');

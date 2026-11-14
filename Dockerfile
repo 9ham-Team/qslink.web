@@ -1,10 +1,19 @@
-FROM node:24-alpine
+FROM node:24-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --include=optional
+COPY client ./client
+COPY tools/build.mjs ./tools/build.mjs
+COPY public ./public
+RUN npm run check && npm run build
+
+FROM node:24-alpine AS runtime
 ENV NODE_ENV=production QSL_HOST=0.0.0.0 QSL_PORT=8787 QSL_DATA_DIR=/var/lib/qslink QSL_SEED_DEMO=false
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+RUN npm ci --omit=dev --include=optional --ignore-scripts && npm cache clean --force
 COPY server ./server
-COPY public ./public
+COPY --from=builder /app/dist-public ./public
 COPY LICENSE COPYRIGHT CONTENT-LICENSE.md ./
 ARG QSL_BUILD_REVISION=""
 ARG QSL_BUILD_CREATED=""

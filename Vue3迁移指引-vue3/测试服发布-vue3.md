@@ -1,11 +1,13 @@
 # 44381 测试服发布指引 — vue3
 
+> 2026-11-15：文件名已标准化。deployment/deploy-dev.sh 是本线默认 Vue3/44381 入口；旧包装器与双 CI 已移除。服务器容器/卷/镜像标签及部署授权要求保持，详见 [命名标准化](命名标准化-vue3.md)。
+
 本指引仅适用于独立 Vue3 测试站点，不操作原 `44380` 应用或生产。每次提交/推送/部署都须有对应授权，目录中的示例命令不代表永久授权。
 
 | 项目 | 固定身份 |
 | --- | --- |
 | 团队分支 | `9ham-Team/qslink.web` 的 `dev-vue3` |
-| CI | `.github/workflows/ci-vue3.yml`，测试成功后才发布镜像 |
+| CI | `.github/workflows/ci.yml`，测试成功后才发布镜像 |
 | 镜像标签 | `ghcr.io/9ham-team/qslink.web:dev-vue3`、`:sha-<完整SHA>-vue3` |
 | 测试入口 | `http://43.142.58.20:44381` |
 | 应用 / PostgreSQL | `qslink-test-app-vue3` / `qslink-test-db-vue3` |
@@ -16,7 +18,7 @@
 
 ## 首次部署 — vue3
 
-首次部署已由用户明确选择复制原 `44380` 的测试数据。使用 [bootstrap-dev-vue3.sh](../deployment/bootstrap-dev-vue3.sh)，同时上传同目录的 [deploy-dev-vue3.sh](../deployment/deploy-dev-vue3.sh) 与 [deploy-dev.sh](../deployment/deploy-dev.sh)。文件上传前核实远端目录，核对传输校验和并执行 `bash -n`。
+首次部署已由用户明确选择复制原 `44380` 的测试数据。使用 [bootstrap-dev.sh](../deployment/bootstrap-dev.sh)，同时上传同目录的 [deploy-dev.sh](../deployment/deploy-dev.sh)。文件上传前核实远端目录，核对传输校验和并执行 `bash -n`。已存在的 Vue3 环境只执行后续更新，不重新初始化。
 
 初始化脚本检查新资源不存在和端口空闲，核对源测试应用确实连接 `qslink-test-db/qslink/public`，读取源库 pg_dump 与只读上传卷快照。快照保存在 `/root/qslink-vue3/backups/bootstrap-<UTC>-<短SHA>-vue3/`。随后创建独立数据库、凭据及上传卷并恢复数据；失败保留数据与配置供排查，不自动删除卷，也不覆盖既有 Vue3 数据。
 
@@ -25,17 +27,17 @@
 只有目标完整 SHA 的测试与 GHCR 发布均成功后，才执行：
 
 ```bash
-QSL_EXPECTED_REVISION_VUE3=<已核验完整SHA> bash /root/qslink-vue3/bootstrap-dev-vue3.sh
+QSL_EXPECTED_REVISION_VUE3=<已核验完整SHA> bash /root/qslink-vue3/bootstrap-dev.sh
 ```
 
 `pg_dump` 提供数据库一致快照，上传文件在其后单独归档；二者并非跨存储原子快照。复制完成后核验卡片、用户、图片与页面，原测试服在复制期间持续运行，不停止原应用或数据库。若检测到复制期间删除造成的缺图，应重新制定补齐方案，不向原环境写回。
 
 ## 后续更新 — vue3
 
-使用包装器复用原部署脚本的锁定、环境继承、旧容器保留、健康等待与失败恢复。必须指定完整 SHA，脚本拉取 `sha-<SHA>-vue3` 固定标签并验证 OCI revision，不能把浮动 `dev-vue3` 标签当作已核验版本。
+默认部署脚本直接保留锁定、环境继承、旧容器保留、健康等待与失败恢复。必须指定完整 SHA，脚本拉取 `sha-<SHA>-vue3` 固定标签并验证 OCI revision，不能把浮动 `dev-vue3` 标签当作已核验版本。
 
 ```bash
-QSL_EXPECTED_REVISION_VUE3=<已核验完整SHA> bash /root/qslink-vue3/deploy-dev-vue3.sh
+QSL_EXPECTED_REVISION_VUE3=<已核验完整SHA> bash /root/qslink-vue3/deploy-dev.sh
 ```
 
 更新前记录当前镜像、状态、挂载、网络和必要数据备份。成功后保存脚本输出的旧容器名；首次部署没有旧 Vue3 容器可回退。数据库/上传快照与旧容器不是同一种备份，恢复旧程序不撤销用户之后的业务写入。

@@ -1,18 +1,16 @@
 # Vue3 分阶段实施方案 — vue3
 
-目标组合：Vue 3、Composition API、SFC、Vite，逐步引入 TypeScript。跨页面状态确有需要时再接 Pinia；最终路由使用 Vue Router。现阶段保持现有 Node.js/CommonJS、PostgreSQL、Sharp、API、CSS tokens、双语词典和法律页。
+当前组合：Vue 3、Composition API、TypeScript SFC、Vite、Pinia 和 Vue Router。Vue3 为本线默认构建与运行入口；源码/配置/脚本使用常规名称，迁移文档保留标识，详见 [命名标准化](命名标准化-vue3.md)。现阶段保持现有 Node.js/CommonJS、PostgreSQL、Sharp、API、CSS tokens、双语词典和法律页。
 
 ## 路由与状态所有权 — vue3
 
-当前仍由 `QSL.router` 独占 history 和所有路由守卫。构建脚本复制遗留静态资源，替换生成 HTML 中的 `space.js`、`explore.js` 和 `app.js` 加载入口，由 `entry-vue3.ts` 先注册两个 Vue 页面桥接，再启动旧外壳。公开主页和广场各自按路由加载页面块，共享框架、卡片及服务模块；原首页等未迁页面不立即加载 Vue 运行时。
+P6 的 Router/状态收口已落地：Vue Router 4 与 `createWebHistory()` 独占完整 SPA 路由、守卫、history、滚动和标题；`RouterView` 通过 Teleport 独占 `#app`，导航、页脚、toast、modal 和背景保持为不随页面重建的外壳。已迁移页面直接按需加载真实 Vue 组件；原生 `/admin` 由显式 `LegacyPageHost` 调用注册 `render()` 并执行 cleanup，后台业务本身未迁移。
 
-按用户后续选择，赛事子系统提前迁移：新增五个 Vue 页面注册，覆盖赛事介绍及备用布局、报名、作品列表、作品详情/投票和评委工作台六条路由。对应旧页面脚本只在生成入口中移除，原 `public/` 对照入口保留；管理端评审配置、导出及 `contest-judging.js` 共享辅助仍为原生。新的评委页面单独按需加载，仅请求本人评审数据；详见 [赛事迁移验收](赛事迁移验收-vue3.md)。
+Pinia 是当前用户、公开配置和启动状态的唯一数据源。`QSL.state` 是同一 store 的 getter/setter 兼容视图，`QSL.setUser`、boot/refresh 与原生直接赋值都落到同一组 action；token 仍只保存在 `QSL.api` 的闭包与既有存储键。`QSL.navigate`、`goBack`、`currentPath`、`setQuery`、`scrollToHash` 和 `QSL.router` 只转发给同一个 Router，不再启动旧 popstate、链接拦截或第二套 renderRoute。
 
-桥接 render 同步返回 cleanup，同时监听 `route:before`，覆盖旧路由器尚未保存 cleanup 的窗口。页面离开时立即失效，迟到的模块不会挂载。Vue 独占 `[data-vue3="space"]` / `[data-vue3="explore"]` 子树；外壳拥有导航、页脚、toast、modal 和背景。共享 effects 的指针/水波纹跳过 Vue 子树，Vue 页面不使用旧层会修改节点的 `data-reveal`/`data-count` 标记。鼠标倾斜、点赞心跳由 Vue 卡片自己管理；点赞彩纸通过服务适配在组件子树之外使用现有图层。
+统一启动顺序为创建 Pinia、状态桥、Router 和会话运行时，挂载单一 AppShell，等待会话 ready 后完成初始导航与一次 `router:ready`。路由守卫在确认离页后发出 `route:before`，Router `afterEach` 发出 `route`，真实页面挂载后发出 `route:rendered` / `route:after`。账号身份变化通过版本化重挂受保护页面；同账号资料刷新保留草稿，旧请求不能覆盖新会话。
 
-会话依然来自现有 QSL API 和 `QSL.state`，通过 services 适配注入组件。组件不另存 token；账号变动时中止请求、关闭分享、重取带访问者点赞状态的数据。未迁移页面不依赖 Vue。
-
-最终切换前，不启动第二个路由器。Vue Router 一次接管完整路由及守卫后，旧导航调用统一委托给新路由，禁止再次初始化旧 router。保留全部旧路径、别名、query、hash、登录回跳与浏览器历史行为。
+赛事子系统的六条路由、账户/编辑/交易/日志及全站公开页面均已纳入该 Router；对应旧页面脚本只在生成入口中移除，原 `public/` 对照入口保留。管理端评审配置、导出及 `contest-judging.js` 共享辅助仍为原生。完整路径、事件顺序和历史/滚动适配见 [迁移进度](迁移进度-vue3.md) 与 [赛事迁移验收](赛事迁移验收-vue3.md)。
 
 广场已接入滚动续载与短时返回记忆：history.state 仅保存访问标识，公开展示字段快照留在当前标签页内存，最多保留四次访问、十分钟，账号事件清空缓存。浏览器前进/后退恢复对应历史访问；从详情点击未指定筛选的广场面包屑也恢复最近浏览。独立的新访问及显式筛选不串用旧状态，刷新后不承诺保留内存快照。返回时复核已加载各页，未经复核的旧卡片不可交互，已撤下的卡片会从列表移除。复位滚动使用卡片锚点和未变换的布局坐标；用户主动滚动优先于自动恢复，不修改全站 history.scrollRestoration 设置。
 
@@ -42,8 +40,8 @@
 
 ## 验证与回退 — vue3
 
-常规检查：`npm run check:vue3`、`npm run test:vue3`、`npm run build:vue3`、`npm run test:e2e:vue3`、`git diff --check`。涉及服务端/权限/数据时运行原 `npm test`、`npm run test:production`。
+常规检查：`npm run check`、`npm run test:unit`、`npm run build`、`npm run test:e2e`、`git diff --check`。涉及服务端/权限/数据时运行原 `npm test`、`npm run test:production`。
 
 浏览器测试使用独立临时 PostgreSQL 和合成种子，不接触真实数据；桌面及手机视口覆盖主页功能、资源加载、控制台、路由返回和迟到响应。组件测试覆盖排序失败重试、转义、账号变化、请求中止、图片观察器和 3D 销毁。视口模拟不能替代 Android/iOS 真机 3D 视觉测试。
 
-原生对照入口为 `npm start`，Vue3 入口为 `npm run start:vue3`。框架产物与数据分离；旧镜像/页面仅恢复程序，不能撤销用户新产生的库存、换卡或投票。远程发布/回退仍需授权，且独立于原 `dev` 测试环境。
+原生对照入口为 `npm start`，Vue3 入口为 `npm run start`。框架产物与数据分离；旧镜像/页面仅恢复程序，不能撤销用户新产生的库存、换卡或投票。远程发布/回退仍需授权，且独立于原 `dev` 测试环境。

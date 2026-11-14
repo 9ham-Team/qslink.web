@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-# QSLink 测试服务器：手动执行此脚本即可更新到 dev；不修改数据库或数据卷。
+# QSLink development test deployment; defaults to the isolated dev-vue3 site on 44381.
 set -Eeuo pipefail
 umask 077
+
+# The original 44380 environment must use the script from its own branch.
+[[ "${QSL_DEPLOY_PROFILE:-vue3}" == vue3 ]] || { echo '此分支仅支持独立 Vue3/44381 发布；原 dev 请使用原分支脚本。' >&2; exit 1; }
 
 IMAGE=ghcr.io/9ham-team/qslink.web:dev
 APP=qslink-test-app
 NETWORK=qslink-test-net
 VOLUME=qslink-test-uploads
-# Explicit Vue3 profile shares these deployment protections; defaults above
-# remain the existing dev site. The Vue3 wrapper always pins a full SHA — vue3.
+# The shared recovery implementation is retained; this branch only accepts Vue3.
+# Container, network, volume and image labels remain isolated from the original dev site.
 PORT=44380
 LOCK=/var/lock/qslink-deploy-dev.lock
 INITIAL_ENV_FILE=
-if [[ "${QSL_DEPLOY_PROFILE:-dev}" == vue3 ]]; then
+if [[ "${QSL_DEPLOY_PROFILE:-vue3}" == vue3 ]]; then
   [[ "${QSL_EXPECTED_REVISION_VUE3:-}" =~ ^[a-f0-9]{40}$ ]] || { echo 'Vue3 部署必须指定完整 SHA。' >&2; exit 1; }
   IMAGE="ghcr.io/9ham-team/qslink.web:sha-${QSL_EXPECTED_REVISION_VUE3}-vue3"
   APP=qslink-test-app-vue3
@@ -21,7 +24,7 @@ if [[ "${QSL_DEPLOY_PROFILE:-dev}" == vue3 ]]; then
   PORT=44381
   LOCK=/var/lock/qslink-deploy-dev-vue3.lock
   INITIAL_ENV_FILE=/root/qslink-vue3/app-vue3.env
-elif [[ "${QSL_DEPLOY_PROFILE:-dev}" != dev ]]; then
+elif [[ "${QSL_DEPLOY_PROFILE:-vue3}" != dev ]]; then
   echo '未知部署配置。' >&2; exit 1
 fi
 MAIL_ENV_FILE=${QSL_MAIL_ENV_FILE:-}
@@ -43,7 +46,7 @@ if [[ "$APP_EXISTS" -eq 0 ]]; then
 fi
 docker network inspect "$NETWORK" >/dev/null
 docker volume inspect "$VOLUME" >/dev/null
-if [[ "${QSL_DEPLOY_PROFILE:-dev}" == vue3 ]]; then
+if [[ "${QSL_DEPLOY_PROFILE:-vue3}" == vue3 ]]; then
   [[ -z "$MAIL_ENV_FILE" && -z "$WEBHOOK_ENV_FILE" ]] || { echo 'Vue3 部署不重载原测试服通知配置。' >&2; exit 1; }
   if [[ "$APP_EXISTS" -eq 1 ]]; then
     [[ $(docker inspect "$APP" --format '{{(index (index .HostConfig.PortBindings "8787/tcp") 0).HostPort}}') == "$PORT" ]] || { echo 'Vue3 现有端口不符。' >&2; exit 1; }
@@ -78,7 +81,7 @@ OLD_IMAGE=
 if [[ "$APP_EXISTS" -eq 1 ]]; then OLD_IMAGE=$(docker inspect "$APP" --format '{{.Image}}'); fi
 NEW_IMAGE=$OLD_IMAGE
 if [[ -z "$CONFIG_ENV_FILE" ]]; then NEW_IMAGE=$(docker image inspect "$IMAGE" --format '{{.Id}}'); fi
-if [[ "${QSL_DEPLOY_PROFILE:-dev}" == vue3 ]]; then
+if [[ "${QSL_DEPLOY_PROFILE:-vue3}" == vue3 ]]; then
   [[ $(docker image inspect "$NEW_IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}') == "$QSL_EXPECTED_REVISION_VUE3" ]] || { echo 'Vue3 镜像修订不符。' >&2; exit 1; }
 fi
 if [[ -z "$CONFIG_ENV_FILE" && "$NEW_IMAGE" == "$OLD_IMAGE" ]] && [[ $(docker inspect "$APP" --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}') == healthy ]]; then

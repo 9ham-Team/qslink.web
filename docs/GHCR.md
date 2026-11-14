@@ -7,6 +7,8 @@
 | 操作 | 验证 | 发布镜像 |
 | --- | --- | --- |
 | 向 `main`、`dev` 提交 PR | 执行 CI | 不发布 |
+| 向 `dev-vue3` 提交 PR | 执行前后端完整 CI | 不发布 |
+| push / 合并到 `dev-vue3` | 执行 CI | 成功后发布 `dev-vue3`、`sha-<完整提交SHA>` 和兼容 `sha-<完整提交SHA>-vue3` |
 | push / 合并到 `main` | 执行 CI | 成功后发布 `main`、`latest`、`sha-<完整提交SHA>` |
 | push / 合并到 `dev` | 执行 CI | 成功后发布 `dev`、`sha-<完整提交SHA>` |
 | 推送 `v1.2.3` 等版本标签 | 执行 CI | 成功后发布 `1.2.3`、`1.2`、`sha-<完整提交SHA>` |

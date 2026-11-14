@@ -5,6 +5,8 @@ description: Publish QSLink changes through a team-internal PR into dev, verify 
 
 # QSLink dev 发布与测试服部署
 
+> `dev-vue3` 分支专用说明（2026-11-15）：本线已统一文件名，`deployment/deploy-dev.sh` 默认更新独立 44381 环境且要求 `QSL_EXPECTED_REVISION_VUE3`。本线应先读 [Vue3 发布指引](../../Vue3迁移指引-vue3/测试服发布-vue3.md)，不套用下文原 `dev` / 44380 身份表；原环境使用原分支的发布脚本。文件名统一不是提交、推送或部署授权。
+
 ## 授权与范围
 
 - 严格按用户本次授权执行提交、推送、创建 PR、合并、部署或回滚。仅创建/修改此 Skill、排查问题、询问部署方式，不构成发布授权，也不将一次授权沿用到未来任务。

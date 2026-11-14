@@ -6,24 +6,24 @@
   "type": "commonjs",
   "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js",
-    "dev": "node --watch server/server.js",
-    "demo": "node tools/demo.mjs",
+    "start": "node tools/start.mjs",
+    "dev": "node tools/build.mjs && node tools/start.mjs --watch",
+    "demo": "node tools/build.mjs && node tools/demo.mjs",
+    "start:legacy": "node server/server.js",
+    "dev:legacy": "node --watch server/server.js",
     "admin:init": "node server/init-admin.js",
     "test": "node tools/run-tests.mjs smoke",
     "test:production": "node tools/run-tests.mjs production",
     "db:import-json": "node server/import-json.js",
     "db:local": "node tools/local-postgres.mjs",
     "shot": "node tools/shot.mjs",
-    "build:vue3": "node tools/build-vue3.mjs",
-    "start:vue3": "node tools/start-vue3.mjs",
-    "dev:vue3": "node tools/build-vue3.mjs && node tools/start-vue3.mjs --watch",
-    "check:vue3": "vue-tsc --project client-vue3/tsconfig-vue3.json --noEmit",
-    "test:vue3": "vitest run --config client-vue3/vitest.config-vue3.mjs",
-    "test:e2e:vue3": "node tools/test-browser-vue3.mjs"
+    "build": "node tools/build.mjs",
+    "check": "vue-tsc --project client/tsconfig.json --noEmit",
+    "test:unit": "vitest run --config client/vitest.config.mjs",
+    "test:e2e": "node tools/test-browser.mjs"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=24.15.0"
   },
   "dependencies": {
     "@alicloud/dm20151123": "1.11.0",
@@ -40,10 +40,12 @@
     "@vue/test-utils": "2.4.11",
     "embedded-postgres": "17.10.0-beta.17",
     "jsdom": "31.0.1",
+    "pinia": "3.0.4",
     "typescript": "5.9.3",
     "vite": "8.3.8",
     "vitest": "5.1.0",
     "vue": "3.5.45",
+    "vue-router": "4.6.5",
     "vue-tsc": "3.3.14"
   },
   "overrides": {
