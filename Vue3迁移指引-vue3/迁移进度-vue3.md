@@ -267,3 +267,7 @@ Windows 沙箱中的 PostgreSQL initdb 无法创建所需令牌，本轮改为�
 - `git diff --check`、新/修改 JS/MJS 语法、两份部署脚本的 Git Bash `bash -n` 检查通过。命名审计确认 150 个目标文件均存在、版本文件无非文档后缀遗漏、依赖版本变化为 0，既有 `/.zcode/` 保留。
 
 未验证：本机没有 Docker，未执行 Docker/Alpine 镜像构建与容器验收；未运行远端 CI、推送镜像或部署，未做真机 3D 闪烁复测。所有改动仍为本地未暂存/未提交状态，分支保持 dev-vue3，HEAD 保持 199e568。
+
+## 2026-11-15 赛事子导航光学对齐 — vue3
+
+按用户截图反馈，在 `client/src/components/SiteHeader.vue` 的横向子导航锚点计算中整体左移 8px，再执行原有边缘约束；三项间距、胶囊尺寸和手机纵向菜单保持。`npm run build`、`npm run check`、差异检查通过。本地静态预览（API mock，仅布局验收）在 Edge 1440px / 1200px 下测得中心偏移 -8px、间距仍 6px，375px 菜单仍纵向且无横向溢出；对比截图位于 ignored `artifacts/contest-alignment/`。原隔离数据库 fixture 本次启动超时，未将该次尝试报告为浏览器回归通过。未提交、未推送、未部署，44381 仍为 8245961。
