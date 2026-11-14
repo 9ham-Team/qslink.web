@@ -39,6 +39,7 @@ export interface SpaceResponseVue3 {
 }
 
 export interface RouteContextVue3 {
+  path?: string;
   params: Record<string, string>;
   query: URLSearchParams;
   fromPath?: string | null;
@@ -67,7 +68,7 @@ export interface LegacyQslVue3 {
   t: ServicesVue3['t'];
   state: { user: { uid?: string } | null };
   api: {
-    get<T>(path: string, options?: { signal: AbortSignal }): Promise<T>;
+    get<T>(path: string, options?: { signal: AbortSignal; cache?: RequestCache }): Promise<T>;
     cards: { like: ServicesVue3['likeCard'] };
   };
   images: { apply: ServicesVue3['image'] };

@@ -8,5 +8,6 @@ export default defineConfig({
     include: ['client-vue3/tests/*-vue3.test.ts'],
     clearMocks: true,
     restoreMocks: true,
+    maxWorkers: 4,
   },
 });
