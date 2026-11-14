@@ -88,8 +88,8 @@ function alignContestPanel() {
   const buttonRect = button.getBoundingClientRect();
   const panelRect = panel.getBoundingClientRect();
   const halfLinksWidth = linksEl.offsetWidth / 2;
-  // Optical alignment: move the link group 8px left before applying edge limits.
-  const anchor = buttonRect.left + buttonRect.width / 2 - panelRect.left - 8;
+  // Optical alignment: move the link group 5px left before applying edge limits.
+  const anchor = buttonRect.left + buttonRect.width / 2 - panelRect.left - 5;
   panel.style.setProperty(
     '--contest-anchor',
     Math.max(halfLinksWidth, Math.min(panelRect.width - halfLinksWidth, anchor)) + 'px',
