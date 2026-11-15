@@ -25,7 +25,7 @@
 
 ## 2. index.html 脚本加载顺序
 
-默认 Vue 构建由 `client/src/entry.ts` 启动，输出 `/build/entry.js`，并移除已迁移页面与原 app.js 的 script 标签。下列顺序描述 `public/` 原生对照和共享兼容模块；新增 Vue 页面通过 `client/src/router.ts` 注册按需路由，不再手工加入普通页面 script。
+默认 Vue 构建由 `client/src/entry.ts` 启动，输出带内容哈希的 `/build/index-<hash>.js` 及 CSS/Worker 资源，并移除已迁移页面与原 app.js 的 script 标签。下列顺序描述 `public/` 原生对照和共享兼容模块；新增 Vue 页面通过 `client/src/router.ts` 注册按需路由，不再手工加入普通页面 script。
 
 ```
 css/base.css → components.css → gallery.css → flows.css → admin.css → animations.css

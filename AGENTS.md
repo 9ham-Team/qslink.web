@@ -6,7 +6,7 @@
 
 用户于 2026-11-15 明确调整命名和默认入口：Vue3 是本线默认实现，源码、测试、配置、脚本、专用目录、生成文件和 npm 命令使用常规名称，**不再添加 -vue3 / :vue3 后缀**。例如 `client/src/pages/Space.vue`、`tools/build.mjs`、`npm run build`。迁移文档继续放在 `Vue3迁移指引-vue3/` 并保留文档的 `-vue3.md` 标识；固定入口和既有业务文件保持原路径。此前强制源码、分支和提交/PR 标题后缀的约定取消，历史提交不改写。
 
-默认 `npm run build && npm start` 提供 `dist-public/`；`Dockerfile`、`compose.yaml` 和 `.github/workflows/ci.yml` 均使用 Vue3 构建。`npm run start:legacy` 才提供 `public/` 的原生对照。Vue Router / Pinia / QSL 兼容层的业务与安全契约保持；后台六个分区及赛事管理已迁入 `client/src/admin/`；默认构建不执行原生后台脚本。
+默认 `npm run build && npm start` 提供 `dist-public/`；构建资源使用内容哈希 URL，源站在持久数据目录 `static-assets/` 中保留旧资源，CDN 规则见 [缓存指引](Vue3迁移指引-vue3/CDN缓存与资源版本化-vue3.md)。`Dockerfile`、`compose.yaml` 和 `.github/workflows/ci.yml` 均使用 Vue3 构建。`npm run start:legacy` 才提供 `public/` 的原生对照。Vue Router / Pinia / QSL 兼容层的业务与安全契约保持；后台六个分区及赛事管理已迁入 `client/src/admin/`；默认构建不执行原生后台脚本。
 
 仓库文件名不再区分框架，但外部部署仍隔离：分支 `dev-vue3`、44381、现有 Vue3 容器/卷/网络及镜像标签继续保留。此分支的 `deployment/deploy-dev.sh` 默认选 Vue3 profile，要求完整 SHA；不因规范文件名而操作原测试服或生产。修改、提交、推送和部署仍分别授权。
 
@@ -61,7 +61,7 @@ git log --oneline -5
 
 | 文件 | 职责 |
 | --- | --- |
-| `public/index.html` | CSS/script 加载顺序；新增普通脚本需显式引入 |
+| `client/index.html` / `client/src/runtime.ts` | 默认 HTML、共享脚本和 CSS 构建入口；public/index.html 仅作原生对照 |
 | `public/js/core.js` | QSL 全局、路由、状态、事件与通用工具 |
 | `public/js/api.js` | API 封装、token、错误及会话失效处理 |
 | `public/js/ui.js` | toast、modal、表单、卡片缩略图等共享 UI |

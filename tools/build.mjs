@@ -8,17 +8,26 @@ const output = path.join(root, 'dist-public');
 const source = path.join(root, 'public');
 // Only a fixed generated directory is cleared; never write into public/.
 await fs.rm(output, { recursive: true, force: true });
-await fs.cp(source, output, { recursive: true });
-const original = await fs.readFile(path.join(source, 'index.html'), 'utf8');
-const migratedScripts = ['home', 'space', 'explore', 'card-detail', 'share', 'login', 'register', 'dashboard', 'profile', 'my-cards', 'card-editor', 'exchanges', 'logbook', 'admin', 'admin-contest-judging', 'qsl-design-contest', 'qsl-design-registration', 'qsl-design-works', 'qsl-design-work-detail', 'qsl-design-judging'].map(name => '/js/pages/' + name + '.js');
-for (const entry of [...migratedScripts, '/js/app.js']) {
-  if (original.split('<script src="' + entry + '"></script>').length !== 2)
-    throw new Error('Vue3 entry must match exactly once: ' + entry);
-}
-const html = migratedScripts.reduce((html, entry) => html.replace('<script src="' + entry + '"></script>', ''), original)
-  .replace('<script src="/js/app.js"></script>', '<script type="module" src="/build/entry.js"></script>');
+await fs.cp(source, output, { recursive: true, filter(file) {
+  const relative=path.relative(source,file).split(path.sep).join('/');
+  return !/^(?:js|css|assets)(?:\/|$)/.test(relative) && !/^legal\/.*\.(?:js|css)$/.test(relative);
+} });
 await build({ configFile: path.join(root, 'client/vite.config.mjs') });
-await fs.writeFile(path.join(output, 'index.html'), html);
+const { createHash } = await import('node:crypto');
+const files=[];
+async function collect(dir) {
+  for(const item of await fs.readdir(dir,{withFileTypes:true})) {
+    const file=path.join(dir,item.name);
+    if(item.isDirectory()) await collect(file);
+    else {
+      const bytes=await fs.readFile(file);
+      files.push({path:path.relative(output,file).split(path.sep).join('/'),sha256:createHash('sha256').update(bytes).digest('hex')});
+    }
+  }
+}
+await collect(path.join(output,'build'));
+files.sort((a,b)=>a.path.localeCompare(b.path));
+await fs.writeFile(path.join(output,'asset-manifest.json'),JSON.stringify({version:1,entry:(await fs.readFile(path.join(output,'index.html'),'utf8')).match(/<script[^>]+src="([^"]+)"/)[1],files}));
 await fs.writeFile(path.join(output, 'migration.json'), JSON.stringify({
   framework: 'vue3',
   shell: 'vue3',

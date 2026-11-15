@@ -294,3 +294,21 @@ Windows 沙箱中的 PostgreSQL initdb 无法创建所需令牌，本轮改为�
 - git diff --check 与 JS/MJS 语法检查通过；默认生成入口未包含旧后台脚本。
 
 未执行后端 npm test / test:production（无服务端改动）、Docker、远端 CI、真实手机及截止后的真实人工评分 XLSX 导出。后台结果显示与隐私变化已通过组件 mock 覆盖。当前停留 dev-vue3，本轮未暂存、未提交、未推送、未部署；既有 .gitignore 的 /.zcode/ 修改保留。详见 [管理后台迁移](管理后台迁移-vue3.md)。
+
+## 2026-11-15 双线路 CDN 缓存与静态资源版本化 — vue3
+
+针对国内 DOOKICDN 日本节点→德国 Netcup、海外 Cloudflare→德国 Netcup 的部署方式，补齐静态资源版本化；未修改域名、线路、CDN 控制台或运行中的容器。
+
+- 默认入口为 client/index.html / runtime.ts，共享 JS/CSS 纳入 Vite；主入口、页面块、CSS、module Worker、站点图片与法律页依赖全部使用内容哈希 URL。保留原生算法与 QSL 契约，不再依赖固定脚本 URL。
+- 生成 asset-manifest.json / SHA-256 校验和；启动器与 CI 从清单识别主入口，Docker builder 包含资源插件。HTML、深链、API、清单与错误响应 no-store，哈希资源一年 immutable，并发送两类 CDN 专用缓存头。
+- 服务端在持久数据目录 static-assets 中校验并保留资源；拒绝路径遍历、符号链接、校验错误和同名不同内容覆盖。部署脚本在停止旧容器前保留旧哈希分块，沿用既有锁、SHA 校验、环境继承、健康与失败恢复保护；Docker 探测错误不能静默跳过归档。
+
+实际验证：
+
+- npm run check / build 通过：211 modules，65 个版本资源；相同源码重复构建的入口 URL 与全部校验和一致。
+- 前端组件：34 文件、169 项通过；npm test：138 项通过；npm run test:production：98 项通过，包含真实 HTTP A→B 发布后旧分块可读、HTML/API/404 禁止缓存及资源校验安全。
+- 完整 Edge E2E：80 项中 79 通过、1 项手机鼠标倾斜按设计跳过。新增缓存专项桌面/手机共 4 项通过；补充静态 405 禁止缓存断言后，专项 4 项再次通过。
+- 浏览器验证实际哈希资源及校验和、默认页面无固定 /js /css /assets 请求、法律页依赖、真实哈希 module Worker 执行及 WebP 转换。既有后台、赛事、鉴权、资料、编辑、换卡、分享、广场和外壳均完成回归。
+- 独立资源缓存 Node 测试 5 项通过；JS/MJS 语法、部署脚本 bash -n 与最终差异检查通过。
+
+未验证：本机没有 Docker CLI，未实际构建/运行本轮镜像或执行容器资源归档；未运行远端 CI、真实双 CDN 边缘命中与真机验收。Cloudflare / DOOKICDN 规则及首次清缓存步骤见 [CDN 缓存指引](CDN缓存与资源版本化-vue3.md)，尚未在控制台应用。本轮未提交、未推送、未部署；dev-vue3 已提交 HEAD 仍为 e337834，既有 .gitignore 的 /.zcode/ 保留。

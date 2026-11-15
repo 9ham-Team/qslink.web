@@ -557,6 +557,7 @@ export interface LegacyQslVue3 {
   };
   imageUpload?: {
     createProcessor(): ImageProcessorVue3;
+    createWorker?: () => Worker;
   };
   shareCard?: (card: unknown) => Promise<unknown>;
   setUser?: (user: AuthUserVue3 | null) => void;

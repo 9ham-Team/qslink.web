@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const publicDir = path.join(root, 'dist-public');
-if (!fs.existsSync(path.join(publicDir, 'build/entry.js'))) {
+if (!fs.existsSync(path.join(publicDir, 'asset-manifest.json'))) {
   throw new Error('Run npm run build before npm run start');
 }
 const watching = process.argv.includes('--watch');

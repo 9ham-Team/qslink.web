@@ -24,6 +24,7 @@ test('exchange card choice: privacy, validation, empty confirmation and persiste
 import './poster-palette.mjs';
 import './qr.mjs';
 import './image-upload.mjs';
+import './static-assets.mjs';
 import './image-migration.mjs';
 import { testShortTokens } from './short-tokens.mjs';
 import { testAnnouncements } from './announcements.mjs';
@@ -1008,4 +1009,35 @@ test('JSON import supports dry-run, preserves source, refuses overwrite, and rol
   await fs.writeFile(file, JSON.stringify(source));
   assert.notEqual((await runImport(invalidDir)).code, 0, 'a SQL constraint must roll back the complete import');
   assert.equal(await databases.get(invalidDir).db.transaction(unit => unit.data.users.length), 0);
+});
+
+test('versioned static HTTP caching survives A to B deployment while HTML/API remain uncacheable',async t=>{
+  const dir=await temp(t);assert.equal((await init(dir)).code,0);
+  const site=path.join(dir,'site');await fs.mkdir(path.join(site,'build'),{recursive:true});
+  const {createHash}=await import('node:crypto');
+  async function publish(name,body){
+    await fs.writeFile(path.join(site,'index.html'),'<script type="module" src="/build/'+name+'"></script>');
+    await fs.writeFile(path.join(site,'build',name),body);
+    await fs.writeFile(path.join(site,'asset-manifest.json'),JSON.stringify({version:1,entry:'/build/'+name,files:[{path:'build/'+name,sha256:createHash('sha256').update(body).digest('hex')}]}));
+  }
+  await publish('lazy-aaaaaaaa.js','export const version="A"');
+  const a=await start(t,dir,{QSL_PUBLIC_DIR:site});
+  for(const url of ['/','/admin?tab=users','/asset-manifest.json','/api/config','/api/admin/users']){
+    const r=await fetch(a.base+url);assert.equal(r.headers.get('cache-control'),'no-store');
+    assert.equal(r.headers.get('cloudflare-cdn-cache-control'),'no-store');
+  }
+  const old=await fetch(a.base+'/build/lazy-aaaaaaaa.js');
+  assert.equal(old.status,200);assert.match(old.headers.get('cache-control'),/max-age=31536000, immutable/);
+  await a.stop();await fs.unlink(path.join(site,'build/lazy-aaaaaaaa.js'));
+  await publish('lazy-bbbbbbbb.js','export const version="B"');
+  const b=await start(t,dir,{QSL_PUBLIC_DIR:site});
+  const retained=await fetch(b.base+'/build/lazy-aaaaaaaa.js');
+  assert.equal(retained.status,200);assert.equal(await retained.text(),'export const version="A"');
+  const fresh=await fetch(b.base+'/build/lazy-bbbbbbbb.js',{method:'HEAD'});
+  assert.equal(fresh.status,200);assert.equal((await fresh.arrayBuffer()).byteLength,0);
+  assert.match(fresh.headers.get('cdn-cache-control'),/immutable/);
+  assert.match(await(await fetch(b.base+'/')).text(),/lazy-bbbbbbbb/);
+  for(const url of ['/build/entry.js','/build/missing-aaaaaaaa.js','/static-assets/build/lazy-aaaaaaaa.js']){
+    const r=await fetch(b.base+url);assert.equal(r.status,404);assert.equal(r.headers.get('cache-control'),'no-store');
+  }
 });

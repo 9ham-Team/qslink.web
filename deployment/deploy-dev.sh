@@ -91,6 +91,7 @@ fi
 
 ENV_FILE=$(mktemp /tmp/qslink-deploy-env.XXXXXX)
 BACKUP="${APP}-backup-$(date +%Y%m%d%H%M%S)-$$"
+ASSET_STAGE=
 RENAMED=0
 STOPPED=0
 CREATED=0
@@ -99,6 +100,7 @@ cleanup() {
   local code=$?
   trap - EXIT INT TERM
   rm -f "$ENV_FILE"
+  if [[ "$ASSET_STAGE" == /tmp/qslink-assets.* && -d "$ASSET_STAGE" && ! -L "$ASSET_STAGE" ]]; then rm -rf -- "$ASSET_STAGE"; fi
   if [[ "$SUCCESS" -eq 0 ]]; then
     echo '部署未完成，尝试恢复原容器。' >&2
     if [[ "$CREATED" -eq 1 ]]; then
@@ -140,6 +142,24 @@ if [[ -n "$CONFIG_ENV_FILE" ]]; then
 fi
 
 if [[ "$APP_EXISTS" -eq 1 ]]; then
+# Archive the previous image's hashed chunks before stopping it. The helper
+# only appends immutable files to the existing isolated data volume.
+ASSET_TOOL=0
+if docker run --rm --network none --read-only --entrypoint node "$NEW_IMAGE" -e 'process.exit(require("node:fs").existsSync("/app/server/lib/static-assets.js") ? 0 : 42)'; then
+  ASSET_TOOL=1
+else
+  ASSET_PROBE_CODE=$?
+  # 42 means an older image; a Docker/runtime failure must stop this deployment.
+  [[ "$ASSET_PROBE_CODE" -eq 42 ]] || exit "$ASSET_PROBE_CODE"
+fi
+if [[ "$ASSET_TOOL" -eq 1 ]]; then
+  ASSET_STAGE=$(mktemp -d /tmp/qslink-assets.XXXXXX)
+  chmod 755 "$ASSET_STAGE"
+  docker cp "$APP:/app/public/build" "$ASSET_STAGE/build"
+  docker run --rm --network none --read-only \
+    -v "$ASSET_STAGE/build:/previous-build:ro" -v "$VOLUME:/var/lib/qslink" \
+    --entrypoint node "$NEW_IMAGE" /app/server/lib/static-assets.js /previous-build /var/lib/qslink
+fi
 echo "保留原容器为 $BACKUP"
 # 先标记停止，确保 stop 被中断时也尝试恢复。
 STOPPED=1

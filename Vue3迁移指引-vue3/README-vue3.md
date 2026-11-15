@@ -24,7 +24,7 @@ npm start
 ```
 
 - `client/`：Vue/TypeScript 源码、组件测试和 `e2e/`。
-- `tools/build.mjs`：构建 `dist-public/`，静态入口 `/build/entry.js`，所有产物文件名均不含 vue3 后缀。
+- `tools/build.mjs`：构建 `dist-public/`，静态入口由 HTML 引用 `/build/index-<hash>.js`；资源与缓存策略见 [CDN 缓存指引](CDN缓存与资源版本化-vue3.md)，所有产物文件名均不含 vue3 后缀。
 - `tools/start.mjs`：默认在同一进程启动后端并提供生成静态根，默认 127.0.0.1:8787；缺少构建时明确报错。
 - `npm run dev`：先构建，再监听服务端；修改前端后重新 build，当前未增加前端 HMR。
 - `npm run demo`：先构建，再在独立开发库显式启动演示；生产仍拒绝演示模式。

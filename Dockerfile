@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --include=optional
 COPY client ./client
-COPY tools/build.mjs ./tools/build.mjs
+COPY tools/build.mjs tools/asset-plugin.mjs ./tools/
 COPY public ./public
 RUN npm run check && npm run build
 

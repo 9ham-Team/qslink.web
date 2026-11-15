@@ -1,0 +1,20 @@
+// Evaluation order preserves the shared runtime contracts before the Vue app boots.
+import '../../public/js/locales/en.js';
+import '../../public/js/i18n.js';
+import '../../public/js/core.js';
+import '../../public/js/images.js';
+import '../../public/js/image-upload.js';
+import '../../public/js/api.js';
+import '../../public/js/ui.js';
+import '../../public/js/qr.js';
+import '../../public/js/poster-palette.js';
+import '../../public/js/card-share.js';
+import '../../public/js/effects.js';
+import '../../public/js/card3d.js';
+import '../../public/js/contest-judging.js';
+import '../../public/css/base.css';
+import '../../public/css/components.css';
+import '../../public/css/gallery.css';
+import '../../public/css/flows.css';
+import '../../public/css/admin.css';
+import '../../public/css/animations.css';
