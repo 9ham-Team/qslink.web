@@ -12,7 +12,7 @@ description: Publish QSLink Vue development changes through team dev, verify exa
 - 修改、commit、push、PR 创建、合并、部署与回滚分别核对用户授权；完整流程已获授权时不重复确认。普通任务不推断永久授权。
 - 默认从 upstream/dev 建功能分支，经团队内部 PR 合入 dev；获准完整 PR 发布流程时提交、推送、创建、核验后 merge commit 合并及部署无需逐步再确认。当前用户明确要求在长期分支提交/推送/部署时，核对当前范围与快进关系后执行。
 - 仅要求部署时不自动提交本地修改；不提交 /.zcode/ 等既有无关改动。显式列出暂存文件，不使用 git add . / -A。
-- 不操作 main/生产，不强推、清数据卷或全局 prune；dev-outdate 是只读归档，维护需要单独授权。本指南不用于原 44380。
+- 不操作 main/生产，不强推、清数据卷或全局 prune；dev-outdate 是只读归档，维护需要单独授权。本指南不用于原 44380。归档脚本中的浮动 :dev 已改义，不能原样用于旧站；须先在获准的维护副本中固定旧镜像 SHA/digest。
 
 ## 固定身份
 
