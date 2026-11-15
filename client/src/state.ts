@@ -3,7 +3,6 @@ import { ref, shallowRef } from 'vue';
 import type {
   AppConfigVue3,
   AuthUserVue3,
-  LegacyQslVue3,
 } from './contracts';
 
 export const DEFAULT_CONFIG_VUE3: AppConfigVue3 = { demo: false, demoAccounts: [] };
@@ -102,91 +101,4 @@ export function createRuntimeStoreVue3(
   });
 
   return useStore(pinia);
-}
-
-export function installQslStateBridgeVue3(qsl: LegacyQslVue3, store: RuntimeStoreVue3): void {
-  const existing = qsl.state || {
-    user: null,
-    config: DEFAULT_CONFIG_VUE3,
-    booted: false,
-    loading: false,
-    error: null,
-    ready: Promise.resolve(),
-  };
-  if (existing.config) store.setConfig(existing.config);
-  if (existing.user) store.setUser(existing.user);
-  const state = {} as LegacyQslVue3['state'];
-  Object.defineProperties(state, {
-    user: {
-      enumerable: true,
-      configurable: false,
-      get: () => store.user,
-      set: value => { store.setUser(value); },
-    },
-    config: {
-      enumerable: true,
-      configurable: false,
-      get: () => store.config,
-      set: value => { store.setConfig(value); },
-    },
-    booted: {
-      enumerable: true,
-      configurable: false,
-      get: () => store.booted,
-      set: value => {
-        if (value) store.finishBoot(store.error);
-      },
-    },
-    loading: {
-      enumerable: true,
-      configurable: false,
-      get: () => store.loading,
-      set: value => {
-        if (value) store.beginBoot();
-      },
-    },
-    error: {
-      enumerable: true,
-      configurable: false,
-      get: () => store.error,
-      set: value => { store.error = value || null; },
-    },
-    ready: {
-      enumerable: true,
-      configurable: false,
-      get: () => store.ready,
-      set: value => { store.ready = value || Promise.resolve(); },
-    },
-  });
-  Object.defineProperty(qsl, 'state', {
-    value: state,
-    configurable: true,
-    enumerable: true,
-    writable: false,
-  });
-
-  // Preserve the existing object for callers that captured it before Vue boot.
-  if (existing && existing !== state) {
-    try {
-      existing.user = store.user;
-      existing.config = store.config;
-    } catch {
-      // A frozen pre-boot state object cannot be updated; QSL.state is authoritative.
-    }
-  }
-
-  qsl.setUser = value => { store.setUser(value, true); };
-
-  const api = qsl.api;
-  if (api && typeof api.setToken === 'function') {
-    const rawSetToken = api.setToken.bind(api);
-    let lastToken = typeof api.token === 'function' ? api.token() : null;
-    api.setToken = value => {
-      const next = value || null;
-      const previous = lastToken;
-      rawSetToken(next);
-      lastToken = next;
-      store.noteTokenChange(previous, next);
-    };
-  }
 }

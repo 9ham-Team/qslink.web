@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 
 async function checkNoOverflow(page) {
   const dims = await page.evaluate(() => ({
@@ -28,9 +28,9 @@ test('dashboard guards guests, renders real overview, handles approve/reject flo
   page.on('request', req => { if (req.url().includes('/build/')) chunks.push(req.url()); });
 
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
-    window.QSL.navigate('/dashboard');
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
+    window.__appTest.navigate('/dashboard');
   }, regularLogin);
 
   await expect(page.locator('[data-vue3="dashboard"] .f-dash-hero')).toBeVisible();
@@ -41,8 +41,8 @@ test('dashboard guards guests, renders real overview, handles approve/reject flo
 
   // Switch to admin -> admin link appears
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
   }, adminLogin);
   await expect(page.locator('[data-vue3="dashboard"] a[href="/admin"]')).toBeVisible();
 
@@ -133,9 +133,9 @@ test('dashboard guards guests, renders real overview, handles approve/reject flo
   });
 
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
-    window.QSL.navigate('/dashboard');
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
+    window.__appTest.navigate('/dashboard');
   }, regularLogin);
 
   // Judge workspace visible when canJudgeContest === true for regular user
@@ -185,9 +185,9 @@ test('profile parses addresses locally, handles emoji Unicode limits, independen
   const login = await (await request.post('/api/auth/login', { data: { identifier: regular.id, password: regular.pass } })).json();
 
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
-    window.QSL.navigate('/dashboard/profile');
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
+    window.__appTest.navigate('/dashboard/profile');
   }, login);
 
   await expect(page.locator('[data-vue3="profile"] #fProfileForm')).toBeVisible();
@@ -233,8 +233,8 @@ test('profile parses addresses locally, handles emoji Unicode limits, independen
 
   // Logout immediately clears private state and redirects to login
   await page.evaluate(() => {
-    window.QSL.api.setToken(null);
-    window.QSL.setUser(null);
+    window.__appTest.api.setToken(null);
+    window.__appTest.setUser(null);
   });
   await expect(page).toHaveURL(/\/login\?next=%2Fdashboard%2Fprofile/);
   await expect(page.locator('[data-vue3="profile"]')).toHaveCount(0);

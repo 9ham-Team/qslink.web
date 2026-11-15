@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 
 test('home renders hero 3D, stats, showcase, FAQ, anchors, and English mode without errors or overflow — vue3', async ({ page, request }, testInfo) => {
   const errors = [];
@@ -46,9 +46,9 @@ test('home renders hero 3D, stats, showcase, FAQ, anchors, and English mode with
   await expect(page.locator('[data-vue3="home"] #faq')).toBeVisible();
   await expect.poll(() => page.locator('#faq').evaluate(node => Math.abs(node.getBoundingClientRect().top - parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)))).toBeLessThan(40);
 
-  await page.evaluate(() => window.QSL.navigate('/explore'));
+  await page.evaluate(() => window.__appTest.navigate('/explore'));
   await expect(page.locator('[data-vue3="explore"]')).toBeVisible();
-  await page.evaluate(() => window.QSL.navigate('/#join'));
+  await page.evaluate(() => window.__appTest.navigate('/#join'));
   await expect(page.locator('[data-vue3="home"] #join')).toBeVisible();
   await expect.poll(() => page.locator('#join').evaluate(node => Math.abs(node.getBoundingClientRect().top - parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)))).toBeLessThan(40);
 
@@ -145,7 +145,7 @@ test('announcements notice, toast occlusion, Escape isolation, board pagination 
   await expect(notice.locator('h2 b')).toHaveCount(0);
 
   // Toast occlusion pauses and hides notice, then restores it
-  await page.evaluate(() => window.QSL.toast('Blocking toast', 'info', 600));
+  await page.evaluate(() => window.__appTest.toast('Blocking toast', 'info', 600));
   await expect(notice).toHaveClass(/is-paused/);
   await expect(notice).not.toHaveClass(/is-paused/, { timeout: 3000 });
 
@@ -170,7 +170,7 @@ test('announcements notice, toast occlusion, Escape isolation, board pagination 
   await expect(notice).toBeVisible();
 
   // Log in and dismiss announcement
-  await page.evaluate(s => { window.QSL.api.setToken(s.token); window.QSL.setUser(s.user); }, session);
+  await page.evaluate(s => { window.__appTest.api.setToken(s.token); window.__appTest.setUser(s.user); }, session);
   await expect(notice.getByRole('button', { name: '不再提醒', exact: true })).toBeVisible();
   await notice.getByRole('button', { name: '不再提醒', exact: true }).click();
   await expect(notice).toHaveCount(0);

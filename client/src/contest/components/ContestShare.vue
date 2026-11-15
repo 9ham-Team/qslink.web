@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { ContestServicesVue3, WorkVue3 } from '../contracts';
-const props = defineProps<{ work: WorkVue3; services: ContestServicesVue3 }>();
-const host = ref<HTMLElement>(); let release: (() => void) | undefined;
-function mount() { release?.(); if (host.value) release = props.services.bindShare(host.value, props.work.card, props.work); }
-onMounted(mount); watch(() => props.work, mount); onBeforeUnmount(() => release?.());
+import type { ContestServicesVue3,WorkVue3 } from '../contracts';
+import CardShareControl from '../../components/CardShareControl.vue';
+defineProps<{ work:WorkVue3;services:ContestServicesVue3 }>();
 </script>
-<template><span ref="host"></span></template>
+<template><CardShareControl :card="work.card" :work="work" :sharing="services.sharing" :t="services.t" :image="services.image" :placeholder="services.placeholder" :copy-text="services.copyText" :toast="services.toast" :user-key="services.user()?.uid || 'guest'" /></template>

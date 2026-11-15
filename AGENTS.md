@@ -6,7 +6,7 @@
 
 用户于 2026-11-15 明确调整命名和默认入口：Vue3 是本线默认实现，源码、测试、配置、脚本、专用目录、生成文件和 npm 命令使用常规名称，**不再添加 -vue3 / :vue3 后缀**。例如 `client/src/pages/Space.vue`、`tools/build.mjs`、`npm run build`。迁移文档继续放在 `Vue3迁移指引-vue3/` 并保留文档的 `-vue3.md` 标识；固定入口和既有业务文件保持原路径。此前强制源码、分支和提交/PR 标题后缀的约定取消，历史提交不改写。
 
-默认 `npm run build && npm start` 提供 `dist-public/`；构建资源使用内容哈希 URL，源站在持久数据目录 `static-assets/` 中保留旧资源，CDN 规则见 [缓存指引](Vue3迁移指引-vue3/CDN缓存与资源版本化-vue3.md)。`Dockerfile`、`compose.yaml` 和 `.github/workflows/ci.yml` 均使用 Vue3 构建。`npm run start:legacy` 才提供 `public/` 的原生对照。Vue Router / Pinia / QSL 兼容层的业务与安全契约保持；后台六个分区及赛事管理已迁入 `client/src/admin/`；默认构建不执行原生后台脚本。
+默认 `npm run build && npm start` 提供 `dist-public/`；构建资源使用内容哈希 URL，源站在持久数据目录 `static-assets/` 中保留旧资源，CDN 规则见 [缓存指引](Vue3迁移指引-vue3/CDN缓存与资源版本化-vue3.md)。`Dockerfile`、`compose.yaml` 和 `.github/workflows/ci.yml` 均使用 Vue3 构建。`npm run start:legacy` 才提供 `public/` 的原生对照。默认应用已移除全局 QSL 兼容层，采用实际 Pinia store、Vue Router 与显式模块服务；历史原生对照不参与默认 JS 构建，详见 [模块化指引](Vue3迁移指引-vue3/移除QSL兼容层-vue3.md)。业务与安全契约保持；后台六个分区及赛事管理已迁入 `client/src/admin/`；默认构建不执行原生后台脚本。
 
 正式分支为 dev，默认镜像为 sha-<完整SHA>；44381 及原有带 vue3 名称的容器/卷/网络/锁继续隔离。deployment/deploy-dev.sh 默认 dev profile，要求 QSL_EXPECTED_REVISION；旧参数/profile 仅作兼容且不能指向 44380。提交、推送、部署仍按每次授权执行。
 
@@ -61,20 +61,22 @@ git log --oneline -5
 
 | 文件 | 职责 |
 | --- | --- |
-| `client/index.html` / `client/src/runtime.ts` | 默认 HTML、共享脚本和 CSS 构建入口；public/index.html 仅作原生对照 |
-| `public/js/core.js` | QSL 全局、路由、状态、事件与通用工具 |
-| `public/js/api.js` | API 封装、token、错误及会话失效处理 |
-| `public/js/ui.js` | toast、modal、表单、卡片缩略图等共享 UI |
-| `public/js/images.js` | `QSL.images`、srcset/sizes、按实际布局宽度选图 |
-| `public/js/card3d.js` | 双面 3D 卡片、拖拽、惯性、图片和观察器生命周期 |
-| `public/js/effects.js` | 公共背景、进场与交互动效 |
-| `public/js/pages/` | 页面 render 与清理；`app.js` 最后启动应用 |
-| `public/css/` | base → components → gallery → flows → admin → animations |
+| client/index.html / client/src/entry.ts / runtime.ts | 默认 HTML、模块启动与 CSS；public/index.html 仅作原生对照 |
+| client/src/application.ts / events.ts | 显式服务组装和应用内事件；不注册浏览器全局对象 |
+| client/src/state.ts / session.ts / router.ts | 实际 Pinia、会话和单一 Vue Router |
+| client/src/lib/api.js | 唯一 token 持有者与 HTTP/错误/401 处理 |
+| client/src/lib/images.js / card3d.js | 响应式选图与独立 3D 引擎 |
+| client/src/lib/image-upload.js / image-upload.worker.js | 图片转换、串行处理和取消 |
+| client/src/sharing.ts / components/CardShareControl.vue / PosterPreview.vue | Vue 分享 UI 与模块化 QR/海报算法 |
+| client/src/dialog-service.ts / components/Dialog.vue | Vue 组件对话框与焦点/栈管理，不返回 DOM 岛 |
+| client/src/locales/en.js / lib/i18n.js | 默认词典与语言服务 |
+| public/js/ | 仅独立原生对照与历史算法参考，不属于默认 JS 依赖 |
+| public/css/ | 共享样式源，经 Vite 哈希构建 |
 
-- 沿用当前 Vue3 构建和既有 QSL 兼容 API；页面源码位于 `client/src/`，避免创建第二套路由、会话或 DOM 写入方。
+- 默认代码位于 client/src/：application.ts 组装显式模块服务，lib/ 为算法与 API，state.ts / router.ts 是唯一状态/路由所有者。不得重新引入 window.QSL、状态镜像、registerPage 或 native DOM 岛；原生对照仅在 start:legacy 使用。
 - Vue 页面通过 `client/src/router.ts` 按需加载；管理后台由 `client/src/pages/Admin.vue` 及 `client/src/admin/` 渲染；原生对照继续兼容 `QSL.registerPage(name, { title, render })`，其 render 可返回 cleanup。离开页面必须释放动画、监听、定时器和观察器。
 - 样式沿用 tokens 和模块前缀：`.g-*` / `.card3d-*`、`.f-*`、`.a-*`、`.fx-*`。不要用页面规则随意覆盖共享组件。
-- 用户内容插值必须转义；优先用现有 `QSL.escapeHtml/escapeAttr`，不能直接拼入可信 HTML。
+- 用户内容插值必须转义；优先使用 Vue 文本绑定或模块化 escapeHtml，不能直接拼入可信 HTML。
 - 修改公共层时检查首页、详情、分享、编辑器等调用方；桌面和移动端都要考虑，并尊重 `prefers-reduced-motion`。
 - 图片沿用响应式图片接口。3D 旋转后的 `getBoundingClientRect()` 不是稳定布局宽度，不能据此每帧重新选图、写 src 或触发缩图请求。
 

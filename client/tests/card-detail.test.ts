@@ -58,7 +58,7 @@ function createDetailServices(initialUser: { id?: string; uid?: string } | null 
   const viewer = { setImages: vi.fn(), setRatio: vi.fn(), destroy: vi.fn() };
   const createViewer = vi.fn(() => viewer);
   const shareCleanup = vi.fn();
-  const bindShare = vi.fn(() => shareCleanup);
+  const getShareUrl = vi.fn().mockResolvedValue('https://example.test/s/AbCdEf');
   const exchangeClose = vi.fn();
   const openExchange = vi.fn(() => ({ close: exchangeClose }));
   let exchangeReady = true;
@@ -94,7 +94,7 @@ function createDetailServices(initialUser: { id?: string; uid?: string } | null 
       pages: 1,
     }),
     createViewer,
-    bindShare,
+    sharing: {getUrl:getShareUrl,poster:vi.fn(),qr:vi.fn(()=>document.createElement('canvas'))},
     openExchange,
     isExchangeReady: () => exchangeReady,
   };
@@ -103,7 +103,7 @@ function createDetailServices(initialUser: { id?: string; uid?: string } | null 
     services,
     viewer,
     createViewer,
-    bindShare,
+    getShareUrl,
     shareCleanup,
     openExchange,
     exchangeClose,
@@ -126,7 +126,7 @@ afterEach(() => {
 describe('card detail page — vue3', () => {
   it('renders details, escapes XSS text, deduplicates recommendations, and prevents late title overwrite on unmount', async () => {
     let resolveDetail!: (value: { card: CardDetailVue3; owner: PublicUserVue3 }) => void;
-    const { services, createViewer, viewer, bindShare, shareCleanup } = createDetailServices();
+    const { services, createViewer, viewer, getShareUrl, shareCleanup } = createDetailServices();
     const xssTitle = '<img src=x onerror=alert(1)>';
     vi.mocked(services.getCardDetail).mockResolvedValueOnce({
       card: makeCard('c_1', { title: xssTitle, notes: '<script>bad()</script>', stock: null }),
@@ -142,14 +142,14 @@ describe('card detail page — vue3', () => {
     expect(wrapper.text()).toContain('未设置');
     expect(document.title).toBe(xssTitle + ' · QSLink');
     expect(createViewer).toHaveBeenCalledTimes(1);
-    expect(bindShare).toHaveBeenCalledTimes(1);
+    expect(getShareUrl).not.toHaveBeenCalled();
 
     const recoIds = wrapper.findAll('.g-detail__reco-grid .qsl-tile').map(el => el.attributes('data-card-id'));
     expect(recoIds).toEqual(['r_1', 'r_2', 'r_3', 'r_4']);
 
     wrapper.unmount();
     expect(viewer.destroy).toHaveBeenCalledTimes(1);
-    expect(shareCleanup).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.g-card-share__panel')).toBeNull();
 
     // Late response after unmount must not touch document.title
     vi.mocked(services.getCardDetail).mockImplementationOnce(() => new Promise(resolve => { resolveDetail = resolve; }));
@@ -224,7 +224,7 @@ describe('card detail page — vue3', () => {
   });
 
   it('guards like against duplicates, guest redirect, share rebinding, and stale account responses', async () => {
-    const { services, bindShare, setUser } = createDetailServices(null);
+    const { services, getShareUrl, setUser } = createDetailServices(null);
     const wrapper = mount(CardDetailVue3Page, { props: { cardId: 'c_1', services } });
     await flushPromises();
 
@@ -233,7 +233,7 @@ describe('card detail page — vue3', () => {
 
     setUser({ id: 'u_2', uid: '000000002' });
     await flushPromises();
-    const shareCallsAfterAuth = bindShare.mock.calls.length;
+    const shareCallsAfterAuth = getShareUrl.mock.calls.length;
 
     let resolveLike!: (res: { liked: boolean; likeCount: number }) => void;
     vi.mocked(services.likeCard).mockImplementationOnce(() => new Promise(r => { resolveLike = r; }));
@@ -253,13 +253,15 @@ describe('card detail page — vue3', () => {
     expect(wrapper.find('[data-like-count]').text()).toBe('5');
 
     // Successful like does not rebind share button
-    const shareBeforeLike = bindShare.mock.calls.length;
+    const shareButtonBeforeLike = wrapper.find('[data-share]').element;
+    const shareBeforeLike = getShareUrl.mock.calls.length;
     expect(shareBeforeLike).toBeGreaterThanOrEqual(shareCallsAfterAuth);
     vi.mocked(services.likeCard).mockResolvedValueOnce({ liked: true, likeCount: 6 });
     await wrapper.find('[data-like]').trigger('click');
     await flushPromises();
     expect(wrapper.find('[data-like-count]').text()).toBe('6');
-    expect(bindShare).toHaveBeenCalledTimes(shareBeforeLike);
+    expect(getShareUrl).toHaveBeenCalledTimes(shareBeforeLike);
+    expect(wrapper.find('[data-share]').element).toBe(shareButtonBeforeLike);
   });
 
   it('cancels delayed exchange retry and closes exchange modal on unmount or auth change', async () => {

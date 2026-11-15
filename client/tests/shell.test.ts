@@ -1,7 +1,8 @@
+import { initializeMockApplication } from './platform-fixture';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 import { bootShellVue3 } from '../src/shell-entry';
-import type { LegacyQslVue3 } from '../src/contracts';
+import type { ApplicationContext } from '../src/contracts';
 
 function setupShellDom() {
   document.body.innerHTML = `
@@ -14,17 +15,17 @@ function setupShellDom() {
   `;
 }
 
-function createMockQsl(overrides: Partial<LegacyQslVue3> = {}) {
+function createMockQsl(overrides: Partial<ApplicationContext> = {}) {
   const listeners = new Map<string, Set<(...args: any[]) => void>>();
   let currentToken: string | null = null;
-  const qsl: any = {
+  const platform: any = {
     t: (s: string) => s,
     i18n: {
       language: 'zh-CN',
       switchLanguage: vi.fn(),
     },
     AVATAR_COLORS: ['#2563eb'],
-    state: {
+    store: {
       user: null,
       config: {
         build: {
@@ -46,15 +47,15 @@ function createMockQsl(overrides: Partial<LegacyQslVue3> = {}) {
     },
     boot: vi.fn().mockResolvedValue(undefined),
     setUser: vi.fn((user: any) => {
-      qsl.state.user = user;
-      qsl.emit('auth', user);
+      platform.store.user = user;
+      platform.emit('auth', user);
     }),
     footerBuildText: vi.fn((build: any) =>
       build?.revision ? `Build ${String(build.revision).slice(0, 7)} · 2026-11-14 18:00:00 HKT` : '开发版（未注入构建信息）',
     ),
     navigate: vi.fn((to: string) => {
-      qsl.router.current = { path: to, query: new URLSearchParams(), hash: '', params: {} };
-      qsl.emit('route:after', { to });
+      platform.navigation.current = { path: to, query: new URLSearchParams(), hash: '', params: {} };
+      platform.emit('route:after', { to });
     }),
     setQuery: vi.fn(),
     scrollToHash: vi.fn(),
@@ -78,7 +79,7 @@ function createMockQsl(overrides: Partial<LegacyQslVue3> = {}) {
       confetti: vi.fn(),
       heartbeat: vi.fn(),
     },
-    router: {
+    navigation: {
       current: { path: '/', query: new URLSearchParams(), hash: '', params: {} },
       start: vi.fn(),
     },
@@ -93,9 +94,10 @@ function createMockQsl(overrides: Partial<LegacyQslVue3> = {}) {
     registerPage: vi.fn(),
     ...overrides,
   };
-  qsl.api.config.mockResolvedValue(qsl.state.config);
+  initializeMockApplication(platform);
+  platform.api.config.mockResolvedValue(platform.store.config);
   return {
-    qsl: qsl as LegacyQslVue3 & { emit: (e: string, ...a: unknown[]) => void },
+    platform: platform as ApplicationContext & { emit: (e: string, ...a: unknown[]) => void },
     setTokenDirect: (t: string | null) => {
       currentToken = t;
     },
@@ -124,20 +126,20 @@ describe('Vue3 public shell — vue3', () => {
   });
 
   it('boots once with Vue Router owning #app and records a recoverable boot failure — vue3', async () => {
-    const { qsl } = createMockQsl();
-    (qsl.api.config as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('config failed'));
+    const { platform } = createMockQsl();
+    (platform.api.config as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('config failed'));
 
-    activeShell = await bootShellVue3(qsl);
-    const secondShell = await bootShellVue3(qsl);
+    activeShell = await bootShellVue3(platform);
+    const secondShell = await bootShellVue3(platform);
     expect(secondShell).toBe(activeShell);
 
-    await qsl.state.ready;
+    await platform.store.ready;
     await new Promise(resolve => setTimeout(resolve, 0));
     await nextTick();
 
-    expect(qsl.state.error).toContain('config failed');
-    expect(typeof qsl.router?.start).toBe('function');
-    expect(qsl.router?.current?.path).toBe('/');
+    expect(platform.store.error).toContain('config failed');
+    expect(typeof platform.navigation?.start).toBe('function');
+    expect(platform.navigation?.current?.path).toBe('/');
     expect(document.getElementById('legacy-marker')).toBeNull();
     await vi.waitFor(() => {
       expect(document.querySelector('#app .g-home')).not.toBeNull();
@@ -145,13 +147,13 @@ describe('Vue3 public shell — vue3', () => {
     expect(document.querySelector('#site-header[data-vue3="header"]')).not.toBeNull();
     expect(document.querySelector('#site-footer[data-vue3="footer"]')).not.toBeNull();
     expect(document.querySelector('#fx-layer[data-vue3="fx"] .fx-particles')).not.toBeNull();
-    expect(qsl.fx?.init).toHaveBeenCalledWith({ externalBackground: true });
+    expect(Object.getOwnPropertyDescriptor(platform,'store')?.get).toBeUndefined();
   });
 
   it('renders guest, regular user, judge (without admin link), admin nav, and >99 pending badge — vue3', async () => {
-    const { qsl, setTokenDirect } = createMockQsl();
-    activeShell = await bootShellVue3(qsl);
-    await qsl.state.ready;
+    const { platform, setTokenDirect } = createMockQsl();
+    activeShell = await bootShellVue3(platform);
+    await platform.store.ready;
     await nextTick();
 
     // Guest
@@ -161,7 +163,7 @@ describe('Vue3 public shell — vue3', () => {
 
     // Regular user with 120 pending exchanges -> 99+
     setTokenDirect('tok-user');
-    qsl.setUser?.({
+    platform.setUser?.({
       id: 'u1',
       username: 'bg7aaa',
       displayName: 'BG7AAA',
@@ -175,7 +177,7 @@ describe('Vue3 public shell — vue3', () => {
     expect(document.querySelector('#site-header a[href="/admin"]')).toBeNull();
 
     // Judge must NOT see admin entry
-    qsl.setUser?.({
+    platform.setUser?.({
       id: 'u2',
       username: 'judge1',
       displayName: 'Judge One',
@@ -185,7 +187,7 @@ describe('Vue3 public shell — vue3', () => {
     expect(document.querySelector('#site-header a[href="/admin"]')).toBeNull();
 
     // Admin sees admin entry
-    qsl.setUser?.({
+    platform.setUser?.({
       id: 'u3',
       username: 'admin1',
       displayName: 'Admin One',
@@ -196,17 +198,17 @@ describe('Vue3 public shell — vue3', () => {
   });
 
   it('prevents stale logout response from clearing a newer login session — vue3', async () => {
-    const { qsl, setTokenDirect } = createMockQsl();
-    activeShell = await bootShellVue3(qsl);
-    await qsl.state.ready;
+    const { platform, setTokenDirect } = createMockQsl();
+    activeShell = await bootShellVue3(platform);
+    await platform.store.ready;
     await nextTick();
 
     setTokenDirect('old-token');
-    qsl.setUser?.({ id: 'old-u', username: 'old', displayName: 'Old', role: 'user' });
+    platform.setUser?.({ id: 'old-u', username: 'old', displayName: 'Old', role: 'user' });
     await nextTick();
 
     let resolveLogout: (() => void) | null = null;
-    (qsl.api.post as any) = vi.fn(
+    (platform.api.post as any) = vi.fn(
       () =>
         new Promise<void>((resolve) => {
           resolveLogout = resolve;
@@ -220,7 +222,7 @@ describe('Vue3 public shell — vue3', () => {
 
     // New user logs in while old logout is still in-flight
     setTokenDirect('new-token');
-    qsl.setUser?.({ id: 'new-u', username: 'new', displayName: 'New', role: 'user' });
+    platform.setUser?.({ id: 'new-u', username: 'new', displayName: 'New', role: 'user' });
     await nextTick();
 
     // Old logout finishes now -> must NOT wipe new-token or new-u
@@ -229,16 +231,16 @@ describe('Vue3 public shell — vue3', () => {
     await Promise.resolve();
     await nextTick();
 
-    expect(qsl.api.token?.()).toBe('new-token');
-    expect(qsl.state.user?.id).toBe('new-u');
+    expect(platform.api.token?.()).toBe('new-token');
+    expect(platform.store.user?.id).toBe('new-u');
   });
 
   it('handles contest sub-nav deep links, Escape, outside click, footer build info, and language switch — vue3', async () => {
     window.history.replaceState(null, '', '/events/qsl-design-2026-11/works');
-    const { qsl } = createMockQsl();
-    qsl.router!.current = { path: '/events/qsl-design-2026-11/works', query: new URLSearchParams(), hash: '', params: {} };
-    activeShell = await bootShellVue3(qsl);
-    await qsl.state.ready;
+    const { platform } = createMockQsl();
+    platform.navigation!.current = { path: '/events/qsl-design-2026-11/works', query: new URLSearchParams(), hash: '', params: {} };
+    activeShell = await bootShellVue3(platform);
+    await platform.store.ready;
     await nextTick();
 
     const toggle = document.querySelector('#site-header .nav-contest-toggle') as HTMLButtonElement;
@@ -261,7 +263,7 @@ describe('Vue3 public shell — vue3', () => {
 
     // Language switch delegates to QSL.i18n.switchLanguage
     (document.querySelector('#site-header [data-language]') as HTMLButtonElement).click();
-    expect(qsl.i18n?.switchLanguage).toHaveBeenCalledTimes(1);
+    expect(platform.i18n?.switchLanguage).toHaveBeenCalledTimes(1);
 
     // Footer shows real build text & legal links
     const footerText = document.querySelector('#site-footer')?.textContent || '';
@@ -270,7 +272,7 @@ describe('Vue3 public shell — vue3', () => {
     expect(document.querySelector('#site-footer a[href="/legal/terms.html"]')).not.toBeNull();
 
     // Missing build metadata falls back via footerBuildText(null)
-    qsl.state.config = { build: null };
+    platform.store.config = { build: null };
     await nextTick();
     expect(document.querySelector('#site-footer')?.textContent).toContain('开发版（未注入构建信息）');
   });
@@ -293,9 +295,9 @@ describe('Vue3 public shell — vue3', () => {
     });
 
     try {
-      const { qsl } = createMockQsl();
-      activeShell = await bootShellVue3(qsl);
-      await qsl.state.ready;
+      const { platform } = createMockQsl();
+      activeShell = await bootShellVue3(platform);
+      await platform.store.ready;
       await nextTick();
 
       const fxLayer = document.getElementById('fx-layer')!;
@@ -325,49 +327,49 @@ describe('Vue3 public shell — vue3', () => {
 
   it('guards deep links with safe next handling and renders the shared 404 route — vue3', async () => {
     window.history.replaceState(null, '', '/dashboard');
-    const { qsl } = createMockQsl();
-    activeShell = await bootShellVue3(qsl);
-    await qsl.state.ready;
+    const { platform } = createMockQsl();
+    activeShell = await bootShellVue3(platform);
+    await platform.store.ready;
     await vi.waitFor(() => {
-      expect(qsl.router?.current?.path).toBe('/login');
+      expect(platform.navigation?.current?.path).toBe('/login');
     });
-    expect(qsl.router?.current?.query.get('next')).toBe('/dashboard');
+    expect(platform.navigation?.current?.query.get('next')).toBe('/dashboard');
 
-    qsl.setUser?.({ id: 'u1', uid: '000000001', username: 'one', role: 'user' });
-    await qsl.navigate('/login?next=' + encodeURIComponent('https://evil.example'));
+    platform.setUser?.({ id: 'u1', uid: '000000001', username: 'one', role: 'user' });
+    await platform.navigate('/login?next=' + encodeURIComponent('https://evil.example'));
     await vi.waitFor(() => {
-      expect(qsl.router?.current?.path).toBe('/');
+      expect(platform.navigation?.current?.path).toBe('/');
     });
 
-    await qsl.navigate('/missing-page');
+    await platform.navigate('/missing-page');
     await vi.waitFor(() => {
-      expect(qsl.router?.current?.path).toBe('/missing-page');
+      expect(platform.navigation?.current?.path).toBe('/missing-page');
       expect(document.querySelector('#app .route-notfound')).not.toBeNull();
     });
   });
 
   it('emits route events only after accepted navigation and does not replace the page when a leave guard cancels — vue3', async () => {
-    const { qsl } = createMockQsl();
-    activeShell = await bootShellVue3(qsl);
-    await qsl.state.ready;
+    const { platform } = createMockQsl();
+    activeShell = await bootShellVue3(platform);
+    await platform.store.ready;
     await vi.waitFor(() => { expect(document.querySelector('#app .g-home')).not.toBeNull(); });
 
     const events: string[] = [];
     const offs = ['route:before', 'route', 'route:rendered', 'route:after'].map(name =>
-      qsl.on(name, () => events.push(name)));
+      platform.on(name, () => events.push(name)));
 
-    const offGuard = qsl.router?.setLeaveGuard?.(() => false);
-    const canceled = await qsl.navigate('/explore');
+    const offGuard = platform.navigation?.setLeaveGuard?.(() => false);
+    const canceled = await platform.navigate('/explore');
     await nextTick();
     expect(canceled).toBe(false);
-    expect(qsl.router?.current?.path).toBe('/');
+    expect(platform.navigation?.current?.path).toBe('/');
     expect(events).toEqual([]);
     expect(document.querySelector('#app .g-home')).not.toBeNull();
 
     offGuard?.();
-    const allowed = await qsl.navigate('/explore');
+    const allowed = await platform.navigate('/explore');
     await vi.waitFor(() => {
-      expect(qsl.router?.current?.path).toBe('/explore');
+      expect(platform.navigation?.current?.path).toBe('/explore');
       expect(events).toEqual(['route:before', 'route', 'route:rendered', 'route:after']);
     });
     expect(allowed).toBe(true);
@@ -376,27 +378,27 @@ describe('Vue3 public shell — vue3', () => {
 
   it('mounts /admin as Vue, never calls the legacy renderer, and cleans requests on leaving — vue3', async () => {
     const legacyRender = vi.fn();
-    const { qsl } = createMockQsl();
-    (qsl as any).pages = { admin: { title: '管理后台', render: legacyRender } };
-    (qsl.api.get as any).mockImplementation(async (path:string) => path === '/api/auth/me' ? {user:{ id:'admin-1',uid:'000000009',username:'admin',role:'admin' }} : { users:{total:0,active:0,banned:0,newThisWeek:0}, cards:{total:0,pending:0,approved:0,rejected:0}, exchanges:{total:0,pending:0,approved:0,completed:0,rejected:0}, likes:0,pendingCards:[],recentUsers:[],recentExchanges:[] });
-    activeShell = await bootShellVue3(qsl);
-    await qsl.state.ready;
-    qsl.api.setToken?.('admin-token');
-    qsl.setUser?.({ id:'admin-1',uid:'000000009',username:'admin',role:'admin' });
-    await qsl.navigate('/admin');
+    const { platform } = createMockQsl();
+    (platform as any).pages = { admin: { title: '管理后台', render: legacyRender } };
+    (platform.api.get as any).mockImplementation(async (path:string) => path === '/api/auth/me' ? {user:{ id:'admin-1',uid:'000000009',username:'admin',role:'admin' }} : { users:{total:0,active:0,banned:0,newThisWeek:0}, cards:{total:0,pending:0,approved:0,rejected:0}, exchanges:{total:0,pending:0,approved:0,completed:0,rejected:0}, likes:0,pendingCards:[],recentUsers:[],recentExchanges:[] });
+    activeShell = await bootShellVue3(platform);
+    await platform.store.ready;
+    platform.api.setToken?.('admin-token');
+    platform.setUser?.({ id:'admin-1',uid:'000000009',username:'admin',role:'admin' });
+    await platform.navigate('/admin');
     await vi.waitFor(() => expect(document.querySelector('#app [data-vue3="admin"]')).not.toBeNull());
     await vi.waitFor(() => expect(document.querySelector('#app .stat-card')).not.toBeNull());
     expect(legacyRender).not.toHaveBeenCalled();
-    const calls = (qsl.api.get as any).mock.calls;
+    const calls = (platform.api.get as any).mock.calls;
     const signal = calls.find((call:any[]) => call[0] === '/api/admin/stats')?.[1]?.signal;
-    await qsl.navigate('/');
+    await platform.navigate('/');
     await vi.waitFor(() => expect(document.querySelector('#app .g-home')).not.toBeNull());
     expect(signal.aborted).toBe(true);
     expect(document.querySelector('#app [data-vue3="admin"]')).toBeNull();
   });
 
   it('syncs query-only MyCards and Exchanges navigation without remounting pages or duplicating list requests — vue3', async () => {
-    const { qsl, setTokenDirect } = createMockQsl();
+    const { platform, setTokenDirect } = createMockQsl();
     const owner = {
       uid: '000000001',
       username: 'query-user',
@@ -420,20 +422,20 @@ describe('Vue3 public shell — vue3', () => {
         fromUser: { ...owner, id: 'u2' }, toUser: { ...owner, id: 'u1' }, fromAddress: null, toAddress: null },
     ];
     const requests: string[] = [];
-    qsl.api.get = vi.fn(async (path: string) => {
+    platform.api.get = vi.fn(async (path: string) => {
       requests.push(path);
       if (path === '/api/me/cards') return { items: cards };
       if (path === '/api/me/exchanges') return { items: exchanges, counts: { incomingPending: 0, outgoingPending: 1 } };
       return {};
     });
     const user = { id: 'u1', ...owner, role: 'user' };
-    qsl.api.auth = { me: vi.fn(async () => ({ user })) };
+    platform.api.auth = { me: vi.fn(async () => ({ user })) };
     setTokenDirect('query-token');
     window.history.replaceState(null, '', '/dashboard/cards?status=pending');
-    activeShell = await bootShellVue3(qsl);
-    await qsl.state.ready;
-    expect(qsl.router?.current?.path).toBe('/dashboard/cards');
-    expect(qsl.router?.current?.query.get('status')).toBe('pending');
+    activeShell = await bootShellVue3(platform);
+    await platform.store.ready;
+    expect(platform.navigation?.current?.path).toBe('/dashboard/cards');
+    expect(platform.navigation?.current?.query.get('status')).toBe('pending');
     await vi.waitFor(() => {
       expect(
         document.querySelector('[data-vue3="my-cards"]'),
@@ -444,22 +446,22 @@ describe('Vue3 public shell — vue3', () => {
     const myCardsRoot = document.querySelector('[data-vue3="my-cards"]');
     expect(myCardsRoot).not.toBeNull();
 
-    await qsl.navigate('/dashboard/cards?status=approved');
+    await platform.navigate('/dashboard/cards?status=approved');
     await vi.waitFor(() => {
       expect(document.querySelector('[data-vue3="my-cards"] [data-filter="approved"]')?.classList.contains('is-active')).toBe(true);
     });
     expect(document.querySelector('[data-vue3="my-cards"]')).toBe(myCardsRoot);
     expect(requests.filter(path => path === '/api/me/cards')).toHaveLength(1);
 
-    await qsl.navigate('/dashboard/exchanges?box=incoming&status=pending');
+    await platform.navigate('/dashboard/exchanges?box=incoming&status=pending');
     await vi.waitFor(() => {
       expect(document.querySelector('[data-vue3="exchanges"] [data-box="incoming"]')?.classList.contains('is-active')).toBe(true);
       expect(document.querySelector('[data-vue3="exchanges"] [data-status="pending"]')?.classList.contains('is-active')).toBe(true);
     });
     const exchangesRoot = document.querySelector('[data-vue3="exchanges"]');
 
-    void qsl.navigate('/dashboard/exchanges?box=incoming&status=all');
-    await qsl.navigate('/dashboard/exchanges?box=outgoing&status=pending');
+    void platform.navigate('/dashboard/exchanges?box=incoming&status=all');
+    await platform.navigate('/dashboard/exchanges?box=outgoing&status=pending');
     await vi.waitFor(() => {
       expect(document.querySelector('[data-vue3="exchanges"] [data-box="outgoing"]')?.classList.contains('is-active')).toBe(true);
       expect(document.querySelector('[data-vue3="exchanges"] [data-status="pending"]')?.classList.contains('is-active')).toBe(true);

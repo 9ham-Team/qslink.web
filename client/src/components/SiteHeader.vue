@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { AuthUserVue3, LegacyQslVue3 } from '../contracts';
+import type { AuthUserVue3, ApplicationContext } from '../contracts';
 import AvatarVue3 from './Avatar.vue';
 import IconVue3 from './Icon.vue';
 
 const CONTEST_PATH = '/events/qsl-design-2026-11';
 
 const props = defineProps<{
-  qsl: LegacyQslVue3;
+  platform: ApplicationContext;
   user: AuthUserVue3 | null;
   currentPath: string;
 }>();
 
-const t = props.qsl.t;
+const t = props.platform.t;
 
 function isContestRoute(path: string): boolean {
   return (
@@ -50,7 +50,7 @@ const navMobileRef = ref<HTMLElement>();
 
 const target = typeof document !== 'undefined' && document.getElementById('site-header') ? '#site-header' : null;
 const isAdmin = computed(() => props.user?.role === 'admin');
-const isEnglish = computed(() => props.qsl.i18n?.language === 'en');
+const isEnglish = computed(() => props.platform.i18n?.language === 'en');
 const langLabel = computed(() => (isEnglish.value ? '切换到中文' : 'Switch to English'));
 const pendingCount = computed(() => props.user?.stats?.pendingExchanges || 0);
 const pendingLabel = computed(() => (pendingCount.value > 99 ? '99+' : String(pendingCount.value)));
@@ -120,7 +120,7 @@ function onContestToggleClick() {
   const open = !contestOpen.value;
   setContestOpen(open);
   if (open && !isContestRoute(props.currentPath)) {
-    props.qsl.navigate(CONTEST_PATH);
+    props.platform.navigate(CONTEST_PATH);
   }
 }
 
@@ -135,7 +135,7 @@ function onContestToggleKeydown(event: KeyboardEvent, mobile: boolean) {
 }
 
 function onLanguageClick() {
-  props.qsl.i18n?.switchLanguage?.();
+  props.platform.i18n?.switchLanguage?.();
 }
 
 function onUserBtnClick(event: MouseEvent) {
@@ -159,22 +159,22 @@ async function handleLogout(event: Event) {
   event.preventDefault();
   if (logoutBusy.value) return;
   logoutBusy.value = true;
-  const reqToken = props.qsl.api.token?.() ?? null;
-  const reqUserId = props.qsl.state.user?.id ?? null;
+  const reqToken = props.platform.api.token?.() ?? null;
+  const reqUserId = props.platform.store.user?.id ?? null;
   try {
-    await props.qsl.api.post('/api/auth/logout', {}, { skipAuthClear: true });
+    await props.platform.api.post('/api/auth/logout', {}, { skipAuthClear: true });
   } catch {
     /* 忽略网络错误 */
   } finally {
     logoutBusy.value = false;
   }
-  const curToken = props.qsl.api.token?.() ?? null;
-  const curUserId = props.qsl.state.user?.id ?? null;
+  const curToken = props.platform.api.token?.() ?? null;
+  const curUserId = props.platform.store.user?.id ?? null;
   if (curToken !== reqToken || curUserId !== reqUserId) return;
-  props.qsl.api.setToken?.(null);
-  props.qsl.setUser?.(null);
-  props.qsl.toast(t('已退出登录，期待下次电波相遇'), 'success');
-  props.qsl.navigate('/');
+  props.platform.api.setToken?.(null);
+  props.platform.setUser?.(null);
+  props.platform.toast(t('已退出登录，期待下次电波相遇'), 'success');
+  props.platform.navigate('/');
 }
 
 function onDocumentClick(event: MouseEvent) {

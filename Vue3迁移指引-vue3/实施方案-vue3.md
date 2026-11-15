@@ -6,12 +6,9 @@
 
 P6 的 Router/状态收口已落地：Vue Router 4 与 `createWebHistory()` 独占完整 SPA 路由、守卫、history、滚动和标题；`RouterView` 通过 Teleport 独占 `#app`，导航、页脚、toast、modal 和背景保持为不随页面重建的外壳。已迁移页面直接按需加载真实 Vue 组件；`/admin` 的六个业务分区及比赛投票/人工评审管理已迁入真实 Vue 组件，默认构建不再执行原生后台脚本；详见 [管理后台迁移](管理后台迁移-vue3.md)。
 
-Pinia 是当前用户、公开配置和启动状态的唯一数据源。`QSL.state` 是同一 store 的 getter/setter 兼容视图，`QSL.setUser`、boot/refresh 与原生直接赋值都落到同一组 action；token 仍只保存在 `QSL.api` 的闭包与既有存储键。`QSL.navigate`、`goBack`、`currentPath`、`setQuery`、`scrollToHash` 和 `QSL.router` 只转发给同一个 Router，不再启动旧 popstate、链接拦截或第二套 renderRoute。
+Pinia 的实际 store 是当前用户、公开配置与启动状态的唯一数据源。默认应用不创建 QSL；原状态 getter/setter、全局 router/navigate 桥和页面注册机制已删除。API 模块独立持有 token，通过构造回调通知会话版本；导航服务直接管理同一个 Vue Router，业务页面只依赖注入的模块服务。
 
-统一启动顺序为创建 Pinia、状态桥、Router 和会话运行时，挂载单一 AppShell，等待会话 ready 后完成初始导航与一次 `router:ready`。路由守卫在确认离页后发出 `route:before`，Router `afterEach` 发出 `route`，真实页面挂载后发出 `route:rendered` / `route:after`。账号身份变化通过版本化重挂受保护页面；同账号资料刷新保留草稿，旧请求不能覆盖新会话。
-
-赛事子系统的六条路由、账户/编辑/交易/日志及全站公开页面均已纳入该 Router；对应旧页面脚本只在生成入口中移除，原 `public/` 对照入口保留。管理端评审配置、导出及 `contest-judging.js` 共享辅助仍为原生。完整路径、事件顺序和历史/滚动适配见 [迁移进度](迁移进度-vue3.md) 与 [赛事迁移验收](赛事迁移验收-vue3.md)。
-
+统一启动顺序为构造应用服务和 Pinia，再创建 Router 与会话，挂载 AppShell。保留确认离页后的 route:before / route / route:rendered / route:after 顺序以及账户版本重挂、同账号草稿与迟到请求隔离。API、3D、图片、QR/海报算法为标准模块；分享、确认及主页链接弹窗是 Vue 组件。public JS 仅用于独立原生对照，默认入口与法律页不加载这些全局脚本；详见 [移除兼容层](移除QSL兼容层-vue3.md)。
 广场已接入滚动续载与短时返回记忆：history.state 仅保存访问标识，公开展示字段快照留在当前标签页内存，最多保留四次访问、十分钟，账号事件清空缓存。浏览器前进/后退恢复对应历史访问；从详情点击未指定筛选的广场面包屑也恢复最近浏览。独立的新访问及显式筛选不串用旧状态，刷新后不承诺保留内存快照。返回时复核已加载各页，未经复核的旧卡片不可交互，已撤下的卡片会从列表移除。复位滚动使用卡片锚点和未变换的布局坐标；用户主动滚动优先于自动恢复，不修改全站 history.scrollRestoration 设置。
 
 ## 阶段与验收 — vue3

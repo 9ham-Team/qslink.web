@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue';
-import type { AppConfigVue3, AuthUserVue3, LegacyQslVue3 } from '../contracts';
+import type { AppConfigVue3, AuthUserVue3, ApplicationContext } from '../contracts';
 
 const props = defineProps<{
-  qsl: LegacyQslVue3;
+  platform: ApplicationContext;
   user: AuthUserVue3 | null;
   config: AppConfigVue3 | null;
 }>();
 
-const t = props.qsl.t;
+const t = props.platform.t;
 const target = typeof document !== 'undefined' && document.getElementById('site-footer') ? '#site-footer' : null;
 
 const buildText = computed(() => {
-  if (typeof props.qsl.footerBuildText === 'function') {
-    return props.qsl.footerBuildText(props.config?.build);
+  if (typeof props.platform.footerBuildText === 'function') {
+    return props.platform.footerBuildText(props.config?.build);
   }
   return t('开发版 · 镜像构建时间未知');
 });

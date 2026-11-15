@@ -1,14 +1,11 @@
 // @vitest-environment node
 import fs from 'node:fs';
 import path from 'node:path';
-import vm from 'node:vm';
+import catalog from '../src/locales/en.js';
 import ts from 'typescript';
 import { expect, it } from 'vitest';
 
 it('all statically translated contest copy exists in the existing English dictionary — vue3', () => {
-  const window = {} as any;
-  vm.runInNewContext(fs.readFileSync('public/js/locales/en.js', 'utf8'), { window });
-  const catalog = window.QSL.translations.en;
   const missing: string[] = [];
   function visit(dir: string) {
     for (const item of fs.readdirSync(dir, { withFileTypes: true })) {

@@ -1,13 +1,13 @@
 import { onBeforeUnmount } from 'vue';
-import type { LegacyQslVue3 } from '../contracts';
+import type { ApplicationContext } from '../contracts';
 // A mounted module owns its requests and downloads; none may outlive its administrator session.
-export function useAdmin(qsl: LegacyQslVue3) {
+export function useAdmin(platform: ApplicationContext) {
   const controller = new AbortController();
-  const token = qsl.api.token?.(), userId = qsl.state.user?.id;
+  const token = platform.api.token?.(), userId = platform.store.user?.id;
   let active = true;
-  const live = () => active && !controller.signal.aborted && qsl.api.token?.() === token &&
-    qsl.state.user?.id === userId && qsl.state.user?.role === 'admin';
-  const off = qsl.on('auth', () => { if (!live()) controller.abort(); });
+  const live = () => active && !controller.signal.aborted && platform.api.token?.() === token &&
+    platform.store.user?.id === userId && platform.store.user?.role === 'admin';
+  const off = platform.on('auth', () => { if (!live()) controller.abort(); });
   const options = { signal: controller.signal };
   const ensure = () => { if (!live()) throw new DOMException('Session changed', 'AbortError'); };
   async function guarded<T>(request: () => Promise<T>): Promise<T> {
@@ -20,12 +20,12 @@ export function useAdmin(qsl: LegacyQslVue3) {
   });
   return {
     live,
-    get: <T>(path: string) => guarded(() => qsl.api.get<T>(path, { ...options, cache: 'no-store' })),
-    put: <T>(path: string, body: unknown) => guarded(() => qsl.api.put<T>(path, body, options)),
-    post: <T>(path: string, body: unknown) => guarded(() => qsl.api.post<T>(path, body, options)),
+    get: <T>(path: string) => guarded(() => platform.api.get<T>(path, { ...options, cache: 'no-store' })),
+    put: <T>(path: string, body: unknown) => guarded(() => platform.api.put<T>(path, body, options)),
+    post: <T>(path: string, body: unknown) => guarded(() => platform.api.post<T>(path, body, options)),
     del: <T>(path: string) => guarded(() => {
-      if (!qsl.api.del) throw new Error('DELETE API unavailable');
-      return qsl.api.del<T>(path, options);
+      if (!platform.api.del) throw new Error('DELETE API unavailable');
+      return platform.api.del<T>(path, options);
     }),
     async download(path: string, filename: string, accept: string) {
       ensure();
@@ -35,10 +35,10 @@ export function useAdmin(qsl: LegacyQslVue3) {
       if (!response.ok) {
         const data = await response.json().catch(() => null); ensure();
         if (response.status === 401) {
-          qsl.api.setToken?.(null); qsl.setUser?.(null);
-          qsl.toast(qsl.t('登录已过期，请重新登录'), 'error');
+          platform.api.setToken?.(null); platform.setUser?.(null);
+          platform.toast(platform.t('登录已过期，请重新登录'), 'error');
         }
-        throw new Error(qsl.t(data?.error?.message || '下载失败，请稍后重试'));
+        throw new Error(platform.t(data?.error?.message || '下载失败，请稍后重试'));
       }
       const blob = await response.blob(); ensure();
       const url = URL.createObjectURL(blob); urls.add(url);

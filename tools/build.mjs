@@ -27,13 +27,13 @@ async function collect(dir) {
 }
 await collect(path.join(output,'build'));
 files.sort((a,b)=>a.path.localeCompare(b.path));
-await fs.writeFile(path.join(output,'asset-manifest.json'),JSON.stringify({version:1,entry:(await fs.readFile(path.join(output,'index.html'),'utf8')).match(/<script[^>]+src="([^"]+)"/)[1],files}));
+await fs.writeFile(path.join(output,'asset-manifest.json'),JSON.stringify({version:1,application:'/'+files.find(file=>/^build\/application-[A-Za-z0-9_-]+\.js$/.test(file.path)).path,entry:(await fs.readFile(path.join(output,'index.html'),'utf8')).match(/<script[^>]+src="([^"]+)"/)[1],files}));
 await fs.writeFile(path.join(output, 'migration.json'), JSON.stringify({
   framework: 'vue3',
   shell: 'vue3',
   migratedRoutes: ['/', '/space/:uid', '/explore', '/card/:id', '/s/:token', '/share/:token', '/login', '/register', '/dashboard', '/dashboard/profile', '/dashboard/cards', '/dashboard/cards/new', '/dashboard/cards/:id/edit', '/dashboard/exchanges', '/dashboard/logbook', '/events/qsl-design-2026-11', '/events/qsl-design-2026-11/alternate', '/events/qsl-design-2026-11/registration', '/events/qsl-design-2026-11/works', '/events/qsl-design-2026-11/works/:id', '/events/qsl-design-2026-11/judging', '/admin'],
   router: { owner: 'vue-router', version: 4, history: 'createWebHistory' },
   state: { owner: 'pinia', scope: ['user', 'config', 'booted', 'loading', 'error'] },
-  compatibility: { router: 'QSL.router / QSL.navigate', legacyPageHost: null },
+  architecture: { services: 'es-modules', globalNamespace: false, legacyPageHost: null },
 }));
 console.log('Vue3 build: Vue Router and Pinia own the SPA; all SPA pages use Vue components');

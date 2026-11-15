@@ -41,7 +41,7 @@ it('does not optimistically add votes, prevents double submit and disposes 3D/sh
   expect(wrapper.find('.g-contest-detail__voting strong').text()).toBe('1 票');
   expect(wrapper.find('.g-contest-detail__actions button').text()).toBe('已投票');
   expect(vi.mocked(services.post).mock.calls[0][1]).toMatchObject({ fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) });
-  wrapper.unmount(); expect(viewer.destroy).toHaveBeenCalledOnce(); expect(shareCleanup).toHaveBeenCalled();
+  wrapper.unmount(); expect(viewer.destroy).toHaveBeenCalledOnce(); expect(document.querySelector('.g-card-share__panel')).toBeNull();
 });
 
 it('gates guest login, duplicate votes, exhausted quotas and closing time without posting — vue3', async () => {

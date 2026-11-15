@@ -25,7 +25,7 @@ npm start
 - client/ 为 Vue 源码与测试；client/index.html / runtime.ts 为默认入口；tools/build.mjs 生成 dist-public。
 - HTML 引用 /build/index-<hash>.js，脚本/CSS/Worker/图片均版本化。缓存策略见 [CDN 指引](CDN缓存与资源版本化-vue3.md)。
 - npm run dev 先构建后监听服务端；未增加前端 HMR。npm run start:legacy / dev:legacy 仅作原生对照。
-- QSL_PUBLIC_DIR 为静态根配置，QSL_PUBLIC_DIR_VUE3 仅为旧别名；Vue Router/Pinia 独占 SPA 路由及全局状态，token 仍由同一 API 管理。全部业务页面（含后台）已迁入 Vue。
+- QSL_PUBLIC_DIR 为静态根配置，QSL_PUBLIC_DIR_VUE3 仅为旧别名；Vue Router/Pinia 独占 SPA 路由及实际状态；默认应用不再创建 QSL，全局桥接已移除，token 由模块化 API 管理。全部业务页面（含后台）为 Vue，底层算法是标准模块，详见 [模块化指引](移除QSL兼容层-vue3.md)。
 
 ## 验证与发布
 

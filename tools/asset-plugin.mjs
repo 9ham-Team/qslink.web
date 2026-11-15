@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 // dynamically bound src strings that Vite's HTML asset scanner cannot discover.
 export function publicAssetsPlugin(source) {
   const urls = new Map(), resources = [];
+  let legalEntry = '';
   const hash = bytes => createHash('sha256').update(bytes).digest('hex').slice(0,20);
   async function add(file, original) {
     const bytes = await fs.readFile(file);
@@ -26,7 +27,7 @@ export function publicAssetsPlugin(source) {
         }
       }
       await walk(path.join(source,'assets'));
-      for(const relative of ['js/i18n.js','legal/language.js','legal/style.css']) await add(path.join(source,relative),'/' + relative);
+      for(const relative of ['legal/style.css']) await add(path.join(source,relative),'/' + relative);
       for(const resource of resources) this.emitFile(resource);
     },
     transform(code,id) {
@@ -34,12 +35,18 @@ export function publicAssetsPlugin(source) {
       const next=rewrite(code);
       if(next!==code) return {code:next,map:null};
     },
+    generateBundle(_options,bundle) {
+      const entry=Object.values(bundle).find(item=>item.type==='chunk' && item.isEntry && item.name==='legal');
+      if(!entry) throw new Error('Legal module entry missing');
+      legalEntry=entry.fileName;
+    },
     async closeBundle() {
       const output=path.resolve(source,'../dist-public');
       for(const item of await fs.readdir(path.join(source,'legal'))) {
         if(!item.endsWith('.html')) continue;
         let html=await fs.readFile(path.join(source,'legal',item),'utf8');
         for(const [original,url] of urls) html=html.replaceAll(original,url);
+        html=html.replace('<script src="/js/i18n.js"></script>','').replace('<script src="/legal/language.js" defer></script>','<script type="module" src="/'+legalEntry+'"></script>');
         await fs.writeFile(path.join(output,'legal',item),html);
       }
     },

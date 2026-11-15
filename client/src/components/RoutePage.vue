@@ -11,24 +11,24 @@ import {
 } from 'vue';
 import { useRoute, type RouteLocationNormalizedLoaded } from 'vue-router';
 import type {
-  LegacyQslVue3,
+  ApplicationContext,
   RouteContextVue3,
 } from '../contracts';
 
 export type RoutePageScopeVue3 = Record<string, unknown>;
 export type RoutePagePropsVue3 = (
   route: RouteLocationNormalizedLoaded,
-  qsl: LegacyQslVue3,
+  platform: ApplicationContext,
   scope: RoutePageScopeVue3,
 ) => Record<string, unknown>;
 
 const props = defineProps<{
-  qsl: LegacyQslVue3;
+  platform: ApplicationContext;
   load: () => Promise<{ default: Component }>;
   buildProps: RoutePagePropsVue3;
   buildContext: (
     route: RouteLocationNormalizedLoaded,
-    qsl: LegacyQslVue3,
+    platform: ApplicationContext,
     scope: RoutePageScopeVue3,
   ) => RouteContextVue3;
   onReady: (context: RouteContextVue3) => void;
@@ -42,10 +42,10 @@ let active = true;
 let generation = 0;
 let lastReadyPath = '';
 
-const pageProps = computed(() => props.buildProps(route, props.qsl, scope));
+const pageProps = computed(() => props.buildProps(route, props.platform, scope));
 
 function context(): RouteContextVue3 {
-  return props.buildContext(route, props.qsl, scope);
+  return props.buildContext(route, props.platform, scope);
 }
 
 function ready() {
@@ -91,10 +91,10 @@ onBeforeUnmount(() => {
   <component :is="page" v-if="page" v-bind="pageProps" />
   <section v-else-if="error" class="container section route-error">
     <div class="empty-state" style="margin:8vh auto 0">
-      <h2>{{ qsl.t('页面加载失败') }}</h2>
+      <h2>{{ platform.t('页面加载失败') }}</h2>
       <p>{{ error }}</p>
-      <button class="btn btn-primary" type="button" @click="loadPage">{{ qsl.t('重试') }}</button>
-      <a class="btn btn-ghost" href="/" data-link>{{ qsl.t('返回首页') }}</a>
+      <button class="btn btn-primary" type="button" @click="loadPage">{{ platform.t('重试') }}</button>
+      <a class="btn btn-ghost" href="/" data-link>{{ platform.t('返回首页') }}</a>
     </div>
   </section>
   <section v-else class="container section route-placeholder" role="status">

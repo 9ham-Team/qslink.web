@@ -1,8 +1,6 @@
 import type {
   AddressVue3,
   ContactLogSummaryVue3,
-  ExchangeItemVue3,
-  LegacyQslVue3,
   PublicUserVue3,
 } from './contracts';
 
@@ -42,49 +40,6 @@ export function formatContactLogPairsVue3(
     [t('来源'), row.source],
   ];
   return fields.filter((pair): pair is [string, string] => !!pair[1]);
-}
-
-export function submittedLogsHtmlVue3(
-  ex: ExchangeItemVue3 | null | undefined,
-  qsl: Pick<LegacyQslVue3, 't' | 'escapeHtml' | 'icon'>,
-): string {
-  const rows = ex && Array.isArray(ex.selectedContactLogs) ? ex.selectedContactLogs : [];
-  if (!rows.length) return '';
-  const esc = qsl.escapeHtml;
-  const ico = typeof qsl.icon === 'function' ? qsl.icon('clock', 15) : '';
-  const summaryPrefix =
-    ex?.direction === 'incoming' ? qsl.t('申请人附上的通联记录') : qsl.t('本次申请附上的通联记录');
-  const itemsHtml = rows
-    .map(row => {
-      const pairs = formatContactLogPairsVue3(row, qsl.t)
-        .map(([k, v]) => '<span><b>' + esc(k) + '</b> ' + esc(v) + '</span>')
-        .join('');
-      const confirmedText = row.lotwConfirmed ? qsl.t('是') : qsl.t('否');
-      return (
-        '<li><span class="f-ex-log-record">' +
-        pairs +
-        '<span>' +
-        esc(qsl.t('LoTW 确认：')) +
-        esc(confirmedText) +
-        '</span></span></li>'
-      );
-    })
-    .join('');
-
-  return (
-    '<details class="f-ex-submitted-logs"><summary>' +
-    ico +
-    esc(summaryPrefix) +
-    '（' +
-    rows.length +
-    ' ' +
-    esc(qsl.t('条）')) +
-    '</summary><p class="muted">' +
-    esc(qsl.t('由申请人自主选择，请自行核对。')) +
-    '</p><ol>' +
-    itemsHtml +
-    '</ol></details>'
-  );
 }
 
 export function formatAddressTextVue3(address: AddressVue3 | null | undefined): string {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 import { createHash } from 'node:crypto';
 
 test('HTML/API bypass caches and every shipped script/style/media has an immutable versioned URL',async({page,request})=>{
@@ -27,7 +27,7 @@ test('HTML/API bypass caches and every shipped script/style/media has an immutab
   expect(rejected.status()).toBe(405);expect(rejected.headers()['cache-control']).toBe('no-store');
   const legal=await(await request.get('/legal/terms.html')).text();
   expect(legal).not.toMatch(/(?:src|href)="\/(?:js\/|legal\/(?:style\.css|language\.js))/);
-  expect(legal).toMatch(/\/build\/static\/language-[a-f0-9]+\.js/);
+  expect(legal).toMatch(/\/build\/legal-[A-Za-z0-9_-]+\.js/);
   const fixed=[],errors=[];
   page.on('request',r=>{if(/^\/(?:js|css|assets)\//.test(new URL(r.url()).pathname))fixed.push(r.url());});
   page.on('pageerror',e=>errors.push(e.message));
@@ -46,7 +46,7 @@ test('image upload executes a hashed module Worker and keeps local WebP processi
   page.on('worker',worker=>workers.push(worker.url()));
   page.on('request',r=>{if(new URL(r.url()).pathname.startsWith('/js/'))fixed.push(r.url());});
   page.on('pageerror',e=>errors.push(e.message));
-  await page.evaluate(s=>{window.QSL.api.setToken(s.token);window.QSL.setUser(s.user);return window.QSL.navigate('/dashboard/cards/new');},session);
+  await page.evaluate(s=>{window.__appTest.api.setToken(s.token);window.__appTest.setUser(s.user);return window.__appTest.navigate('/dashboard/cards/new');},session);
   await expect(page.locator('#fEditorForm')).toBeVisible();
   const image=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=24;canvas.height=16;canvas.getContext('2d').fillRect(0,0,24,16);return canvas.toDataURL('image/png').split(',')[1];});
   await page.locator('[data-upload-side=front] input[type=file]').setInputFiles({name:'cache-worker.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')});

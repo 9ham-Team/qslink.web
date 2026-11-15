@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 
 test('desktop & mobile shell navigation, contest sub-nav, footer, language switch, and #fx-layer round-trip — vue3', async ({ page, request }) => {
   const errors = [];
@@ -48,8 +48,8 @@ test('desktop & mobile shell navigation, contest sub-nav, footer, language switc
   const userAcc = config.demoAccounts.find(item => item.role === '普通用户');
   const login = await (await request.post('/api/auth/login', { data: { identifier: userAcc.id, password: userAcc.pass } })).json();
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
   }, login);
   await expect(page.locator('#site-header .nav-avatar-btn')).toBeVisible();
   await page.locator('#site-header .nav-avatar-btn').click();
@@ -69,7 +69,7 @@ test('desktop & mobile shell navigation, contest sub-nav, footer, language switc
   await expect(page.locator('#site-header')).not.toHaveClass(/is-menu-open/);
 
   // Route round-trip preserves single #fx-layer instance
-  await page.evaluate(() => window.QSL.navigate('/'));
+  await page.evaluate(() => window.__appTest.navigate('/'));
   await page.waitForSelector('#app [data-vue3="home"]');
   await expect(page.locator('#fx-layer')).toHaveCount(1);
   await expect(page.locator('#fx-layer .fx-particles')).toHaveCount(1);
@@ -87,7 +87,7 @@ test('toast pauses HomeAnnouncements, modal/confirm work synchronously, and /adm
 
   // Toast appears in #toast-root and HomeAnnouncements observes it
   await page.evaluate(() => {
-    window.__testCloseToast = window.QSL.toast('<b>安全文本</b>提示', 'success', 4000);
+    window.__testCloseToast = window.__appTest.toast('<b>安全文本</b>提示', 'success', 4000);
   });
   const toastEl = page.locator('#toast-root .toast.qsl-notification.toast-success');
   await expect(toastEl).toBeVisible();
@@ -96,30 +96,14 @@ test('toast pauses HomeAnnouncements, modal/confirm work synchronously, and /adm
   await page.evaluate(() => window.__testCloseToast());
   await expect(toastEl).toHaveCount(0);
 
-  // QSL.modal returns { el, body, close } synchronously + nested QSL.confirm
-  const modalOk = await page.evaluate(() => {
-    const m = window.QSL.modal({
-      title: '同步兼容弹窗',
-      content: '<input id="sync-modal-input" value="ok" />',
-      actions: [{ label: '保持', closeOnClick: false, onClick: () => {} }],
-    });
-    const hasEl = m.el instanceof HTMLElement;
-    const inputVal = m.body.querySelector('#sync-modal-input')?.value;
-    window.__testModal = m;
-    return hasEl && inputVal === 'ok';
-  });
-  expect(modalOk).toBe(true);
-  await expect(page.locator('body')).toHaveClass(/modal-open/);
-
-  // Open confirm on top of modal -> Escape closes only topmost confirm
-  const confirmPromise = page.evaluate(() => window.QSL.confirm({ title: '二次确认', message: '确认吗？' }));
-  await expect(page.locator('#modal-root .modal-overlay')).toHaveCount(2);
-  await page.keyboard.press('Escape');
-  expect(await confirmPromise).toBe(false);
+  // The component dialog service shares the same topmost Escape stack.
+  await page.evaluate(() => { window.__outerConfirm = window.__appTest.confirm({ title:'外层确认',message:'outer' }); });
   await expect(page.locator('#modal-root .modal-overlay')).toHaveCount(1);
-  await expect(page.locator('body')).toHaveClass(/modal-open/);
-
-  await page.evaluate(() => window.__testModal.close());
+  const confirmPromise = page.evaluate(() => window.__appTest.confirm({ title:'二次确认',message:'确认吗？' }));
+  await expect(page.locator('#modal-root .modal-overlay')).toHaveCount(2);
+  await page.keyboard.press('Escape');expect(await confirmPromise).toBe(false);
+  await expect(page.locator('#modal-root .modal-overlay')).toHaveCount(1);
+  await page.keyboard.press('Escape');
   await expect(page.locator('#modal-root .modal-overlay')).toHaveCount(0);
   await expect(page.locator('body')).not.toHaveClass(/modal-open/);
 
@@ -128,9 +112,9 @@ test('toast pauses HomeAnnouncements, modal/confirm work synchronously, and /adm
   const adminAcc = config.demoAccounts.find(item => item.role === '管理员');
   const adminLogin = await (await request.post('/api/auth/login', { data: { identifier: adminAcc.id, password: adminAcc.pass } })).json();
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
-    window.QSL.navigate('/admin');
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
+    window.__appTest.navigate('/admin');
   }, adminLogin);
   await expect(page.locator('#app')).not.toHaveAttribute('data-vue3', /.+/);
   await expect(page.locator('#app h1, #app h2').first()).toBeVisible();

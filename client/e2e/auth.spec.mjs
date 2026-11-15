@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 
 test('login handles validation, errors, retry, demo fill, and safe next redirects — vue3', async ({ page, request }) => {
   const errors = [];
@@ -14,14 +14,14 @@ test('login handles validation, errors, retry, demo fill, and safe next redirect
   await expect(page.locator('[data-vue3="login"] form')).toBeVisible();
   await expect(page.locator('[data-vue3="login"] .f-auth-alt a')).toHaveAttribute('href', '/register');
   const safeNextChecks = await page.evaluate(() => ({
-    ext: window.QSL.safeNext('https://evil.com'),
-    protoRel: window.QSL.safeNext('//evil.com'),
-    backslash: window.QSL.safeNext('/\\evil.com'),
-    encodedBackslash: window.QSL.safeNext('/%5cevil.com'),
-    doubleBackslash: window.QSL.safeNext('\\\\evil.com'),
-    loginSelf: window.QSL.safeNext('/login?next=/'),
-    registerSelf: window.QSL.safeNext('/register'),
-    valid: window.QSL.safeNext('/card/abc?tab=info#front'),
+    ext: window.__appTest.safeNext('https://evil.com'),
+    protoRel: window.__appTest.safeNext('//evil.com'),
+    backslash: window.__appTest.safeNext('/\\evil.com'),
+    encodedBackslash: window.__appTest.safeNext('/%5cevil.com'),
+    doubleBackslash: window.__appTest.safeNext('\\\\evil.com'),
+    loginSelf: window.__appTest.safeNext('/login?next=/'),
+    registerSelf: window.__appTest.safeNext('/register'),
+    valid: window.__appTest.safeNext('/card/abc?tab=info#front'),
   }));
   expect(safeNextChecks).toEqual({
     ext: null,
@@ -99,13 +99,13 @@ test('login handles validation, errors, retry, demo fill, and safe next redirect
   await firstDemo.click();
   await page.locator('#fLoginPassword').press('Enter');
   await expect(page).toHaveURL(new RegExp(`/card/${cardId}\\?from=auth#viewer$`));
-  const sessionOk = await page.evaluate(() => !!window.QSL.api.token() && !!window.QSL.state.user);
+  const sessionOk = await page.evaluate(() => !!window.__appTest.api.token() && !!window.__appTest.store.user);
   expect(sessionOk).toBe(true);
 
   // Guest guard redirects logged-in user away from /login and /register
-  await page.evaluate(() => window.QSL.navigate('/login?next=' + encodeURIComponent('/explore?sort=latest')));
+  await page.evaluate(() => window.__appTest.navigate('/login?next=' + encodeURIComponent('/explore?sort=latest')));
   await expect(page).toHaveURL(/\/explore\?sort=latest$/);
-  await page.evaluate(() => window.QSL.navigate('/register'));
+  await page.evaluate(() => window.__appTest.navigate('/register'));
   await expect(page).toHaveURL(/\/$/);
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -188,11 +188,11 @@ test('register handles email code flow, race conditions, validation, English, re
   });
   expect(capturedPayload.confirmPassword).toBeUndefined();
 
-  await page.evaluate(() => window.QSL.navigate('/'));
+  await page.evaluate(() => window.__appTest.navigate('/'));
   await expect(page.locator('[data-vue3="home"]')).toBeVisible();
   releaseRegister?.();
   await page.waitForTimeout(50);
-  const leaked = await page.evaluate(() => ({ token: window.QSL.api.token(), user: window.QSL.state.user }));
+  const leaked = await page.evaluate(() => ({ token: window.__appTest.api.token(), user: window.__appTest.store.user }));
   expect(leaked).toEqual({ token: null, user: null });
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -224,7 +224,7 @@ test('unicode code-point inputs are not truncated by maxlength and fetchMe failu
   expect(capturedLoginBody.password).toBe(emojiPassword);
   await expect(page.locator('[data-vue3="login"] .f-form-alert')).toContainText('无法连接服务器');
   await expect(page).toHaveURL(/\/login$/);
-  expect(await page.evaluate(() => ({ token: window.QSL.api.token(), user: window.QSL.state.user }))).toEqual({ token: null, user: null });
+  expect(await page.evaluate(() => ({ token: window.__appTest.api.token(), user: window.__appTest.store.user }))).toEqual({ token: null, user: null });
 
   // 2. Register: emoji password, confirmPassword, and 30-char displayName are not truncated
   await page.goto('/register');

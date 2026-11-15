@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import type { LegacyQslVue3 } from '../contracts';
+import type { ApplicationContext } from '../contracts';
 
-const props = defineProps<{ qsl: LegacyQslVue3 }>();
+const props = defineProps<{ platform: ApplicationContext }>();
 
 interface Particle {
   x: number;
@@ -210,8 +210,8 @@ onMounted(() => {
   window.addEventListener('orientationchange', onResize, { passive: true });
   document.addEventListener('visibilitychange', onVisibilityChange);
 
-  offRouteRendered = props.qsl.on('route:rendered', syncBackground);
-  offRouteAfter = props.qsl.on('route:after', syncBackground);
+  offRouteRendered = props.platform.on('route:rendered', syncBackground);
+  offRouteAfter = props.platform.on('route:after', syncBackground);
 
   const appEl = document.getElementById('app');
   if (appEl && typeof MutationObserver === 'function') {

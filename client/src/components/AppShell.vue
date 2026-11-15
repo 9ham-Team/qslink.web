@@ -2,7 +2,7 @@
 import { computed, inject, onBeforeUnmount, onMounted } from 'vue';
 import { getActivePinia, storeToRefs } from 'pinia';
 import { RouterView, useRoute } from 'vue-router';
-import type { LegacyQslVue3 } from '../contracts';
+import type { ApplicationContext } from '../contracts';
 import FxBackgroundVue3 from './FxBackground.vue';
 import SiteFooterVue3 from './SiteFooter.vue';
 import SiteHeaderVue3 from './SiteHeader.vue';
@@ -10,7 +10,7 @@ import ToastHostVue3 from './ToastHost.vue';
 import { createRuntimeStoreVue3 } from '../state';
 import { ROUTER_RUNTIME_VUE3, type RouterRuntimeVue3 } from '../router';
 
-const props = defineProps<{ qsl: LegacyQslVue3 }>();
+const props = defineProps<{ platform: ApplicationContext }>();
 const route = useRoute();
 const pinia = getActivePinia();
 if (!pinia) throw new Error('Pinia runtime is unavailable');
@@ -24,12 +24,12 @@ let offRouteRendered: (() => void) | null = null;
 let offRouteBefore: (() => void) | null = null;
 
 function maybeRefreshUser() {
-  if (!props.qsl.state.user || typeof location === 'undefined') return;
+  if (!props.platform.store.user || typeof location === 'undefined') return;
   if (!location.pathname.startsWith('/dashboard') && !location.pathname.startsWith('/admin')) return;
   const now = Date.now();
   if (now - lastUserRefresh < 4000) return;
   lastUserRefresh = now;
-  props.qsl.refreshUser?.().catch(() => {});
+  props.platform.refreshUser?.().catch(() => {});
 }
 
 function onUnhandledRejection(event: PromiseRejectionEvent) {
@@ -37,10 +37,11 @@ function onUnhandledRejection(event: PromiseRejectionEvent) {
 }
 
 onMounted(() => {
-  offRouteBefore = props.qsl.on('route:before', () => {
-    props.qsl.i18n?.resetEdits?.();
+  offRouteBefore = props.platform.on('route:before', () => {
+    props.platform.i18n?.resetEdits?.();
+    props.platform.dialogs?.closeAll();
   });
-  offRouteRendered = props.qsl.on('route:rendered', () => {
+  offRouteRendered = props.platform.on('route:rendered', () => {
     maybeRefreshUser();
   });
   window.addEventListener('unhandledrejection', onUnhandledRejection);
@@ -54,8 +55,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <FxBackgroundVue3 :qsl="qsl" />
-  <SiteHeaderVue3 :qsl="qsl" :user="user" :current-path="currentPath" />
+  <FxBackgroundVue3 :platform="platform" />
+  <SiteHeaderVue3 :platform="platform" :user="user" :current-path="currentPath" />
   <Teleport to="#app">
     <RouterView v-slot="{ Component, route: current }">
       <component
@@ -65,6 +66,6 @@ onBeforeUnmount(() => {
       />
     </RouterView>
   </Teleport>
-  <SiteFooterVue3 :qsl="qsl" :user="user" :config="config" />
-  <ToastHostVue3 :t="qsl.t" />
+  <SiteFooterVue3 :platform="platform" :user="user" :config="config" />
+  <ToastHostVue3 :t="platform.t" />
 </template>

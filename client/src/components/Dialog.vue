@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue';
 import { isTopModalVue3, registerModalStackVue3, syncBodyModalOpenVue3, unregisterModalStackVue3 } from '../modal-stack';
-const props = withDefaults(defineProps<{ title: string; t: (source: string) => string; busy?: boolean; size?: string }>(), { size: 'md' });
+const props = withDefaults(defineProps<{ title: string; t: (source: string) => string; busy?: boolean; size?: string; modalClass?: string; overlayClass?: string; viewportFit?: boolean }>(), { size: 'md' });
 const emit = defineEmits<{ close: [] }>();
 const overlay = ref<HTMLElement>();
 const previous = document.activeElement as HTMLElement | null;
 const target = document.getElementById('modal-root') ? '#modal-root' : 'body';
 let stackEntry: { id: symbol; zIndex: number } | null = null;
 const zIndex = ref(120);
+function fit() { if(props.viewportFit && overlay.value) { const viewport=window.visualViewport; overlay.value.style.width=(viewport?.width || innerWidth)+'px'; overlay.value.style.height=(viewport?.height || innerHeight)+'px'; } }
 function close() { if (!props.busy) emit('close'); }
 function keydown(event: KeyboardEvent) {
   if (stackEntry ? !isTopModalVue3(stackEntry.id) : false) return;
@@ -28,10 +29,12 @@ onMounted(async () => {
   stackEntry = registerModalStackVue3({ dismissible: !props.busy, close });
   zIndex.value = stackEntry.zIndex;
   document.addEventListener('keydown', keydown, true);
+  if(props.viewportFit) {fit();(window.visualViewport || window).addEventListener('resize',fit);}
   await nextTick(); (overlay.value?.querySelector<HTMLElement>('textarea,input') || overlay.value?.querySelector<HTMLElement>('button'))?.focus();
 });
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', keydown, true);
+  (window.visualViewport || window).removeEventListener('resize',fit);
   if (stackEntry) unregisterModalStackVue3(stackEntry.id);
   if (previous?.isConnected) previous.focus({ preventScroll: true });
 });
@@ -39,7 +42,7 @@ onUnmounted(() => {
   syncBodyModalOpenVue3();
 });
 </script>
-<template><Teleport :to="target"><div ref="overlay" data-vue3="dialog" class="modal-overlay is-show" :style="{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex }" @click.self="close"><div class="modal" :class="'modal-' + size" style="min-width:0;max-width:100%;max-height:88dvh" role="dialog" aria-modal="true" :aria-label="title">
+<template><Teleport :to="target"><div ref="overlay" data-vue3="dialog" class="modal-overlay is-show" :class="overlayClass" :style="{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex }" @click.self="close"><div class="modal" :class="['modal-' + size, modalClass]" style="min-width:0;max-width:100%;max-height:88dvh" role="dialog" aria-modal="true" :aria-label="title">
   <div class="modal-head" style="flex-shrink:0"><h3 class="modal-title">{{ title }}</h3><button class="modal-x" type="button" :disabled="busy" :aria-label="t('关闭')" @click="close">×</button></div>
   <div class="modal-body" style="min-height:0"><slot /></div><div class="modal-actions" style="flex-shrink:0"><slot name="actions" /></div>
 </div></div></Teleport></template>
