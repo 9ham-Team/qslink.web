@@ -1,8 +1,8 @@
 # QSLink 协作指南
 
-## dev-vue3 长期开发线说明
+## Vue3 正式 dev 主线
 
-本分支以 Vue3 为默认版本，源码/配置/脚本采用普通名称，入口为 `npm run build && npm start`；本线功能 PR 的 base 为 `dev-vue3`，不自动合回原 dev/main。原生对照使用 `npm run start:legacy`。命名、默认入口及独立 44381 发布身份以 [Vue3 迁移指引](Vue3迁移指引-vue3/README-vue3.md) 为准；下文原 dev/main 发布流程不构成本线合并或部署授权。
+2026-11-15 用户授权原 dev → dev-outdate、dev-vue3 → dev。dev 为默认 Vue3 开发主线，新功能 PR base 为 dev；dev-outdate 只读归档。main/生产独立发布，不自动合入。默认 npm run build && npm start，44381 及现有隔离资源保持；详情见 [切换指引](Vue3迁移指引-vue3/正式dev主线切换-vue3.md)。下文 dev 均指新的 Vue3 主线。
 
 本文同时面向人类开发者和 AI agent。团队采用「从团队 dev 创建功能分支 → 团队内部 PR 整合到 dev → PR 合入团队 main → 打标签 → 手动部署 → main 回同步 dev」的流程。
 

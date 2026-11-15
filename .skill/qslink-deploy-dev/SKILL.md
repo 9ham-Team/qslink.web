@@ -1,98 +1,43 @@
 ---
 name: qslink-deploy-dev
-description: Publish QSLink changes through a team-internal PR into dev, verify the merged commit's CI and GHCR image, and deploy to the test server. Use for 提交推送并部署测试服、通过 PR 合入 dev 后部署、明确授权的直接推送团队 dev or 回滚测试服. Do not use for production or diagnosis alone.
+description: Publish QSLink Vue development changes through team dev, verify exact SHA CI/GHCR, and deploy only to isolated 44381.
 ---
 
 # QSLink dev 发布与测试服部署
 
-> `dev-vue3` 分支专用说明（2026-11-15）：本线已统一文件名，`deployment/deploy-dev.sh` 默认更新独立 44381 环境且要求 `QSL_EXPECTED_REVISION_VUE3`。本线应先读 [Vue3 发布指引](../../Vue3迁移指引-vue3/测试服发布-vue3.md)，不套用下文原 `dev` / 44380 身份表；原环境使用原分支的发布脚本。文件名统一不是提交、推送或部署授权。
+2026-11-15 用户授权 Vue3 正式接管 dev；原实现归档为 dev-outdate。先读 [主线切换指引](../../Vue3迁移指引-vue3/正式dev主线切换-vue3.md) 和 [发布指引](../../Vue3迁移指引-vue3/测试服发布-vue3.md)。
 
-## 授权与范围
+## 授权
 
-- 严格按用户本次授权执行提交、推送、创建 PR、合并、部署或回滚。仅创建/修改此 Skill、排查问题、询问部署方式，不构成发布授权，也不将一次授权沿用到未来任务。
-- 默认采用“功能分支 → 团队内部 PR → 合入 dev → 核验合并提交的 CI 与镜像 → 部署测试服”。仅在用户明确要求直接推送团队 dev 时采用直推流程；“提交推送并部署测试服”不等于授权直接推送 dev。
-- 用户已授权完整 PR 发布流程，或明确选择“通过团队内部 PR 合入 dev 后部署”时，授权覆盖本次提交、推送功能分支、创建 PR、检查通过后合并及部署，无需逐步重复确认。只有部分授权时，完成已授权的准备和验证，再就缺少的操作授权询问；创建 PR 与合并 PR 分别核对授权。
-- 仅要求部署时，不自动提交本地修改或合并 PR；从团队 dev 的已发布提交开始核对。
-- 不操作 main/生产环境，不强推、不清理数据卷、不修改 Git 配置。不自动合并或提交无关改动。
-- 遵循当前会话的 Git 安全规则、工具权限和提交消息要求。不要将凭据、容器环境变量或私钥写入日志或项目文件。
+- 修改、commit、push、PR 创建、合并、部署与回滚分别核对用户授权；完整流程已获授权时不重复确认。普通任务不推断永久授权。
+- 默认从 upstream/dev 建功能分支，经团队内部 PR 合入 dev；获准完整 PR 发布流程时提交、推送、创建、核验后 merge commit 合并及部署无需逐步再确认。当前用户明确要求在长期分支提交/推送/部署时，核对当前范围与快进关系后执行。
+- 仅要求部署时不自动提交本地修改；不提交 /.zcode/ 等既有无关改动。显式列出暂存文件，不使用 git add . / -A。
+- 不操作 main/生产，不强推、清数据卷或全局 prune；dev-outdate 是只读归档，维护需要单独授权。本指南不用于原 44380。
 
-## 项目约定
+## 固定身份
 
-每次执行先核对实际配置，不把历史成功回复当作本次验证结果。
-
-| 项目 | 预期值 |
+| 项目 | 目标 |
 | --- | --- |
-| 团队仓库 | https://github.com/9ham-Team/qslink.web.git |
-| 团队远端 | upstream，必须先核对 URL |
-| 个人远端 | origin 通常为 https://github.com/2580m/qslink，不要误推 |
-| 目标分支 | dev |
-| 工作流 | .github/workflows/ci.yml |
-| 测试服 | 43.142.58.20 |
-| 测试入口 | http://43.142.58.20:44380 |
-| 镜像 | ghcr.io/9ham-team/qslink.web:dev |
-| 应用容器 | qslink-test-app |
-| 网络 | qslink-test-net |
-| 上传卷 | qslink-test-uploads，挂载 /var/lib/qslink |
-| 端口 | 主机 44380 → 容器 8787 |
-| 部署脚本 | deployment/deploy-dev.sh |
+| 仓库 / 分支 | https://github.com/9ham-Team/qslink.web.git / upstream/dev |
+| 测试入口 | http://43.142.58.20:44381 |
+| 镜像 | ghcr.io/9ham-team/qslink.web:sha-<完整SHA> |
+| 应用 / DB | qslink-test-app-vue3 / qslink-test-db-vue3 |
+| 网络 / 上传卷 | qslink-test-net-vue3 / qslink-test-uploads-vue3 |
+| 端口 / 挂载 | 44381:8787 / /var/lib/qslink |
+| 脚本 / 私有目录 | deployment/deploy-dev.sh / /root/qslink-vue3 |
 
-## 1. 核对并提交
+容器、卷和私有目录中的 vue3 是隔离身份，不随分支改名。主参数 QSL_EXPECTED_REVISION 必须为完整 SHA；旧 QSL_EXPECTED_REVISION_VUE3 / vue3 profile 仅保留兼容，新旧值冲突立即停止。
 
-1. 按 Git 安全流程检查 status、staged/unstaged diff、近期提交风格、当前分支与远端 URL。完整检查拟提交内容，尤其已有暂存文件。
-2. 确认这次改动范围；如混有无法判断归属的修改，询问用户，不默认全部打包。使用明确文件列表暂存，禁用 `git add .` 和 `git add -A`。
-3. 若无需创建提交，直接记录待发布 SHA；不要创建空提交。
-4. 仅在用户授权提交时创建提交。遵循当前运行环境要求传入消息，不假设 Windows PowerShell 支持 Bash heredoc。
-5. 更新并核对团队远端 dev。新任务默认从最新 `upstream/dev` 创建 `codex/<主题>` 功能分支；已有本次功能分支时先检查差异，保留所有无关修改，不在已合并的旧分支继续堆积任务。
-6. 执行与改动相符的本地检查，检查暂存与未暂存差异后提交。记录功能分支完整 SHA；它与后续 dev 的合并提交 SHA 不同。
+## 流程
 
-## 2. 通过团队内部 PR 合入 dev（默认）
+1. 核对 status、暂存/未暂存差异、当前分支、upstream URL、目标完整 SHA 和授权。保留所有其他任务改动，读最新部署脚本和 CI。
+2. 按授权提交。PR 流程复用同 head/base=dev 的现有 PR，团队仓库内部提交，PR 用 merge commit；创建/继续处理的 PR 必须 attach_artifact。获准直推时只做快进；分叉时停止，不自行 rebase/强推。
+3. 查询目标完整 SHA 的 .github/workflows/ci.yml push 运行。API smoke tests 与 Publish image to GHCR 必须均 success，PR 的绿色或被跳过的发布不能替代。失败、取消、head 变化时说明并停止，不擅自扩大修复范围。
+4. 核对远端 dev 仍指向目标 SHA，镜像使用固定 SHA 标签，记录 digest 和 OCI revision，不用浮动 dev 标签部署。
+5. 用已有经核实的 SSH 身份和主机信任连接服务器，BatchMode / StrictHostKeyChecking 开启；不猜凭据、关闭主机校验或输出全部容器环境。
+6. 核对应用、DB、原 44380 的 ID、启动时间、健康、端口、网络与卷，记录旧镜像和必要数据快照；数据库与上传归档不是跨存储原子快照。
+7. 上传本仓库最新脚本至已确认的常规文件路径，检查校验和与 bash -n。执行 QSL_EXPECTED_REVISION=<完整SHA> bash /root/qslink-vue3/deploy-dev.sh。不得绕开脚本的锁、旧哈希资源保留、环境继承、旧容器保留、健康等待和失败恢复。
+8. 部署后再次验证实际 OCI revision、running/healthy、固定端口与卷、DB 和原 44380 未替换，检查入口与 /api/config 及本次功能。缓存改动检查新旧资源和缓存头；直接 IP 验收不能声称 CDN 面板已配置。
+9. 记录真实回退容器、数据快照、CI URL、镜像 digest 和验证范围。容器回退不撤销之后的数据写入；成功部署后的主动回滚另行授权。
 
-1. 核对团队写权限，将本次功能分支推送到 `upstream`，不要误推个人 `origin` 或旧的本地 dev。无团队写权限时停止团队发布流程并说明，不假设个人仓库具有有效 fork 关系。
-2. 查询同一 head 分支、base 为 dev 的开放 PR，已有则复用，避免重复创建。创建时 base/head 仓库均为 `9ham-Team/qslink.web`，base 为 `dev`，head 为本次功能分支。说明问题、最终行为、实际验证及限制；多行正文使用结构化参数或 `gh --body-file`。环境提供 PR 附件工具时，将创建或继续处理的 PR 附到当前聊天。
-3. 检查 PR 最终差异、完整 head SHA、可合并状态及该 head 对应的最新 CI；确认没有混入无关提交。PR 的 `API smoke tests` 必须成功；PR 不发布镜像，`Publish image to GHCR` 跳过属于预期，不能据此部署。
-4. 获准合并后使用 **merge commit** 合入 dev。使用 `gh pr merge` 时可用 `--merge --match-head-commit <已核验的完整head SHA>` 防止合入检查后变化的代码。不绕过失败检查或保护规则；失败、取消、head 变化或冲突时停止发布，先说明，不擅自扩大修复范围。
-5. 查询 PR 已合并状态及实际 merge commit 完整 SHA，重新获取并核对 `upstream/dev` 指向该 SHA。后续 CI、镜像和容器修订都以此 **dev 合并提交 SHA** 为目标，不能继续使用功能分支 head 或 PR 的临时测试合并 SHA。
-
-### 仅在明确授权时直接推送 dev
-
-核对远端 dev 最新 SHA 及本次提交范围，确认远端 dev 是待推送提交的祖先，可普通快进推送。当前就在 dev 时可用 `git push upstream dev`；当前在本次功能分支且用户已授权从该分支直推 dev 时，明确说明目标并使用 `git push upstream HEAD:dev`，不要推送同名旧的本地 dev。分叉或冲突时停止，不强推、不未经授权 rebase/合并。推送后核对远端 dev 指向实际目标完整 SHA，再进入下节。
-
-网络故障先看具体错误。历史上 GitHub 访问曾使用命令级代理覆盖；不要硬编码旧局域网代理，不修改 Git 配置，只有核实当前可用代理后才用 `git -c` 临时覆盖。
-
-## 3. 等待 dev 目标 SHA 的 CI 与镜像
-
-1. 读取当前工作流，确认团队仓库 dev 推送触发 CI。
-2. 使用已有 GitHub CLI、认证 API 或浏览器工具查询 **dev 目标完整 SHA** 的 push 运行；PR 流程使用实际 merge commit SHA，直推流程使用实际推送 SHA。不能以 PR 的绿色记录或另一次绿色运行代替。可用 `gh run list --repo 9ham-Team/qslink.web --commit <完整SHA>` 定位，再查询具体运行。
-3. 当前工作流先运行 API smoke tests，再运行 Publish image to GHCR。两项必须均成功；失败、取消或被后续推送替代时停止并报告。
-4. 记录运行 URL、SHA、镜像 digest。工作流发布 dev 标签及 `sha-<完整SHA>` 标签，OCI 标签包含源修订。
-5. CI 完成后重新核对远端 dev。若有并发发布，确认要部署哪个版本；不要把浮动 dev 标签误当固定提交。
-6. 工具不可用或未授权时如实报告并请求必要访问，不虚构 CI/镜像结果。
-
-## 4. 连接并部署测试服
-
-1. 读取最新 `deployment/deploy-dev.sh`。使用用户已有且经核实的 SSH 别名、账户与认证方式连接 43.142.58.20；不要猜测用户名、私钥位置或远端脚本路径。
-2. SSH 使用非交互模式和已有主机信任；不要禁用主机密钥检查。首次信任或缺凭据时请用户处理。
-3. 执行前确认主机、容器、网络、卷和端口符合表格。发现偏差停止，不在此流程重建基础设施。
-4. 记录旧容器镜像 ID、健康状态及源修订；只查询必要 inspect 字段，不输出完整环境变量。
-5. 将仓库当前脚本上传至经确认的远端位置，再以 root 或已有非交互 sudo 权限执行。未确定位置时询问，不声称历史路径仍存在。
-6. 复用现有脚本，不另造部署命令绕过保护。脚本具有 flock 锁，拉取 dev 后固定本地镜像 ID，继承旧环境，保留停止的备份容器，复用网络和数据卷，等待健康检查，失败时尝试恢复旧容器。
-7. 拉取后、替换容器前核对镜像 OCI `org.opencontainers.image.revision` 与目标 SHA。可先手动拉取并检查；脚本还会再次 pull，因此部署结束必须再次核对实际容器镜像修订，不能只凭预检通过。
-8. 若无法排除 dev 标签并发更新，停止并协商固定 SHA 镜像部署；不要悄悄修改现有脚本或部署非预期版本。
-9. 记录脚本输出的真实备份容器名称。不要沿用历史备份名称，也不要主动删除成功部署留下的备份。
-
-## 5. 部署后验证
-
-- 检查应用容器 running 且 healthy，实际镜像 ID 和 OCI 修订对应目标 SHA。
-- 核对端口及数据卷挂载未改变，数据库容器未被替换或清空。
-- 请求测试入口和 `/api/config`，检查 HTTP 状态及合理 JSON 响应；不要仅依据 docker start 成功判断服务可用。
-- 对本次修改涉及的页面做针对性验证。浏览器交互先遵循浏览器技能；手机场景可使用已授权 ADB/CDP。
-- 区分“部署成功”“接口健康”“视觉问题已修复”。没有实际验证就明确未验证，不将 CI 或健康检查当作修复证据。
-- 发布摘要记录功能提交、PR 链接及合并状态、dev 实际部署 SHA、该 SHA 的 CI 链接、镜像修订/digest、健康状态、备份名称、测试地址、验证边界和剩余工作区修改；区分已提交、已合并、CI 通过与部署完成。
-
-## 6. 失败恢复与回滚
-
-- 部署失败先检查脚本是否已恢复旧容器，并验证恢复后的健康状态。不要反复重跑掩盖最初错误。
-- 不删除数据库、上传卷，不执行 `docker compose down --volumes`、`docker system prune` 或未知范围清理。
-- 主动回滚成功部署需用户授权。使用本次记录的备份名，先核对其身份、镜像、挂载和网络。
-- 回滚前保留故障新容器供诊断，避免命名冲突；停止新容器后恢复备份的应用名并启动，重新检查健康与 HTTP。具体命令依据实时容器状态生成，不使用通配符删除。
-- 备份与新容器共用上传卷，容器备份不是数据备份。若发布涉及数据库迁移，不承诺旧镜像可直接回滚；先评估迁移兼容性与独立数据备份。
+首次初始化只在资源不存在且另获授权时使用 bootstrap-dev.sh，不能对已部署环境重跑。CDN 控制台、域名/线路、生产发布均不因 dev 测试服发布而自动获授权。

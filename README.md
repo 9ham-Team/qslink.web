@@ -6,6 +6,8 @@ QSLink 是一个为业余无线电爱好者（HAM）打造的 QSL 卡片交换�
 
 ![QSLink 首页](docs/screenshots/home.png)
 
+正式开发分支为 `dev`（Vue3），原实现归档为 `dev-outdate`；测试站继续使用 44381，见 [主线切换指引](Vue3迁移指引-vue3/正式dev主线切换-vue3.md)。
+
 静态资源采用内容哈希 URL，HTML/API 不缓存；Cloudflare 与 DOOKICDN 双线路配置、首次刷新及旧资源保留见 [CDN 缓存指引](Vue3迁移指引-vue3/CDN缓存与资源版本化-vue3.md)。
 
 ## ✨ 功能总览

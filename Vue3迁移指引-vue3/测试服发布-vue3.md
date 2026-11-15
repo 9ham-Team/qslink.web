@@ -6,9 +6,9 @@
 
 | 项目 | 固定身份 |
 | --- | --- |
-| 团队分支 | `9ham-Team/qslink.web` 的 `dev-vue3` |
+| 团队分支 | `9ham-Team/qslink.web` 的 `dev`（Vue3 正式主线；原实现为 dev-outdate） |
 | CI | `.github/workflows/ci.yml`，测试成功后才发布镜像 |
-| 镜像标签 | `ghcr.io/9ham-team/qslink.web:dev-vue3`、`:sha-<完整SHA>-vue3` |
+| 镜像标签 | `ghcr.io/9ham-team/qslink.web:dev`、`:sha-<完整SHA>`；旧 vue3 标签保留兼容 |
 | 测试入口 | `http://43.142.58.20:44381` |
 | 应用 / PostgreSQL | `qslink-test-app-vue3` / `qslink-test-db-vue3` |
 | 网络 | `qslink-test-net-vue3` |
@@ -27,17 +27,17 @@
 只有目标完整 SHA 的测试与 GHCR 发布均成功后，才执行：
 
 ```bash
-QSL_EXPECTED_REVISION_VUE3=<已核验完整SHA> bash /root/qslink-vue3/bootstrap-dev.sh
+QSL_EXPECTED_REVISION=<已核验完整SHA> bash /root/qslink-vue3/bootstrap-dev.sh
 ```
 
 `pg_dump` 提供数据库一致快照，上传文件在其后单独归档；二者并非跨存储原子快照。复制完成后核验卡片、用户、图片与页面，原测试服在复制期间持续运行，不停止原应用或数据库。若检测到复制期间删除造成的缺图，应重新制定补齐方案，不向原环境写回。
 
 ## 后续更新 — vue3
 
-默认部署脚本直接保留锁定、环境继承、旧容器保留、健康等待与失败恢复。必须指定完整 SHA，脚本拉取 `sha-<SHA>-vue3` 固定标签并验证 OCI revision，不能把浮动 `dev-vue3` 标签当作已核验版本。
+默认部署脚本直接保留锁定、环境继承、旧容器保留、健康等待与失败恢复。必须指定完整 SHA，脚本拉取 `sha-<SHA>` 固定标签并验证 OCI revision，不能把浮动 `dev` 标签当作已核验版本。
 
 ```bash
-QSL_EXPECTED_REVISION_VUE3=<已核验完整SHA> bash /root/qslink-vue3/deploy-dev.sh
+QSL_EXPECTED_REVISION=<已核验完整SHA> bash /root/qslink-vue3/deploy-dev.sh
 ```
 
 更新前记录当前镜像、状态、挂载、网络和必要数据备份。成功后保存脚本输出的旧容器名；首次部署没有旧 Vue3 容器可回退。数据库/上传快照与旧容器不是同一种备份，恢复旧程序不撤销用户之后的业务写入。

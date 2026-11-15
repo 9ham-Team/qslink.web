@@ -4,7 +4,10 @@
 set -Eeuo pipefail
 umask 077
 [[ $(id -u) -eq 0 ]] || { echo '请以 root 身份执行。' >&2; exit 1; }
-[[ "${QSL_EXPECTED_REVISION_VUE3:-}" =~ ^[a-f0-9]{40}$ ]] || { echo '必须指定完整 Vue3 SHA。' >&2; exit 1; }
+TARGET_REVISION=${QSL_EXPECTED_REVISION:-${QSL_EXPECTED_REVISION_VUE3:-}}
+if [[ -n "${QSL_EXPECTED_REVISION:-}" && -n "${QSL_EXPECTED_REVISION_VUE3:-}" && "$QSL_EXPECTED_REVISION" != "$QSL_EXPECTED_REVISION_VUE3" ]]; then echo '新旧 SHA 参数冲突。' >&2; exit 1; fi
+[[ "$TARGET_REVISION" =~ ^[a-f0-9]{40}$ ]] || { echo '必须指定完整 SHA：QSL_EXPECTED_REVISION。' >&2; exit 1; }
+export QSL_EXPECTED_REVISION="$TARGET_REVISION"
 exec 8>/var/lock/qslink-bootstrap-dev-vue3.lock
 flock -n 8 || { echo '已有 Vue3 初始化任务。' >&2; exit 1; }
 
@@ -14,7 +17,7 @@ DB=qslink-test-db-vue3
 APP=qslink-test-app-vue3
 UPLOADS=qslink-test-uploads-vue3
 DBDATA=qslink-test-dbdata-vue3
-IMAGE="ghcr.io/9ham-team/qslink.web:sha-${QSL_EXPECTED_REVISION_VUE3}-vue3"
+IMAGE="ghcr.io/9ham-team/qslink.web:sha-${TARGET_REVISION}"
 [[ ! -L "$ROOT" ]] || exit 1
 install -d -m 700 "$ROOT" "$ROOT/backups"
 for name in "$APP" "$DB"; do
@@ -35,11 +38,11 @@ docker exec qslink-test-app node -e '
 docker network inspect qslink-test-net >/dev/null
 docker volume inspect qslink-test-uploads >/dev/null
 docker pull "$IMAGE"
-[[ $(docker image inspect "$IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}') == "$QSL_EXPECTED_REVISION_VUE3" ]] || exit 1
+[[ $(docker image inspect "$IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}') == "$TARGET_REVISION" ]] || exit 1
 DB_IMAGE=$(docker inspect qslink-test-db --format '{{.Image}}')
 [[ $(docker inspect qslink-test-db --format '{{.Config.Image}}') == postgres:17-alpine ]] || { echo '源数据库镜像不是预期 PostgreSQL 17。' >&2; exit 1; }
 
-BACKUP="$ROOT/backups/bootstrap-$(date -u +%Y%m%dT%H%M%SZ)-${QSL_EXPECTED_REVISION_VUE3:0:7}-vue3"
+BACKUP="$ROOT/backups/bootstrap-$(date -u +%Y%m%dT%H%M%SZ)-${TARGET_REVISION:0:7}-vue3"
 install -d -m 700 "$BACKUP"
 docker exec qslink-test-db pg_dump -U qslink -d qslink -Fc > "$BACKUP/database-vue3.dump"
 test -s "$BACKUP/database-vue3.dump"
@@ -78,4 +81,4 @@ docker run --rm -i --network none --user 0:0 -v "$UPLOADS:/target" "$IMAGE" \
 printf '%s\n' "$BACKUP" > "$ROOT/bootstrap-backup-vue3.txt"
 echo '独立 Vue3 数据库与上传卷已恢复，邮件和 Webhook 均关闭；原 44380 环境未修改。'
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-QSL_DEPLOY_PROFILE=vue3 bash "$SCRIPT_DIR/deploy-dev.sh"
+QSL_DEPLOY_PROFILE=dev bash "$SCRIPT_DIR/deploy-dev.sh"

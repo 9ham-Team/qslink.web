@@ -1,14 +1,14 @@
 # AGENTS.md — QSLink agent 接手指南
 
-## Vue3 长期开发线约定 — vue3
+## 正式 dev 开发线约定 — vue3
 
-当任务位于 `dev-vue3` 时，先读 [Vue3 迁移指引](Vue3迁移指引-vue3/README-vue3.md)。`dev-vue3` 是与原 `dev` 平级的长期集成分支，基线为 `f3289231bb3fd50941980eb146b5e5667095b034`；不得自动删除、改名、合回原 `dev` 或部署到原 44380 测试服。
+用户于 2026-11-15 明确授权：原 dev 改为 dev-outdate 只读归档，dev-vue3 正式接管 dev。团队默认分支与新功能 PR base 为 dev（Vue3），先读 [主线切换指引](Vue3迁移指引-vue3/正式dev主线切换-vue3.md)。保留历史，不自动合入 main，不操作原 44380 或生产。
 
 用户于 2026-11-15 明确调整命名和默认入口：Vue3 是本线默认实现，源码、测试、配置、脚本、专用目录、生成文件和 npm 命令使用常规名称，**不再添加 -vue3 / :vue3 后缀**。例如 `client/src/pages/Space.vue`、`tools/build.mjs`、`npm run build`。迁移文档继续放在 `Vue3迁移指引-vue3/` 并保留文档的 `-vue3.md` 标识；固定入口和既有业务文件保持原路径。此前强制源码、分支和提交/PR 标题后缀的约定取消，历史提交不改写。
 
 默认 `npm run build && npm start` 提供 `dist-public/`；构建资源使用内容哈希 URL，源站在持久数据目录 `static-assets/` 中保留旧资源，CDN 规则见 [缓存指引](Vue3迁移指引-vue3/CDN缓存与资源版本化-vue3.md)。`Dockerfile`、`compose.yaml` 和 `.github/workflows/ci.yml` 均使用 Vue3 构建。`npm run start:legacy` 才提供 `public/` 的原生对照。Vue Router / Pinia / QSL 兼容层的业务与安全契约保持；后台六个分区及赛事管理已迁入 `client/src/admin/`；默认构建不执行原生后台脚本。
 
-仓库文件名不再区分框架，但外部部署仍隔离：分支 `dev-vue3`、44381、现有 Vue3 容器/卷/网络及镜像标签继续保留。此分支的 `deployment/deploy-dev.sh` 默认选 Vue3 profile，要求完整 SHA；不因规范文件名而操作原测试服或生产。修改、提交、推送和部署仍分别授权。
+正式分支为 dev，默认镜像为 sha-<完整SHA>；44381 及原有带 vue3 名称的容器/卷/网络/锁继续隔离。deployment/deploy-dev.sh 默认 dev profile，要求 QSL_EXPECTED_REVISION；旧参数/profile 仅作兼容且不能指向 44380。提交、推送、部署仍按每次授权执行。
 
 适用于整个仓库。目标：让没有历史会话的新 agent 能定位实现、安全修改、验证并按授权交付。本文是导航与执行约定，不替代具体契约；平台指令及用户当前明确要求优先。遇到文档与实现冲突，先核对并说明，不猜测。
 
@@ -52,7 +52,7 @@ git log --oneline -5
 2. 保留所有既有未提交修改，包括删除、未跟踪文件和文件迁移；不替用户还原、清空或一并提交。
 3. 先阅读相关实现和调用方，再改代码。多步骤任务简要列计划，优先做最小可验证改动。
 4. 团队仓库预期为 `https://github.com/9ham-Team/qslink.web.git`，通常名为 `upstream`；`origin` 是开发者个人独立仓库，实际地址必须核对，不能假定有效 fork。
-5. 本线日常默认从最新 `upstream/dev-vue3` 创建功能分支（agent 默认 `codex/<主题>`），经团队内部 PR 合入 `dev`。切换分支前确认工作区安全；用户要求留在当前分支时遵循要求。
+5. 本线日常默认从最新 `upstream/dev` 创建功能分支（agent 默认 `codex/<主题>`），经团队内部 PR 合入 `dev`。切换分支前确认工作区安全；用户要求留在当前分支时遵循要求。
 6. 不把过去一次直接推送 `dev` 或部署的授权当成永久授权。用户明确要求直接推送团队 `dev` 时，核对分支、远端和快进关系后按授权执行。
 
 ## 3. 实现地图与修改约束
@@ -143,7 +143,7 @@ npm run test:production
 
 实际定义以 [.github/workflows/ci.yml](.github/workflows/ci.yml) 为准：
 
-- PR/push 到 dev-vue3、dev、main，以及 v* 标签和手动触发运行 CI；前端类型/组件/构建/浏览器与后端套件均须通过。
+- PR/push 到 dev、main，以及 v* 标签和手动触发运行 CI；前端类型/组件/构建/浏览器与后端套件均须通过。
 - `API smoke tests` 包含测试、生产隔离、Compose 验证、镜像构建和容器启动检查。
 - 适用的非 PR 引用在测试通过后运行 `Publish image to GHCR`；PR 不发布镜像。
 - **必须查询目标完整 SHA 的运行**，测试和镜像发布均成功后才进入部署；不能用另一次绿色记录或“已入队”替代。
@@ -156,13 +156,13 @@ npm run test:production
 | 项目 | 预期值（执行前再次核对） |
 | --- | --- |
 | 本线测试入口 | `http://43.142.58.20:44381` |
-| 本线镜像 | `ghcr.io/9ham-team/qslink.web:sha-<完整SHA>-vue3` |
+| 本线镜像 | `ghcr.io/9ham-team/qslink.web:sha-<完整SHA>` |
 | 应用容器 | `qslink-test-app-vue3` |
 | 网络 / 上传卷 | `qslink-test-net-vue3` / `qslink-test-uploads-vue3` |
 | 端口 / 挂载 | `44381:8787` / `/var/lib/qslink` |
 | 更新脚本 | `deployment/deploy-dev.sh` |
 
-1. 本线核对团队远端 dev-vue3、目标完整 SHA、对应 CI 与固定 SHA 镜像，部署前后均验证 OCI revision。原 dev/44380 使用原分支自己的发布流程，不套用本线默认入口。
+1. 本线核对团队远端 dev、目标完整 SHA、对应 CI 与固定 SHA 镜像，部署前后均验证 OCI revision。原 dev-outdate/44380 使用归档分支自己的发布流程，不套用本线默认入口。
 2. 使用已有且经核实的 SSH 身份和主机信任；不得硬编码本地私钥、代理、密码或禁用主机密钥检查。
 3. 记录旧容器镜像、健康、端口、网络和挂载，只查询必要字段，不打印全部环境变量。生产容器可能与测试容器同机，绝不能按通配符操作。
 4. 将当前脚本传到已确认的位置执行；它锁定部署、继承环境、保留停止的旧容器、复用数据卷并在失败时尝试恢复。不要另造命令绕过这些保护。

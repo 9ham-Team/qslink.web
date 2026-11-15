@@ -25,6 +25,7 @@ import './poster-palette.mjs';
 import './qr.mjs';
 import './image-upload.mjs';
 import './static-assets.mjs';
+import './deploy-profile.mjs';
 import './image-migration.mjs';
 import { testShortTokens } from './short-tokens.mjs';
 import { testAnnouncements } from './announcements.mjs';

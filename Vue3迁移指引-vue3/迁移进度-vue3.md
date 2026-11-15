@@ -312,3 +312,13 @@ Windows 沙箱中的 PostgreSQL initdb 无法创建所需令牌，本轮改为�
 - 独立资源缓存 Node 测试 5 项通过；JS/MJS 语法、部署脚本 bash -n 与最终差异检查通过。
 
 未验证：本机没有 Docker CLI，未实际构建/运行本轮镜像或执行容器资源归档；未运行远端 CI、真实双 CDN 边缘命中与真机验收。Cloudflare / DOOKICDN 规则及首次清缓存步骤见 [CDN 缓存指引](CDN缓存与资源版本化-vue3.md)，尚未在控制台应用。本轮未提交、未推送、未部署；dev-vue3 已提交 HEAD 仍为 e337834，既有 .gitignore 的 /.zcode/ 保留。
+
+## 2026-11-15 Vue3 正式接管 dev — vue3
+
+用户明确授权主线切换：远端原 dev 通过 GitHub rename 改为 dev-outdate，原 dev-vue3 改为 dev；默认分支确认 dev。旧线 SHA f3289231bb3fd50941980eb146b5e5667095b034、Vue 切换基线 790373d7381fc3d35c60158816e6cfb456d13eca 均原样保留；未合并或改写历史。
+
+dev-outdate 已设置 lock_branch=true、enforce_admins=true，禁止强推/删除；新 dev 保持原开发线的权限设置，未额外增加审核门槛。切换前没有开放 PR，main 的 Protect main 规则保持。本机两条长期分支及 upstream 跟踪已同步，其他功能分支/个人 origin 不批量修改。
+
+配套 CI 改为 dev/main，dev 生成主镜像 dev / sha-<完整SHA>，旧 Vue 镜像标签仅兼容。默认脚本主参数改为 QSL_EXPECTED_REVISION，旧 profile/参数仍映射同一 44381 隔离环境，参数冲突、无效 SHA、归档 profile 在执行部署命令前拒绝。现有容器/卷/网络/锁/私有目录不改名，原 44380 和 main/生产不操作。
+
+本地部署参数回归 4 项通过，两个 Bash 脚本语法、前端类型检查与构建通过。首个新 dev 配套提交的完整 CI、镜像发布及 44381 验收结果以本轮发布记录为准。既有 .gitignore 的 /.zcode/ 不纳入提交。详见 [正式 dev 指引](正式dev主线切换-vue3.md)。
