@@ -31,7 +31,7 @@ npm start
 - `npm run start:legacy` / `dev:legacy`：仅用于 public 原生对照。
 - `QSL_PUBLIC_DIR` 为静态根配置，旧 `QSL_PUBLIC_DIR_VUE3` 仅作为兼容别名。
 
-当前 Vue Router / Pinia 独占全站 SPA 路由和用户/配置/启动状态，token 仍由同一 API 服务持有；`/admin` 通过 `LegacyPageHost` 承载原生业务。不要复制路由器、会话或 DOM 所有权。
+当前 Vue Router / Pinia 独占全站 SPA 路由和用户/配置/启动状态，token 仍由同一 API 服务持有；`/admin` 已迁入按需 Vue 组件，默认入口不再执行原生后台脚本，详见 [管理后台迁移](管理后台迁移-vue3.md)。不要复制路由器、会话或 DOM 所有权。
 
 ## 验证 — vue3
 

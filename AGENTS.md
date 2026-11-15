@@ -6,7 +6,7 @@
 
 用户于 2026-11-15 明确调整命名和默认入口：Vue3 是本线默认实现，源码、测试、配置、脚本、专用目录、生成文件和 npm 命令使用常规名称，**不再添加 -vue3 / :vue3 后缀**。例如 `client/src/pages/Space.vue`、`tools/build.mjs`、`npm run build`。迁移文档继续放在 `Vue3迁移指引-vue3/` 并保留文档的 `-vue3.md` 标识；固定入口和既有业务文件保持原路径。此前强制源码、分支和提交/PR 标题后缀的约定取消，历史提交不改写。
 
-默认 `npm run build && npm start` 提供 `dist-public/`；`Dockerfile`、`compose.yaml` 和 `.github/workflows/ci.yml` 均使用 Vue3 构建。`npm run start:legacy` 才提供 `public/` 的原生对照。Vue Router / Pinia / QSL 兼容层的业务与安全契约保持；原生后台尚未迁移。
+默认 `npm run build && npm start` 提供 `dist-public/`；`Dockerfile`、`compose.yaml` 和 `.github/workflows/ci.yml` 均使用 Vue3 构建。`npm run start:legacy` 才提供 `public/` 的原生对照。Vue Router / Pinia / QSL 兼容层的业务与安全契约保持；后台六个分区及赛事管理已迁入 `client/src/admin/`；默认构建不执行原生后台脚本。
 
 仓库文件名不再区分框架，但外部部署仍隔离：分支 `dev-vue3`、44381、现有 Vue3 容器/卷/网络及镜像标签继续保留。此分支的 `deployment/deploy-dev.sh` 默认选 Vue3 profile，要求完整 SHA；不因规范文件名而操作原测试服或生产。修改、提交、推送和部署仍分别授权。
 
@@ -16,7 +16,7 @@
 
 QSLink 是中文 QSL 卡片交换社区，核心功能为双面图片上传、CSS 3D 展示、审核、公开分享、点赞、换卡申请和管理后台。
 
-- **前端**：Vue 3 + TypeScript + Vite，Vue Router 4 / Pinia 管理路由与状态；`client/` 为源码，`public/` 保留共享资源和原生后台/对照，不使用外部 CDN。
+- **前端**：Vue 3 + TypeScript + Vite，Vue Router 4 / Pinia 管理路由与状态；`client/` 为源码，`public/` 保留共享资源和原生对照，不使用外部 CDN。
 - **后端**：Node.js 原生 HTTP 服务，CommonJS，PostgreSQL 17（`pg`），Sharp 图片缩放，服务端邮件验证码。
 - **运行环境**：Node.js ≥20.9；CI 和生产镜像使用 Node.js 24。安装锁定依赖，不随意升级。
 - **数据**：业务数据在 PostgreSQL；上传原图和派生图片位于配置的数据目录。`data/` 是运行时目录，不提交。
@@ -72,7 +72,7 @@ git log --oneline -5
 | `public/css/` | base → components → gallery → flows → admin → animations |
 
 - 沿用当前 Vue3 构建和既有 QSL 兼容 API；页面源码位于 `client/src/`，避免创建第二套路由、会话或 DOM 写入方。
-- Vue 页面通过 `client/src/router.ts` 按需加载；原生后台继续兼容 `QSL.registerPage(name, { title, render })`，其 render 可返回 cleanup。离开页面必须释放动画、监听、定时器和观察器。
+- Vue 页面通过 `client/src/router.ts` 按需加载；管理后台由 `client/src/pages/Admin.vue` 及 `client/src/admin/` 渲染；原生对照继续兼容 `QSL.registerPage(name, { title, render })`，其 render 可返回 cleanup。离开页面必须释放动画、监听、定时器和观察器。
 - 样式沿用 tokens 和模块前缀：`.g-*` / `.card3d-*`、`.f-*`、`.a-*`、`.fx-*`。不要用页面规则随意覆盖共享组件。
 - 用户内容插值必须转义；优先用现有 `QSL.escapeHtml/escapeAttr`，不能直接拼入可信 HTML。
 - 修改公共层时检查首页、详情、分享、编辑器等调用方；桌面和移动端都要考虑，并尊重 `prefers-reduced-motion`。

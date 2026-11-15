@@ -374,35 +374,25 @@ describe('Vue3 public shell — vue3', () => {
     offs.forEach(off => off());
   });
 
-  it('mounts /admin through LegacyPageHost and invokes cleanup before the next Vue page — vue3', async () => {
-    const cleanup = vi.fn();
+  it('mounts /admin as Vue, never calls the legacy renderer, and cleans requests on leaving — vue3', async () => {
+    const legacyRender = vi.fn();
     const { qsl } = createMockQsl();
-    (qsl as any).pages = {
-      admin: {
-        title: '管理后台',
-        render: vi.fn((root: HTMLElement) => {
-          root.innerHTML = '<section class="legacy-admin">legacy admin</section>';
-          return cleanup;
-        }),
-      },
-    };
+    (qsl as any).pages = { admin: { title: '管理后台', render: legacyRender } };
+    (qsl.api.get as any).mockImplementation(async (path:string) => path === '/api/auth/me' ? {user:{ id:'admin-1',uid:'000000009',username:'admin',role:'admin' }} : { users:{total:0,active:0,banned:0,newThisWeek:0}, cards:{total:0,pending:0,approved:0,rejected:0}, exchanges:{total:0,pending:0,approved:0,completed:0,rejected:0}, likes:0,pendingCards:[],recentUsers:[],recentExchanges:[] });
     activeShell = await bootShellVue3(qsl);
     await qsl.state.ready;
-    qsl.setUser?.({ id: 'admin-1', uid: '000000009', username: 'admin', role: 'admin' });
-
+    qsl.api.setToken?.('admin-token');
+    qsl.setUser?.({ id:'admin-1',uid:'000000009',username:'admin',role:'admin' });
     await qsl.navigate('/admin');
-    await vi.waitFor(() => {
-      expect(document.querySelector('#app .legacy-admin')).not.toBeNull();
-    });
-    expect((qsl as any).pages.admin.render).toHaveBeenCalledTimes(1);
-    expect(qsl.router?.current?.path).toBe('/admin');
-
+    await vi.waitFor(() => expect(document.querySelector('#app [data-vue3="admin"]')).not.toBeNull());
+    await vi.waitFor(() => expect(document.querySelector('#app .stat-card')).not.toBeNull());
+    expect(legacyRender).not.toHaveBeenCalled();
+    const calls = (qsl.api.get as any).mock.calls;
+    const signal = calls.find((call:any[]) => call[0] === '/api/admin/stats')?.[1]?.signal;
     await qsl.navigate('/');
-    await vi.waitFor(() => {
-      expect(document.querySelector('#app .g-home')).not.toBeNull();
-    });
-    expect(cleanup).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('#app .legacy-admin')).toBeNull();
+    await vi.waitFor(() => expect(document.querySelector('#app .g-home')).not.toBeNull());
+    expect(signal.aborted).toBe(true);
+    expect(document.querySelector('#app [data-vue3="admin"]')).toBeNull();
   });
 
   it('syncs query-only MyCards and Exchanges navigation without remounting pages or duplicating list requests — vue3', async () => {

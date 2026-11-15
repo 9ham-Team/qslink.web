@@ -4,7 +4,7 @@
 
 ## 路由与状态所有权 — vue3
 
-P6 的 Router/状态收口已落地：Vue Router 4 与 `createWebHistory()` 独占完整 SPA 路由、守卫、history、滚动和标题；`RouterView` 通过 Teleport 独占 `#app`，导航、页脚、toast、modal 和背景保持为不随页面重建的外壳。已迁移页面直接按需加载真实 Vue 组件；原生 `/admin` 由显式 `LegacyPageHost` 调用注册 `render()` 并执行 cleanup，后台业务本身未迁移。
+P6 的 Router/状态收口已落地：Vue Router 4 与 `createWebHistory()` 独占完整 SPA 路由、守卫、history、滚动和标题；`RouterView` 通过 Teleport 独占 `#app`，导航、页脚、toast、modal 和背景保持为不随页面重建的外壳。已迁移页面直接按需加载真实 Vue 组件；`/admin` 的六个业务分区及比赛投票/人工评审管理已迁入真实 Vue 组件，默认构建不再执行原生后台脚本；详见 [管理后台迁移](管理后台迁移-vue3.md)。
 
 Pinia 是当前用户、公开配置和启动状态的唯一数据源。`QSL.state` 是同一 store 的 getter/setter 兼容视图，`QSL.setUser`、boot/refresh 与原生直接赋值都落到同一组 action；token 仍只保存在 `QSL.api` 的闭包与既有存储键。`QSL.navigate`、`goBack`、`currentPath`、`setQuery`、`scrollToHash` 和 `QSL.router` 只转发给同一个 Router，不再启动旧 popstate、链接拦截或第二套 renderRoute。
 

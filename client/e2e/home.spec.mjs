@@ -239,7 +239,8 @@ test('home animations: count-up, scroll reveal, magnetic hover, reduced-motion &
   const box = await heroCta.boundingBox();
   expect(box).toBeTruthy();
   const hasFinePointer = await page.evaluate(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches);
-  await page.mouse.move(box.x + box.width * 0.85, box.y + box.height * 0.8);
+  // Hover waits for scrolling, stability and hit testing before moving the real pointer.
+  await heroCta.hover({ position: { x: box.width * 0.7, y: box.height * 0.65 } });
   if (hasFinePointer) {
     await expect(heroCta).toHaveClass(/fx-mag-active/);
     const translateDuringHover = await heroCta.evaluate(el => el.style.translate);

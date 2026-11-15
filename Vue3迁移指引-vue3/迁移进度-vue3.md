@@ -275,3 +275,22 @@ Windows 沙箱中的 PostgreSQL initdb 无法创建所需令牌，本轮改为�
 ## 2026-11-15 赛事子导航向右微调 3px — vue3
 
 按用户确认的本地浏览器预览效果，将横向子导航的光学偏移从左移 8px 调整为左移 5px，即相对上一版向右 3px；仍在偏移后执行边缘约束。`npm run check`、`npm run build` 和本地 Edge 静态布局预览通过：1440px / 1200px 实测中心偏移 -5px、间距仍为 6px，375px 菜单仍纵向且无横向溢出；预览使用 API mock，仅核验布局。用户已授权本次提交、推送及更新独立 44381；完整 SHA 的 CI、镜像、备份和公网实测结果以本次发布记录为准。
+
+## 2026-11-15 管理后台业务 Vue3 迁移 — vue3
+
+- `/admin` 改为通过 `AdminRoute` / `RoutePage` 按需加载 `client/src/pages/Admin.vue`，不再调用原生后台 render。`client/src/admin/` 承载概览、用户、卡片、换卡记录、公告与比赛六分区，以及比赛投票、报名说明审核、人工评审配置/进度/结果与导出。
+- 默认生成入口移除 `admin.js` / `admin-contest-judging.js`，保留 public 原生脚本仅供 legacy 对照；migration.json 的 legacyPageHost 改为 null。未添加依赖，未改变服务端路由、权限、库存、审核或数据库规则。
+- 管理请求使用组件级 AbortSignal 与 token/用户/角色检查，列表带请求代次及失败目标重试；切号、离页清理请求、定时器、监听、3D 与 Blob URL。自我账号限制、Unicode 校验、自动参赛确认、expectedRevision 冲突后刷新、北京时间及评审结果公开边界保持。
+- 后台筛选与分页保存在本次后台访问的内存中；公开/个人页面不共享管理数据。新表单、列表和弹窗均以 Vue 模板安全插值，不采用原生后台 DOM 岛。
+- 实测修复了文本框原生 select 冒泡被误识别为切换后台分区的问题，内部改用 open-tab 并新增回归；375px 概览长换卡标题设置正确的网格收缩约束。用户与换卡表格沿用原有最小宽度和局部横向滚动。
+- 同步架构文档与英文词典。首页磁吸浏览器测试改为 Playwright hover，等待滚动/稳定/命中检测后发送真实指针，保留原有动效断言；赛事测试在异步已有报名加载完成后再判断是否进入编辑，不改变报名或投票断言。
+
+实际验证：
+
+- `npm run check`、`npm run build`：通过，189 modules；默认入口不加载原生后台脚本。
+- `npm run test:unit -- --pool=threads --maxWorkers=1`：34 个文件、169 项通过；新增后台 16 项，包含迟到请求、删除页码回退、原生选择事件、Unicode/颜色、配置冲突、私有结果清理与下载 URL 生命周期。
+- 后台专项 Edge `npm run test:e2e -- admin.spec.mjs`：桌面与 375px 手机共 8 项全部通过，使用隔离临时 PostgreSQL。真实链路覆盖权限、卡片审核与编辑、保留库存、用户自我限制、公告发布/撤下、报名说明审核、五评委选择/保存、开始评审、ZIP 与投票 XLSX 下载；409 场景采用明确 API mock。
+- 完整 Edge `npm run test:e2e`：76 项中 75 项通过、1 项手机鼠标倾斜专项按设计跳过，0 失败；test-results/.last-run.json 为 passed 且 failedTests 为空。已查看桌面和手机概览、用户及比赛管理截图。
+- git diff --check 与 JS/MJS 语法检查通过；默认生成入口未包含旧后台脚本。
+
+未执行后端 npm test / test:production（无服务端改动）、Docker、远端 CI、真实手机及截止后的真实人工评分 XLSX 导出。后台结果显示与隐私变化已通过组件 mock 覆盖。当前停留 dev-vue3，本轮未暂存、未提交、未推送、未部署；既有 .gitignore 的 /.zcode/ 修改保留。详见 [管理后台迁移](管理后台迁移-vue3.md)。

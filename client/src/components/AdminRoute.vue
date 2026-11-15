@@ -1,33 +1,27 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, type RouteLocationNormalizedLoaded } from 'vue-router';
-import type {
-  LegacyQslVue3,
-  RouteContextVue3,
-} from '../contracts';
-import LegacyPageHostVue3 from './LegacyPageHost.vue';
-
+import type { LegacyQslVue3, RouteContextVue3 } from '../contracts';
+import RoutePage from './RoutePage.vue';
 const props = defineProps<{
   qsl: LegacyQslVue3;
   buildContext: (route: RouteLocationNormalizedLoaded) => RouteContextVue3;
   onReady: (context: RouteContextVue3) => void;
 }>();
-
+const load = () => import('../pages/Admin.vue');
 const route = useRoute();
 const allowed = computed(() => props.qsl.state.user?.role === 'admin');
-onMounted(() => {
-  if (!allowed.value) props.onReady(props.buildContext(route));
+const version = ref(0);
+let identity = [props.qsl.api.token?.(), props.qsl.state.user?.id, props.qsl.state.user?.role].join(':');
+const off = props.qsl.on('auth', () => {
+  const next = [props.qsl.api.token?.(), props.qsl.state.user?.id, props.qsl.state.user?.role].join(':');
+  if (next !== identity) { identity = next; version.value++; }
 });
+onBeforeUnmount(off);
+onMounted(() => { if (!allowed.value) props.onReady(props.buildContext(route)); });
 </script>
-
 <template>
-  <LegacyPageHostVue3
-    v-if="allowed"
-    :qsl="qsl"
-    page-name="admin"
-    :build-context="buildContext"
-    :on-ready="onReady"
-  />
+  <RoutePage v-if="allowed" :key="version" :qsl="qsl" :load="load" :build-props="() => ({ qsl, ctx: buildContext(route) })" :build-context="buildContext" :on-ready="onReady" />
   <section v-else class="container section route-forbidden">
     <div class="empty-state" style="margin:8vh auto 0">
       <h2>{{ qsl.t('没有访问权限') }}</h2>

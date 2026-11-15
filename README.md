@@ -117,7 +117,7 @@ qsl-card-exchange/
 │   └── lib/                # 数据层、鉴权、校验、上传、领域路由
 ├── client/                 # Vue 页面、路由、Pinia、组件测试与 e2e
 ├── dist-public/            # 默认运行静态产物（生成，不提交）
-├── public/                 # 共享静态资源、原生后台与对照入口
+├── public/                 # 共享静态资源与原生对照入口
 │   ├── index.html
 │   ├── css/                # base / components / gallery / flows / admin / animations
 │   ├── js/                 # core / api / ui / effects / card3d / pages / app

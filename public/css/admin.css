@@ -1342,3 +1342,6 @@
   .a-thumb,
   .a-cardrow { transition: none; }
 }
+
+/* Vue overview grid items must shrink around long exchange titles on phones. */
+.a-page[data-vue3="admin"] .a-split > .a-block { min-width: 0; }

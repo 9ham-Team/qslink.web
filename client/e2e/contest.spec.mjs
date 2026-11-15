@@ -49,6 +49,8 @@ test('real registration, moderation, public work details and non-optimistic voti
   const user = users[testInfo.project.name === 'desktop' ? 0 : 1];
   await authenticate(page, user, eventPath + '/registration');
   const root = page.locator('[data-vue3="qsl-design-registration"]');
+  // Existing registrations arrive asynchronously; wait for either settled page state before branching.
+  await expect(root.getByRole('button', { name: '修改报名信息', exact: true }).or(root.getByRole('button', { name: '选择参赛卡片', exact: true }))).toBeVisible();
   if (await root.getByRole('button', { name: '修改报名信息', exact: true }).count()) await root.getByRole('button', { name: '修改报名信息', exact: true }).click();
   await root.getByRole('button', { name: '选择参赛卡片', exact: true }).click();
   const picker = page.getByRole('dialog', { name: '选择参赛卡片', exact: true });

@@ -4,6 +4,19 @@
   const QSL = (window.QSL = window.QSL || {});
   QSL.translations = QSL.translations || {};
   QSL.translations.en = {
+  "请检查标题长度（1–120 字）": "Enter a title of 1–120 characters",
+  "请检查正文长度（1–10000 字）": "Enter body text of 1–10,000 characters",
+  "停留时长需为 1–3600 秒的整数": "Display time must be an integer from 1 to 3600 seconds",
+  "通过审核": "Approve",
+  "请填写拒绝原因": "Please enter a rejection reason",
+  "删除后无法恢复，相关换卡记录也将被删除。": "Deletion is permanent and also removes related exchange records.",
+  "查看详情": "View details",
+  "对方希望收到的卡片": "Card requested by the other party",
+  "暂无数据": "No data yet",
+  "恢复用户": "Restore user",
+  "删除后无法恢复，相关卡片和换卡记录也将被删除。": "Deletion is permanent and also removes related cards and exchange records.",
+  "恢复后该用户可以正常登录。": "The user will be able to sign in after restoration.",
+  "秒": "seconds",
   "参赛提醒：卡片审核通过后，还需提交比赛报名": "Contest reminder: complete your contest registration after card approval",
   "想参加第一届 QSLink 杯 QSL 卡片设计大赛？请在卡片通过广场审核后，前往比赛报名页选择 1–2 件作品，填写作品说明和联系邮箱并提交。已报名的作品和状态也在报名页查看。": "Entering the first QSLink Cup QSL Card Design Contest? After your cards pass gallery review, open Contest registration, select 1–2 entries, add a description for each and your contact email, then submit. You can also check your registered entries and status there.",
   "上传卡片并通过广场审核": "Upload cards and pass gallery review",

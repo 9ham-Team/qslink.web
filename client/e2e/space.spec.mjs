@@ -70,7 +70,7 @@ test('public space survives sorting, sharing, legacy navigation and history — 
   expect(errors).toEqual([]);
 });
 
-test('home loads only needed chunks, legacy routes avoid Vue page chunks and /js/app.js, and English works — vue3', async ({ page, request }) => {
+test('home loads only needed chunks, admin loads its own Vue page chunk without /js/app.js, and English works — vue3', async ({ page, request }) => {
   const chunks = [];
   const legacyShellRequests = [];
   page.on('request', req => {
@@ -81,7 +81,7 @@ test('home loads only needed chunks, legacy routes avoid Vue page chunks and /js
   await expect(page.locator('[data-vue3="login"] form')).toBeVisible();
   expect(legacyShellRequests).toEqual([]);
   expect(chunks.some(url => /Login/.test(url))).toBe(true);
-  expect(chunks.filter(url => /(?:Home|Space|Explore|CardDetail|Share|Register|Dashboard|Profile|MyCards|CardEditor|Exchanges|Logbook|Contest|exchange-request-entry)/.test(url))).toEqual([]);
+  expect(chunks.filter(url => /(?:Home|Space|Explore|CardDetail|Share|Register|Dashboard|Profile|MyCards|CardEditor|Exchanges|Logbook|Contest(?:Landing|Works|WorkDetail|Judging|Registration)|exchange-request-entry)/.test(url))).toEqual([]);
   const config = await (await request.get('/api/config')).json();
   const adminAccount = config.demoAccounts.find(item => item.role === '管理员');
   const adminLogin = await (await request.post('/api/auth/login', { data: { identifier: adminAccount.id, password: adminAccount.pass } })).json();
@@ -92,9 +92,9 @@ test('home loads only needed chunks, legacy routes avoid Vue page chunks and /js
     window.QSL.navigate('/admin');
   }, adminLogin);
   await expect(page.locator('#app')).not.toHaveAttribute('data-vue3', /.+/);
-  await expect(page.locator('#app [data-vue3]')).toHaveCount(0);
+  await expect(page.locator('#app [data-vue3="admin"]')).toBeVisible();
   await expect(page.locator('#app h1, #app h2').first()).toBeVisible();
-  expect(chunks.filter(url => /(?:Home|Space|Explore|CardDetail|Share|Login|Register|Dashboard|Profile|MyCards|CardEditor|Exchanges|Logbook|Contest|exchange-request-entry)/.test(url))).toEqual([]);
+  expect(chunks.filter(url => /(?:Home|Space|Explore|CardDetail|Share|Login|Register|Dashboard|Profile|MyCards|CardEditor|Exchanges|Logbook|Contest(?:Landing|Works|WorkDetail|Judging|Registration)|exchange-request-entry)/.test(url))).toEqual([]);
   const account = config.demoAccounts.find(item => item.role === '普通用户');
   const login = await (await request.post('/api/auth/login', { data: { identifier: account.id, password: account.pass } })).json();
   await page.evaluate(() => { window.QSL.api.setToken(null); window.QSL.setUser(null); });
@@ -102,7 +102,7 @@ test('home loads only needed chunks, legacy routes avoid Vue page chunks and /js
   await page.goto('/');
   await expect(page.locator('[data-vue3="home"] .qsl-tile').first()).toBeVisible();
   expect(chunks.some(url => /Home/.test(url))).toBe(true);
-  expect(chunks.filter(url => /(?:Space|Explore|CardDetail|Share|Login|Register|Dashboard|Profile|MyCards|CardEditor|Exchanges|Logbook|Contest|exchange-request-entry)/.test(url))).toEqual([]);
+  expect(chunks.filter(url => /(?:Space|Explore|CardDetail|Share|Login|Register|Dashboard|Profile|MyCards|CardEditor|Exchanges|Logbook|Contest(?:Landing|Works|WorkDetail|Judging|Registration)|exchange-request-entry)/.test(url))).toEqual([]);
   await page.evaluate(session => {
     window.QSL.api.setToken(session.token);
     window.QSL.setUser(session.user);

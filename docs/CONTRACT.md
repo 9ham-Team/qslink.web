@@ -1,6 +1,6 @@
 # QSLink 前端契约 v1（所有队友必读）
 
-> 本分支前端默认采用 Vue3/TypeScript/Vite，路由由 Vue Router、用户及配置由 Pinia 持有；源码位于 `client/`，经 `npm run build` 生成 `dist-public/`。原生后台及共享 QSL 接口继续兼容，public 原生页面用于显式对照；仍不依赖外部 CDN、字体或脚本资源。此约束不表示后端无依赖或不访问外部服务：后端使用 PostgreSQL，注册验证码邮件由服务端调用邮件服务发送。
+> 本分支前端默认采用 Vue3/TypeScript/Vite，路由由 Vue Router、用户及配置由 Pinia 持有；源码位于 `client/`，经 `npm run build` 生成 `dist-public/`。所有 SPA 业务页面（含管理后台）均使用 Vue 组件；共享 QSL 接口继续兼容，public 原生页面用于显式对照；仍不依赖外部 CDN、字体或脚本资源。此约束不表示后端无依赖或不访问外部服务：后端使用 PostgreSQL，注册验证码邮件由服务端调用邮件服务发送。
 > 中英文界面（zh-CN / en），首次访问按浏览器语言选择，无法匹配时默认中文。风格：清新、明亮、通透、优雅；多种细腻动效。
 > **API 行为见 `docs/API.md`；与文档不符时核实现行前后端实现，并同步维护文档。**
 
