@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 
 async function fixture(page, request) {
   const listing = await (await request.get('/api/cards?limit=1')).json();
@@ -58,9 +58,9 @@ test('restores loaded pages and scroll on Back/Forward and detail breadcrumb —
   await expectRestored(page, before);
   await page.screenshot({ path: testInfo.outputPath('restored-gallery.png') });
   // A fresh, independent visit to the same filtered URL starts a new collection.
-  await page.evaluate(() => window.QSL.navigate('/'));
+  await page.evaluate(() => window.__appTest.navigate('/'));
   await expect(page.locator('[data-vue3="explore"]')).toHaveCount(0);
-  await page.evaluate(() => window.QSL.navigate('/explore?callSign=BG7MEM&sort=popular'));
+  await page.evaluate(() => window.__appTest.navigate('/explore?callSign=BG7MEM&sort=popular'));
   await expect(page.locator('.qsl-tile')).toHaveCount(12);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThan(100);
 });
@@ -77,7 +77,7 @@ test('revalidates a remembered gallery and removes withdrawn cards — vue3', as
 test('account changes invalidate saved collections while away — vue3', async ({ page, request }) => {
   await fixture(page, request);
   await openDeepCard(page);
-  await page.evaluate(() => window.QSL.setUser(null));
+  await page.evaluate(() => window.__appTest.setUser(null));
   await page.goBack();
   await expect(page.locator('[data-vue3="explore"] .qsl-tile')).toHaveCount(12);
 });

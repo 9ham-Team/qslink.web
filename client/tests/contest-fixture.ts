@@ -16,7 +16,7 @@ export function contestFixtureVue3() {
     user: () => user, currentUser: () => user, onAuth: fn => { auth.add(fn); return () => auth.delete(fn); },
     get: vi.fn(), put: vi.fn(), post: vi.fn(), resetEdits: vi.fn(), scrollHash: vi.fn(), navigate: vi.fn(), toast: vi.fn(), setQuery: vi.fn(), formatDate: value => value,
     image: vi.fn(), placeholder: '/assets/stamp.svg', createViewer: vi.fn(() => viewer),
-    bindShare: vi.fn(() => shareCleanup), privateImage: vi.fn().mockResolvedValue(new Blob(['private image'])),
+    copyText:vi.fn(),sharing:{getUrl:vi.fn().mockResolvedValue('https://example.test/works/test'),poster:vi.fn(),qr:vi.fn(()=>document.createElement('canvas'))}, privateImage: vi.fn().mockResolvedValue(new Blob(['private image'])),
   };
   return { services, auth, viewer, shareCleanup, setUser(next: typeof user) { user = next; for (const fn of [...auth]) fn(next); } };
 }

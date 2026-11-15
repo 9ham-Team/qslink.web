@@ -10,7 +10,8 @@ export default defineConfig({
     outDir:'../dist-public',emptyOutDir:false,assetsInlineLimit:0,
     target:['chrome109','safari16.4','firefox115'],sourcemap:false,
     rollupOptions:{
-      input:fileURLToPath(new URL('./index.html',import.meta.url)),
+      input:{index:fileURLToPath(new URL('./index.html',import.meta.url)),application:fileURLToPath(new URL('./src/entry.ts',import.meta.url)),legal:fileURLToPath(new URL('./src/legal-entry.ts',import.meta.url))},
+      preserveEntrySignatures:'strict',
       output:{entryFileNames:'build/[name]-[hash].js',chunkFileNames:'build/[name]-[hash].js',assetFileNames:'build/[name]-[hash][extname]'},
     },
   },

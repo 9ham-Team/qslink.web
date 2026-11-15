@@ -1,11 +1,11 @@
 import { mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ExchangeRequestModalVue3 from '../src/components/ExchangeRequestModal.vue';
-import { registerExchangeRequestBridgeVue3 } from '../src/exchange-request-bridge';
+import { createExchangeRequestService } from '../src/exchange-request-service';
 import type {
   CardDetailVue3,
   ExchangeRequestServicesVue3,
-  LegacyQslVue3,
+  ApplicationContext,
   LogbookPageResponseVue3,
   SelfUserVue3,
 } from '../src/contracts';
@@ -57,12 +57,12 @@ function makeUser(overrides: Partial<SelfUserVue3> = {}): SelfUserVue3 {
   };
 }
 
-function makeLegacyQsl(user: SelfUserVue3 | null = makeUser()): LegacyQslVue3 {
+function makeLegacyQsl(user: SelfUserVue3 | null = makeUser()): ApplicationContext {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   let token: string | null = user ? 'tok-1' : null;
   return {
     t: s => s,
-    state: { user },
+    store: { user },
     api: {
       get: vi.fn(),
       post: vi.fn(),
@@ -101,7 +101,7 @@ function makeLegacyQsl(user: SelfUserVue3 | null = makeUser()): LegacyQslVue3 {
         listeners.get(event)?.forEach(fn => fn(payload));
       },
     } as Record<string, unknown>),
-  } as LegacyQslVue3 & { __emit(event: string, payload?: unknown): void };
+  } as ApplicationContext & { __emit(event: string, payload?: unknown): void };
 }
 
 function makeModalServices(user: SelfUserVue3 | null = makeUser(), overrides: Partial<ExchangeRequestServicesVue3> = {}) {
@@ -170,44 +170,32 @@ function makeModalServices(user: SelfUserVue3 | null = makeUser(), overrides: Pa
   };
 }
 
-describe('ExchangeRequest bridge & modal', () => {
+describe('Module exchange service & Vue modal', () => {
   afterEach(() => {
     document.body.innerHTML = '';
     vi.restoreAllMocks();
   });
 
-  it('provides synchronous recordsHtml, guards invalid open calls, and cancels lazy mount when close() is called early', async () => {
-    const qsl = makeLegacyQsl(makeUser()) as LegacyQslVue3 & { __emit(event: string, payload?: unknown): void };
+  it('guards invalid open calls, and cancels lazy mount when close() is called early', async () => {
+    const platform = makeLegacyQsl(makeUser()) as ApplicationContext & { __emit(event: string, payload?: unknown): void };
     let resolveLoad!: (m: { mountExchangeRequestModalVue3: ReturnType<typeof vi.fn> }) => void;
     const mountFn = vi.fn(() => vi.fn());
     const load = vi.fn(() => new Promise<{ mountExchangeRequestModalVue3: ReturnType<typeof vi.fn> }>(res => {
       resolveLoad = res;
     }));
 
-    registerExchangeRequestBridgeVue3(qsl, load);
-
-    const html = qsl.exchangeRequest!.recordsHtml!({
-      id: 'ex-1',
-      status: 'pending',
-      direction: 'incoming',
-      createdAt: '2026-11-10T00:00:00.000Z',
-      selectedContactLogs: [
-        { id: 'q1', qsoAt: '2026-11-01T12:00:00.000Z', callSign: 'JA1ABC<script>', band: '20m', mode: 'FT8', lotwConfirmed: true },
-      ],
-    });
-    expect(html).toContain('f-ex-submitted-logs');
-    expect(html).toContain('JA1ABC&lt;script&gt;');
+    platform.exchangeRequest = createExchangeRequestService(platform, load);
 
     // Stock 0 is blocked synchronously
-    expect(qsl.exchangeRequest!.open(makeCard({ stock: 0 }))).toBeNull();
+    expect(platform.exchangeRequest!.open(makeCard({ stock: 0 }))).toBeNull();
     expect(load).not.toHaveBeenCalled();
 
     // Open returns handle synchronously even while lazy chunk is loading
-    const handle = qsl.exchangeRequest!.open(makeCard());
+    const handle = platform.exchangeRequest!.open(makeCard());
     expect(handle).toBeTruthy();
     expect(typeof handle!.close).toBe('function');
     // Duplicate open returns handle without triggering second load
-    qsl.exchangeRequest!.open(makeCard());
+    platform.exchangeRequest!.open(makeCard());
     expect(load).toHaveBeenCalledTimes(1);
 
     // Close before chunk resolves

@@ -24,7 +24,7 @@ import RoutePageVue3, {
   type RoutePageScopeVue3,
 } from './components/RoutePage.vue';
 import type {
-  LegacyQslVue3,
+  ApplicationContext,
   RouteContextVue3,
 } from './contracts';
 import { createExploreVisitVue3 } from './explore-memory';
@@ -39,7 +39,7 @@ import {
   createServicesVue3,
 } from './services';
 import { createContestServicesVue3 } from './contest/services';
-import type { ContestLegacyVue3 } from './contest/contracts';
+import type { ContestRuntime } from './contest/contracts';
 import type { RuntimeStoreVue3 } from './state';
 
 type NavigationKindVue3 = RouteContextVue3['navigation'];
@@ -110,7 +110,7 @@ function cachedVue3<T>(
 }
 
 function pageComponentVue3(
-  qsl: LegacyQslVue3,
+  platform: ApplicationContext,
   runtime: RouterRuntimeVue3,
   load: LoadedPageVue3,
   buildProps: RoutePagePropsVue3,
@@ -119,7 +119,7 @@ function pageComponentVue3(
     name: 'QslRoutePageVue3',
     setup() {
       return () => h(RoutePageVue3, {
-        qsl,
+        platform,
         load,
         buildProps,
         buildContext: (route: RouteLocationNormalizedLoaded) => runtime.context(route),
@@ -130,7 +130,7 @@ function pageComponentVue3(
 }
 
 function pageRecordVue3(
-  qsl: LegacyQslVue3,
+  platform: ApplicationContext,
   runtime: RouterRuntimeVue3,
   path: string,
   name: string,
@@ -149,7 +149,7 @@ function pageRecordVue3(
   return {
     path,
     name,
-    component: pageComponentVue3(qsl, runtime, load, (route, owner, scope) => ({
+    component: pageComponentVue3(platform, runtime, load, (route, owner, scope) => ({
       ...buildProps(route, owner, scope),
       'data-vue3': dataName,
     })),
@@ -158,7 +158,7 @@ function pageRecordVue3(
 }
 
 function immediatePageVue3(
-  qsl: LegacyQslVue3,
+  platform: ApplicationContext,
   runtime: RouterRuntimeVue3,
   component: Component,
   props: Record<string, unknown>,
@@ -167,13 +167,13 @@ function immediatePageVue3(
     name: 'QslImmediatePageVue3',
     setup() {
       onMounted(() => { void runtime.markRendered(runtime.context(runtime.router.currentRoute.value)); });
-      return () => h(component, { qsl, ...props });
+      return () => h(component, { platform, ...props });
     },
   });
 }
 
 export function createRouterRuntimeVue3(
-  qsl: LegacyQslVue3,
+  platform: ApplicationContext,
   store: RuntimeStoreVue3,
 ): RouterRuntimeVue3 {
   let runtime!: RouterRuntimeVue3;
@@ -285,30 +285,30 @@ export function createRouterRuntimeVue3(
     const fullPath = router.currentRoute.value.fullPath;
     await nextTick();
     if (version !== runtime.navigationVersion || router.currentRoute.value.fullPath !== fullPath) return;
-    qsl.emit?.('route:rendered', context);
-    qsl.emit?.('route:after', context);
+    platform.emit?.('route:rendered', context);
+    platform.emit?.('route:after', context);
     scheduleHashScrollVue3();
   }
 
   function buildRoutesVue3(): RouteRecordRaw[] {
     const home = pageRecordVue3(
-      qsl, runtime, '/', 'home', '首页', () => import('./pages/Home.vue'),
+      platform, runtime, '/', 'home', '首页', () => import('./pages/Home.vue'),
       (_route, owner, scope) => ({
         services: cachedVue3(scope, 'services', () => createHomeServicesVue3(owner)),
       }),
     );
     const explore = pageRecordVue3(
-      qsl, runtime, '/explore', 'explore', '卡片广场', () => import('./pages/Explore.vue'),
+      platform, runtime, '/explore', 'explore', '卡片广场', () => import('./pages/Explore.vue'),
       (route, owner, scope) => ({
         query: queryFromRouteVue3(route),
         services: cachedVue3(scope, 'services', () => createServicesVue3(owner)),
         visit: cachedVue3(scope, 'visit', () =>
-          createExploreVisitVue3(runtime.context(route), () => owner.state.user?.uid || null)),
+          createExploreVisitVue3(runtime.context(route), () => owner.store.user?.uid || null)),
       }),
     );
     const contest = (path: string, name: string, title: string, alternate: boolean, kind: string): RouteRecordRaw =>
       pageRecordVue3(
-        qsl, runtime, path, name, title,
+        platform, runtime, path, name, title,
         {
           landing: () => import('./contest/pages/ContestLanding.vue'),
           registration: () => import('./contest/pages/ContestRegistration.vue'),
@@ -318,7 +318,7 @@ export function createRouterRuntimeVue3(
         }[kind]!,
         (route, owner, scope) => {
           const services = cachedVue3(scope, 'contestServices', () =>
-            createContestServicesVue3(owner as unknown as ContestLegacyVue3));
+            createContestServicesVue3(owner as unknown as ContestRuntime));
           if (kind === 'landing') return { services, alternate };
           if (kind === 'works') return { services, query: queryFromRouteVue3(route) };
           if (kind === 'detail') return { services, id: String(route.params.id || '') };
@@ -328,35 +328,35 @@ export function createRouterRuntimeVue3(
       );
 
     const space = pageRecordVue3(
-      qsl, runtime, '/space/:uid', 'space', '个人主页', () => import('./pages/Space.vue'),
+      platform, runtime, '/space/:uid', 'space', '个人主页', () => import('./pages/Space.vue'),
       (route, owner, scope) => ({
         uid: String(route.params.uid || ''),
         services: cachedVue3(scope, 'services', () => createServicesVue3(owner)),
       }),
     );
     const cardDetail = pageRecordVue3(
-      qsl, runtime, '/card/:id', 'card-detail', '卡片详情', () => import('./pages/CardDetail.vue'),
+      platform, runtime, '/card/:id', 'card-detail', '卡片详情', () => import('./pages/CardDetail.vue'),
       (route, owner, scope) => ({
         cardId: String(route.params.id || ''),
         services: cachedVue3(scope, 'services', () => createCardDetailServicesVue3(owner)),
       }),
     );
     const share = pageRecordVue3(
-      qsl, runtime, '/share/:token', 'share', 'QSL 卡片分享', () => import('./pages/Share.vue'),
+      platform, runtime, '/share/:token', 'share', 'QSL 卡片分享', () => import('./pages/Share.vue'),
       (route, owner, scope) => ({
         token: String(route.params.token || ''),
         services: cachedVue3(scope, 'services', () => createCardDetailServicesVue3(owner)),
       }),
     );
     const shortShare = pageRecordVue3(
-      qsl, runtime, '/s/:token', 'share-short', 'QSL 卡片分享', () => import('./pages/Share.vue'),
+      platform, runtime, '/s/:token', 'share-short', 'QSL 卡片分享', () => import('./pages/Share.vue'),
       (route, owner, scope) => ({
         token: String(route.params.token || ''),
         services: cachedVue3(scope, 'services', () => createCardDetailServicesVue3(owner)),
       }),
     );
     const login = pageRecordVue3(
-      qsl, runtime, '/login', 'login', '登录', () => import('./pages/Login.vue'),
+      platform, runtime, '/login', 'login', '登录', () => import('./pages/Login.vue'),
       (route, owner, scope) => ({
         nextRaw: typeof route.query.next === 'string' ? route.query.next : null,
         services: cachedVue3(scope, 'services', () => createAuthServicesVue3(owner)),
@@ -364,7 +364,7 @@ export function createRouterRuntimeVue3(
       { guest: true },
     );
     const register = pageRecordVue3(
-      qsl, runtime, '/register', 'register', '注册', () => import('./pages/Register.vue'),
+      platform, runtime, '/register', 'register', '注册', () => import('./pages/Register.vue'),
       (route, owner, scope) => ({
         nextRaw: typeof route.query.next === 'string' ? route.query.next : null,
         services: cachedVue3(scope, 'services', () => createAuthServicesVue3(owner)),
@@ -372,21 +372,21 @@ export function createRouterRuntimeVue3(
       { guest: true },
     );
     const dashboard = pageRecordVue3(
-      qsl, runtime, '/dashboard', 'dashboard', '个人中心', () => import('./pages/Dashboard.vue'),
+      platform, runtime, '/dashboard', 'dashboard', '个人中心', () => import('./pages/Dashboard.vue'),
       (_route, owner, scope) => ({
         services: cachedVue3(scope, 'services', () => createAccountServicesVue3(owner)),
       }),
       { auth: true },
     );
     const profile = pageRecordVue3(
-      qsl, runtime, '/dashboard/profile', 'profile', '个人资料', () => import('./pages/Profile.vue'),
+      platform, runtime, '/dashboard/profile', 'profile', '个人资料', () => import('./pages/Profile.vue'),
       (_route, owner, scope) => ({
         services: cachedVue3(scope, 'services', () => createAccountServicesVue3(owner)),
       }),
       { auth: true },
     );
     const myCards = pageRecordVue3(
-      qsl, runtime, '/dashboard/cards', 'my-cards', '我的卡片', () => import('./pages/MyCards.vue'),
+      platform, runtime, '/dashboard/cards', 'my-cards', '我的卡片', () => import('./pages/MyCards.vue'),
       (route, owner, scope) => ({
         ctx: runtime.context(route),
         services: cachedVue3(scope, 'services', () => createCardManageServicesVue3(owner)),
@@ -394,7 +394,7 @@ export function createRouterRuntimeVue3(
       { auth: true },
     );
     const cardEditorNew = pageRecordVue3(
-      qsl, runtime, '/dashboard/cards/new', 'card-editor-new', '上传卡片', () => import('./pages/CardEditor.vue'),
+      platform, runtime, '/dashboard/cards/new', 'card-editor-new', '上传卡片', () => import('./pages/CardEditor.vue'),
       (route, owner, scope) => ({
         ctx: runtime.context(route),
         services: cachedVue3(scope, 'services', () => createCardManageServicesVue3(owner)),
@@ -402,7 +402,7 @@ export function createRouterRuntimeVue3(
       { auth: true },
     );
     const cardEditorEdit = pageRecordVue3(
-      qsl, runtime, '/dashboard/cards/:id/edit', 'card-editor-edit', '上传卡片', () => import('./pages/CardEditor.vue'),
+      platform, runtime, '/dashboard/cards/:id/edit', 'card-editor-edit', '上传卡片', () => import('./pages/CardEditor.vue'),
       (route, owner, scope) => ({
         ctx: runtime.context(route),
         services: cachedVue3(scope, 'services', () => createCardManageServicesVue3(owner)),
@@ -410,7 +410,7 @@ export function createRouterRuntimeVue3(
       { auth: true },
     );
     const exchanges = pageRecordVue3(
-      qsl, runtime, '/dashboard/exchanges', 'exchanges', '换卡申请', () => import('./pages/Exchanges.vue'),
+      platform, runtime, '/dashboard/exchanges', 'exchanges', '换卡申请', () => import('./pages/Exchanges.vue'),
       (route, owner, scope) => ({
         ctx: runtime.context(route),
         services: cachedVue3(scope, 'services', () => createExchangeServicesVue3(owner)),
@@ -418,7 +418,7 @@ export function createRouterRuntimeVue3(
       { auth: true },
     );
     const logbook = pageRecordVue3(
-      qsl, runtime, '/dashboard/logbook', 'logbook', '通联日志', () => import('./pages/Logbook.vue'),
+      platform, runtime, '/dashboard/logbook', 'logbook', '通联日志', () => import('./pages/Logbook.vue'),
       (_route, owner, scope) => ({
         services: cachedVue3(scope, 'services', () => createLogbookServicesVue3(owner)),
       }),
@@ -428,7 +428,7 @@ export function createRouterRuntimeVue3(
       name: 'QslAdminPageVue3',
       setup() {
         return () => h(AdminRouteVue3, {
-          qsl,
+          platform,
           buildContext: (route: RouteLocationNormalizedLoaded) => runtime.context(route),
           onReady: (context: RouteContextVue3) => { void runtime.markRendered(context); },
         });
@@ -466,7 +466,7 @@ export function createRouterRuntimeVue3(
       {
         path: '/:pathMatch(.*)*',
         name: 'not-found',
-        component: immediatePageVue3(qsl, runtime, NotFoundVue3, { 'data-vue3': 'not-found' }),
+        component: immediatePageVue3(platform, runtime, NotFoundVue3, { 'data-vue3': 'not-found' }),
         meta: { title: '页面不存在' },
       },
     ];
@@ -533,8 +533,8 @@ export function createRouterRuntimeVue3(
   return runtime;
 }
 
-export function installQslRouterVue3(
-  qsl: LegacyQslVue3,
+export function installNavigation(
+  platform: ApplicationContext,
   store: RuntimeStoreVue3,
   runtime: RouterRuntimeVue3,
 ) {
@@ -546,7 +546,7 @@ export function installQslRouterVue3(
   function emitReady() {
     if (readyEmitted) return;
     readyEmitted = true;
-    qsl.emit?.('router:ready');
+    platform.emit?.('router:ready');
   }
 
   router.beforeEach(async (to, from) => {
@@ -571,7 +571,7 @@ export function installQslRouterVue3(
       return '/login?next=' + encodeURIComponent(to.fullPath);
     }
     if (to.meta.guest && store.user) {
-      const next = typeof to.query.next === 'string' ? qsl.safeNext?.(to.query.next) : null;
+      const next = typeof to.query.next === 'string' ? platform.safeNext?.(to.query.next) : null;
       runtime.requestedNavigation = 'replace';
       return next || '/';
     }
@@ -579,7 +579,7 @@ export function installQslRouterVue3(
     runtime.currentNavigation.value = kind;
     runtime.fromPath.value = from.path || null;
     runtime.navigationVersion += 1;
-    qsl.emit?.('route:before', contextFromRouteVue3(
+    platform.emit?.('route:before', contextFromRouteVue3(
       to,
       kind,
       from.path || null,
@@ -595,9 +595,9 @@ export function installQslRouterVue3(
     if (failure) return;
     runtime.fromPath.value = from.path || null;
     const context = contextFromRouteVue3(to, runtime.currentNavigation.value, from.path || null);
-    const title = typeof to.meta.title === 'string' ? qsl.t(to.meta.title) : '';
+    const title = typeof to.meta.title === 'string' ? platform.t(to.meta.title) : '';
     if (title) document.title = title + ' · QSLink';
-    qsl.emit?.('route', context);
+    platform.emit?.('route', context);
   });
 
   router.onError(err => {
@@ -615,7 +615,7 @@ export function installQslRouterVue3(
         return rawNavigate('/login?next=' + encodeURIComponent(resolved.fullPath), { replace: true });
       }
       if (resolved.meta.guest && store.user) {
-        const next = typeof resolved.query.next === 'string' ? qsl.safeNext?.(resolved.query.next) : null;
+        const next = typeof resolved.query.next === 'string' ? platform.safeNext?.(resolved.query.next) : null;
         runtime.requestedNavigation = 'replace';
         return rawNavigate(next || '/', { replace: true });
       }
@@ -633,8 +633,8 @@ export function installQslRouterVue3(
       runtime.navigationVersion += 1;
       const current = router.currentRoute.value;
       const context = contextFromRouteVue3(current, kind, current.path);
-      qsl.emit?.('route:before', context);
-      qsl.emit?.('route', context);
+      platform.emit?.('route:before', context);
+      platform.emit?.('route', context);
       runtime.renderVersion.value += 1;
       return true;
     }
@@ -647,7 +647,7 @@ export function installQslRouterVue3(
       runtime.requestedNavigation = null;
       runtime.skipNextScroll = false;
       console.error('[QSL] navigation error:', err);
-      qsl.toast?.(qsl.t('页面加载失败'), 'error');
+      platform.toast?.(platform.t('页面加载失败'), 'error');
       return false;
     }
   };
@@ -687,7 +687,7 @@ export function installQslRouterVue3(
     return targetPath;
   }
 
-  const routerCompat = {
+  const navigation = {
     start() {
       if (!started) {
         started = true;
@@ -708,30 +708,22 @@ export function installQslRouterVue3(
     get current() {
       return currentContext();
     },
-    set current(_value) {
-      // current is a computed compatibility view over Vue Router.
-    },
-    cleanup: null as (() => void) | null,
+    instance: router,
   };
-  Object.defineProperty(qsl, 'router', {
-    value: routerCompat,
-    configurable: true,
-    enumerable: true,
-    writable: false,
-  });
+  platform.navigation = navigation;
 
-  qsl.navigate = rawNavigate;
-  qsl.currentPath = () => {
+  platform.navigate = rawNavigate;
+  platform.currentPath = () => {
     const route = router.currentRoute.value;
     return route.fullPath.split('#')[0];
   };
-  qsl.goBack = (fallback?: string) => {
+  platform.goBack = (fallback?: string) => {
     const back = router.options.history.state.back;
     if (back) router.back();
     else void rawNavigate(fallback || '/', { replace: true });
   };
-  qsl.setQuery = setQuery;
-  qsl.scrollToHash = () => runtime.scrollToHash();
+  platform.setQuery = setQuery;
+  platform.scrollToHash = () => runtime.scrollToHash();
 
   const onClick = (event: MouseEvent) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

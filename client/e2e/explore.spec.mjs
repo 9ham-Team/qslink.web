@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 
 test('keeps authenticated like feedback, guest state and English filters — vue3', async ({ page, request }) => {
   const config = await (await request.get('/api/config')).json();
@@ -6,7 +6,7 @@ test('keeps authenticated like feedback, guest state and English filters — vue
   const session = await (await request.post('/api/auth/login', { data: { identifier: account.id, password: account.pass } })).json();
   await page.goto('/explore');
   await expect(page.locator('[data-vue3="explore"] .qsl-tile').first()).toBeVisible();
-  await page.evaluate(session => { window.QSL.api.setToken(session.token); window.QSL.setUser(session.user); }, session);
+  await page.evaluate(session => { window.__appTest.api.setToken(session.token); window.__appTest.setUser(session.user); }, session);
   await expect(page.locator('.g-explore__grid')).not.toHaveAttribute('aria-busy', 'true');
   const button = page.locator('.qsl-like').first();
   if ((await button.getAttribute('class')).includes('is-liked')) {
@@ -17,7 +17,7 @@ test('keeps authenticated like feedback, guest state and English filters — vue
   await expect(button).toHaveClass(/is-liked/);
   await expect(button).toHaveClass(/fx-heartbeat/);
   await expect(page.locator('.fx-confetti-layer').last()).toBeVisible();
-  await page.evaluate(() => { window.QSL.api.setToken(null); window.QSL.setUser(null); });
+  await page.evaluate(() => { window.__appTest.api.setToken(null); window.__appTest.setUser(null); });
   await expect(page.locator('.g-explore__grid')).not.toHaveAttribute('aria-busy', 'true');
   await expect(page.locator('.qsl-like').first()).not.toHaveClass(/is-liked/);
   await page.goto('/explore?lang=en');
@@ -114,7 +114,7 @@ test('preserves query/hash, search, sort and legacy/detail navigation — vue3',
   await page.goBack();
   await expect(page.getByLabel('按呼号搜索卡片')).toHaveValue(callSign);
   await expect(page.getByRole('button', { name: '最热', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await page.evaluate(uid => window.QSL.navigate('/space/' + uid), card.owner.uid);
+  await page.evaluate(uid => window.__appTest.navigate('/space/' + uid), card.owner.uid);
   await expect(page.locator('[data-vue3="space"] h1')).toBeVisible();
   await page.locator('.g-crumbs a[href="/explore"]').click();
   await expect(page.locator('[data-vue3="explore"] h1')).toBeVisible();
@@ -143,7 +143,7 @@ test('drops delayed search results and cancels debounce on leaving — vue3', as
   const requests = [];
   page.on('request', req => { if (req.url().includes('callSign=CANCELLED')) requests.push(req.url()); });
   await page.getByLabel('按呼号搜索卡片').fill('CANCELLED');
-  await page.evaluate(() => window.QSL.navigate('/login'));
+  await page.evaluate(() => window.__appTest.navigate('/login'));
   await expect(page.locator('[data-vue3="explore"]')).toHaveCount(0);
   // Keep a full debounce interval after navigation to detect leaked timers.
   await page.waitForTimeout(450);

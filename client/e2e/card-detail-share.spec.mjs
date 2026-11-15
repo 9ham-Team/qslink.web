@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 
-test('card detail renders 3D viewer, recommendations, share island, like without viewer rebuild, and owner/404 states — vue3', async ({ page, request }, testInfo) => {
+test('card detail renders 3D viewer, recommendations, Vue share control, like without viewer rebuild, and owner/404 states — vue3', async ({ page, request }, testInfo) => {
   const errors = [];
   page.on('pageerror', err => errors.push(err.message));
   page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
@@ -40,8 +40,8 @@ test('card detail renders 3D viewer, recommendations, share island, like without
   const account = config.demoAccounts.find(item => item.role === '普通用户');
   const login = await (await request.post('/api/auth/login', { data: { identifier: account.id, password: account.pass } })).json();
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
   }, login);
 
   // Like updates without rebuilding the 3D stage DOM element
@@ -62,13 +62,14 @@ test('card detail renders 3D viewer, recommendations, share island, like without
   } else {
     await shareBtn.focus();
     await shareBtn.press('ArrowDown');
-    await expect(page.locator('#g-card-share-panel')).toBeVisible();
+    const panelId=await shareBtn.getAttribute('aria-controls');
+    await expect(page.locator('[id="'+panelId+'"]')).toBeVisible();
   }
 
   // Navigate away -> share panel/modal and 3D viewer are cleaned up
-  await page.evaluate(() => window.QSL.navigate('/explore'));
+  await page.evaluate(() => window.__appTest.navigate('/explore'));
   await expect(page.locator('[data-vue3="explore"]')).toBeVisible();
-  await expect(page.locator('#g-card-share-panel')).toHaveCount(0);
+  await expect(page.locator('.g-card-share__panel')).toHaveCount(0);
   await expect(page.locator('#modal-root .g-card-share__dialog')).toHaveCount(0);
 
   // 404 on unknown card (expect browser 404 resource log, no uncaught errors)
@@ -122,8 +123,8 @@ test('public share works on /s/:token and /share/:token, handles 404, zero-stock
   // Owner logged in on /s/:token sees owner CTA
   await page.goto('/s/' + sharedCard.shareToken);
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
   }, login);
   await expect(page.locator('.g-share__cta.is-owner')).toBeVisible();
 

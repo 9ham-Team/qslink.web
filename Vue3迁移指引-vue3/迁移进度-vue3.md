@@ -322,3 +322,14 @@ dev-outdate 已设置 lock_branch=true、enforce_admins=true，禁止强推/删�
 配套 CI 改为 dev/main，dev 生成主镜像 dev / sha-<完整SHA>，旧 Vue 镜像标签仅兼容。默认脚本主参数改为 QSL_EXPECTED_REVISION，旧 profile/参数仍映射同一 44381 隔离环境，参数冲突、无效 SHA、归档 profile 在执行部署命令前拒绝。现有容器/卷/网络/锁/私有目录不改名，原 44380 和 main/生产不操作。
 
 本地部署参数回归 4 项通过，两个 Bash 脚本语法、前端类型检查与构建通过。首个新 dev 配套提交的完整 CI、镜像发布及 44381 验收结果以本轮发布记录为准。既有 .gitignore 的 /.zcode/ 不纳入提交。详见 [正式 dev 指引](正式dev主线切换-vue3.md)。
+
+## 默认应用移除 QSL 全局兼容层 — vue3
+
+按用户选中的方案在 codex/remove-qsl-runtime 实施，基线为正式 dev 的 b5c466e。默认应用以显式 application 服务、实际 Pinia、单一 Vue Router 启动；不再注册 window.QSL/self.QSL，不存在 state/router 别名镜像、registerPage 或 LegacyPageHost。
+
+- 保留成熟算法，将 API、3D、响应式图片、WebP 转换/Worker、QR、取色、海报和动效提为独立模块。API 工厂直接通知 Pinia 会话版本并保留旧 token/401 隔离规则；没有通过包装旧 API 重建兼容桥。
+- 分享按钮、桌面 Teleport 菜单、手机弹窗、二维码和海报预览改为真实 Vue 组件；移除原生替换按钮、字符串 HTML、分享/通用弹窗 DOM 岛。保留关闭、焦点、嵌套 Escape、生成取消、Blob 回收与点赞不重置分享链接行为。
+- 删除旧页面注册/mount entry、状态桥、modal-bridge 与兼容 HTML 通联记录输出。更新所有默认调用方和契约；法律页仍是静态文本，但语言脚本也是无全局对象的模块。
+- 继续使用内容哈希构建与持久旧资源缓存；清单增加 application 模块地址，metadata 明确 es-modules / globalNamespace=false。浏览器测试只在测试夹具中显式导入模块并保存 __appTest，默认应用不创建该变量。
+
+本轮实际验证记录在 [模块化指引](移除QSL兼容层-vue3.md) 中收尾。后端/数据库/API 权限未改，未提交/推送/部署；远端 dev 与 44381 仍为 b5c466e。public 原生对照独立保留，默认构建不导入其运行时 JS；既有 /.zcode/ 修改保留。

@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp, h, nextTick } from 'vue';
+import { createApp, defineComponent, h, nextTick } from 'vue';
 import ToastHostVue3 from '../src/components/ToastHost.vue';
 import DialogVue3 from '../src/components/Dialog.vue';
 import { clearAllToastsVue3, showToastVue3, useToastItemsVue3 } from '../src/toast-store';
-import { confirmModalVue3, openModalVue3 } from '../src/modal-bridge';
+import { createDialogService } from '../src/dialog-service';
 import { clearModalStackVue3 } from '../src/modal-stack';
 
 function setupDomRoots() {
@@ -116,191 +116,45 @@ describe('toast and modal Vue3 implementation — vue3', () => {
     }
   });
 
-  it('synchronously returns { el, body, close } from openModalVue3 and keeps body DOM island intact — vue3', async () => {
-    const onClose = vi.fn();
-    const inst = openModalVue3(
-      {
-        title: '编辑卡片',
-        size: 'lg',
-        content: '<form id="legacy-form"><input name="title" value="BG7AAA" /></form>',
-        onClose,
-        actions: [
-          { label: '保持开启', closeOnClick: false, onClick: () => {} },
-          { label: '返回false', onClick: () => false },
-          {
-            label: '异步保存',
-            type: 'primary',
-            onClick: async () => {
-              await Promise.resolve();
-            },
-          },
-        ],
-      },
-      (s) => s,
-    );
-
-    // Immediately usable synchronously without nextTick
-    expect(inst.el).toBeInstanceOf(HTMLElement);
-    expect(inst.el?.classList.contains('modal-lg')).toBe(true);
-    const input = inst.body.querySelector('input[name="title"]') as HTMLInputElement;
-    expect(input).not.toBeNull();
-    input.value = 'Modified';
-
-    // Keep-open action and false-returning action do not close
-    const buttons = Array.from(inst.el!.querySelectorAll('.modal-actions button')) as HTMLButtonElement[];
-    buttons[0].click();
+  it('renders Vue component content safely and returns only an idempotent close handle', async () => {
+    const service=createDialogService(value=>value);
+    const Content=defineComponent({emits:['close'],setup(_props,{emit}){return()=>h(DialogVue3,{title:'Safe',t:(v:string)=>v,onClose:()=>emit('close')},{default:()=>h('p','<b>plain text</b>')});}});
+    const handle=service.open(Content,{});
     await nextTick();
-    expect(document.body.classList.contains('modal-open')).toBe(true);
+    expect(document.querySelector('.modal-body b')).toBeNull();
+    expect(document.querySelector('.modal-body')?.textContent).toContain('<b>plain text</b>');
+    handle.close();handle.close();await nextTick();
+    expect(document.querySelector('.modal-overlay')).toBeNull();
+  });
 
-    buttons[1].click();
+  it('resolves confirmation once and Escape only closes the top Vue dialog', async () => {
+    const service=createDialogService(value=>value);
+    const first=service.confirm({title:'Outer',message:'one'});
+    const second=service.confirm({title:'Inner',message:'two'});
     await nextTick();
-    expect(document.body.classList.contains('modal-open')).toBe(true);
-
-    // Mutated input in DOM island must remain untouched across Vue updates
-    expect((inst.body.querySelector('input[name="title"]') as HTMLInputElement).value).toBe('Modified');
-
-    // Async action closes after resolving; close() & onClose() are idempotent
-    buttons[2].click();
-    await Promise.resolve();
-    await Promise.resolve();
-    await nextTick();
-    expect(onClose).toHaveBeenCalledTimes(1);
-    inst.close();
-    expect(onClose).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(250);
+    expect(document.querySelectorAll('.modal-overlay')).toHaveLength(2);
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    await expect(second).resolves.toBe(false);await nextTick();
+    expect(document.querySelectorAll('.modal-overlay')).toHaveLength(1);
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    await expect(first).resolves.toBe(false);await nextTick();
     expect(document.body.classList.contains('modal-open')).toBe(false);
   });
 
-  it('keeps modal open when action throws and guards late async settlement after close — vue3', async () => {
-    let rejectFn: ((err: Error) => void) | null = null;
-    const inst = openModalVue3(
-      {
-        title: 'Throw & Late Async',
-        actions: [
-          {
-            label: 'Throw',
-            onClick: () => {
-              throw new Error('boom');
-            },
-          },
-          {
-            label: 'Slow',
-            onClick: () =>
-              new Promise<void>((_resolve, reject) => {
-                rejectFn = reject;
-              }),
-          },
-        ],
-      },
-      (s) => s,
-    );
-    const buttons = Array.from(inst.el!.querySelectorAll('.modal-actions button')) as HTMLButtonElement[];
-    expect(() => buttons[0].click()).not.toThrow();
-    await nextTick();
-    expect(document.body.classList.contains('modal-open')).toBe(true);
-
-    buttons[1].click();
-    await nextTick();
-    expect(buttons[1].disabled).toBe(true);
-    inst.close();
-    vi.advanceTimersByTime(250);
-    rejectFn?.(new Error('late error'));
-    await Promise.resolve();
-    expect(document.getElementById('modal-root')?.querySelectorAll('.modal-overlay').length).toBe(0);
+  it('settles pending confirmations on application cleanup and restores focus', async () => {
+    const button=document.createElement('button');document.body.append(button);button.focus();
+    const service=createDialogService(value=>value);
+    const pending=service.confirm({title:'Pending'});
+    await nextTick();service.closeAll();await expect(pending).resolves.toBe(false);
+    await nextTick();expect(document.activeElement).toBe(button);
+    expect(document.querySelector('.modal-overlay')).toBeNull();
   });
 
-  it('resolves confirmModalVue3 once with boolean and coordinates nested stack + Escape + body.modal-open with Dialog — vue3', async () => {
-    const trigger = document.createElement('button');
-    trigger.textContent = 'Trigger';
-    document.body.appendChild(trigger);
-    trigger.focus();
-
-    const dialogHost = document.createElement('div');
-    document.body.appendChild(dialogHost);
-    let dialogOpen = true;
-    const dialogApp = createApp({
-      render: () =>
-        dialogOpen
-          ? h(
-              DialogVue3,
-              {
-                title: '底层 Vue Dialog',
-                t: (s: string) => s,
-                onClose: () => {
-                  dialogOpen = false;
-                },
-              },
-              {
-                default: () => h('button', { id: 'dialog-inner-btn' }, 'Inner'),
-              },
-            )
-          : null,
-    });
-    dialogApp.mount(dialogHost);
-    await nextTick();
-
-    const midModal = openModalVue3({ title: '中层兼容弹窗', dismissible: true }, (s) => s);
-    const confirmPromise = confirmModalVue3(
-      { title: '确认操作', message: '确定继续？', confirmText: '确定', cancelText: '取消', danger: true },
-      (s) => s,
-    );
-    await nextTick();
-
-    const overlays = Array.from(document.querySelectorAll('#modal-root .modal-overlay')) as HTMLElement[];
-    expect(overlays.length).toBe(3);
-    expect(Number(overlays[2].style.zIndex)).toBeGreaterThan(Number(overlays[1].style.zIndex));
-    expect(Number(overlays[1].style.zIndex)).toBeGreaterThan(Number(overlays[0].style.zIndex));
-    expect(document.body.classList.contains('modal-open')).toBe(true);
-
-    // Escape closes only the topmost confirm modal -> resolves false
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await expect(confirmPromise).resolves.toBe(false);
-    vi.advanceTimersByTime(250);
-    await nextTick();
-
-    // Underlying modals keep body.modal-open active
-    expect(document.body.classList.contains('modal-open')).toBe(true);
-    expect(document.querySelectorAll('#modal-root .modal-overlay').length).toBe(2);
-
-    // Close middle modal -> still open because Dialog is underneath
-    midModal.close();
-    vi.advanceTimersByTime(250);
-    await nextTick();
-    expect(document.body.classList.contains('modal-open')).toBe(true);
-
-    // Close Dialog -> body.modal-open removed
-    dialogApp.unmount();
-    dialogHost.remove();
-    expect(document.body.classList.contains('modal-open')).toBe(false);
-  });
-
-  it('never re-shows modal or confirm when closed before the first animation frame — vue3', async () => {
-    const inst = openModalVue3({ title: 'Immediate Close' }, (s) => s);
-    inst.close();
-    await nextTick();
-    // Flush rAF timers before 220ms unmount
-    vi.advanceTimersByTime(32);
-    await nextTick();
-    const overlay = document.querySelector('#modal-root .modal-overlay');
-    expect(overlay?.classList.contains('is-show')).toBe(false);
-    expect(document.body.classList.contains('modal-open')).toBe(false);
-
-    // Finish unmount cleanup
-    vi.advanceTimersByTime(250);
-    expect(document.querySelectorAll('#modal-root .modal-overlay').length).toBe(0);
-
-    // Same for confirmModalVue3 closed via Escape before first frame
-    const confirmPromise = confirmModalVue3({ title: 'Fast Confirm', message: 'Cancel fast' }, (s) => s);
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await expect(confirmPromise).resolves.toBe(false);
-    await nextTick();
-    vi.advanceTimersByTime(32);
-    await nextTick();
-    const confirmOverlay = document.querySelector('#modal-root .modal-overlay');
-    expect(confirmOverlay?.classList.contains('is-show')).toBe(false);
-    expect(document.body.classList.contains('modal-open')).toBe(false);
-
-    vi.advanceTimersByTime(250);
-    expect(document.querySelectorAll('#modal-root .modal-overlay').length).toBe(0);
+  it('closing a component dialog before nextTick never reintroduces it', async () => {
+    const service=createDialogService(value=>value);
+    const Content=defineComponent({setup(){return()=>h(DialogVue3,{title:'Fast',t:(v:string)=>v});}});
+    const handle=service.open(Content,{});handle.close();
+    await nextTick();vi.advanceTimersByTime(1000);await nextTick();
+    expect(document.querySelector('.modal-overlay')).toBeNull();
   });
 });

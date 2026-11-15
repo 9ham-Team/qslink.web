@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 
 async function checkNoOverflow(page) {
   const dims = await page.evaluate(() => ({
@@ -48,9 +48,9 @@ test('my-cards guards guests, filters status, updates stock, deletes cards, and 
   page.on('request', req => { if (req.url().includes('/build/')) chunks.push(req.url()); });
 
   await page.evaluate(s => {
-    window.QSL.api.setToken(s.token);
-    window.QSL.setUser(s.user);
-    window.QSL.navigate('/dashboard/cards?status=pending');
+    window.__appTest.api.setToken(s.token);
+    window.__appTest.setUser(s.user);
+    window.__appTest.navigate('/dashboard/cards?status=pending');
   }, session);
 
   await expect(page.locator('[data-vue3="my-cards"] .f-cards-toolbar')).toBeVisible();
@@ -61,9 +61,9 @@ test('my-cards guards guests, filters status, updates stock, deletes cards, and 
   });
 
   // Same pathname, query-only deep links must update the local filter without remounting.
-  await page.evaluate(() => window.QSL.navigate('/dashboard/cards?status=approved'));
+  await page.evaluate(() => window.__appTest.navigate('/dashboard/cards?status=approved'));
   await expect(page.locator('[data-filter="approved"]')).toHaveClass(/is-active/);
-  await page.evaluate(() => window.QSL.navigate('/dashboard/cards?status=pending'));
+  await page.evaluate(() => window.__appTest.navigate('/dashboard/cards?status=pending'));
   await expect(page.locator('[data-filter="pending"]')).toHaveClass(/is-active/);
   await page.goBack();
   await expect(page.locator('[data-filter="approved"]')).toHaveClass(/is-active/);
@@ -72,8 +72,8 @@ test('my-cards guards guests, filters status, updates stock, deletes cards, and 
 
   // Rapid navigation must converge on the last query while keeping the same page instance.
   await page.evaluate(() => {
-    void window.QSL.navigate('/dashboard/cards?status=rejected');
-    void window.QSL.navigate('/dashboard/cards?status=approved');
+    void window.__appTest.navigate('/dashboard/cards?status=rejected');
+    void window.__appTest.navigate('/dashboard/cards?status=approved');
   });
   await expect(page.locator('[data-filter="approved"]')).toHaveClass(/is-active/);
   await expect(page.locator('[data-vue3="my-cards"]')).toHaveAttribute('data-query-identity', 'same-my-cards');
@@ -156,9 +156,9 @@ test('card-editor handles WebP conversion, Unicode limits, edit stock isolation,
   const adminSession = await loginAs(page, request, '管理员');
 
   await page.evaluate(s => {
-    window.QSL.api.setToken(s.token);
-    window.QSL.setUser(s.user);
-    window.QSL.navigate('/dashboard/cards/new');
+    window.__appTest.api.setToken(s.token);
+    window.__appTest.setUser(s.user);
+    window.__appTest.navigate('/dashboard/cards/new');
   }, session);
 
   await expect(page.locator('[data-vue3="card-editor"] #fEditorForm')).toBeVisible();
@@ -236,7 +236,7 @@ test('card-editor handles WebP conversion, Unicode limits, edit stock isolation,
   await expect(page).toHaveURL(/\/dashboard\/cards$/);
 
   // 6. Edit mode: verify stock dialog isolation & PUT omits stock
-  await page.evaluate(id => { window.QSL.navigate(`/dashboard/cards/${id}/edit`); }, createdId);
+  await page.evaluate(id => { window.__appTest.navigate(`/dashboard/cards/${id}/edit`); }, createdId);
   await expect(page.locator('[data-vue3="card-editor"] #fCardStock')).toBeEnabled();
   await page.locator('#fCardTitle').fill('编辑后的新标题');
   await expect(page.locator('[data-unsaved]')).toBeVisible();
@@ -264,15 +264,15 @@ test('card-editor handles WebP conversion, Unicode limits, edit stock isolation,
 
   // 7. Admin cannot edit another user's card
   await page.evaluate(({ s, id }) => {
-    window.QSL.api.setToken(s.token);
-    window.QSL.setUser(s.user);
-    window.QSL.navigate(`/dashboard/cards/${id}/edit`);
+    window.__appTest.api.setToken(s.token);
+    window.__appTest.setUser(s.user);
+    window.__appTest.navigate(`/dashboard/cards/${id}/edit`);
   }, { s: adminSession, id: createdId });
   await expect(page.locator('[data-vue3="card-editor"]')).toContainText('只能编辑自己的卡片');
 
   // 8. Non-existent card shows 404 error panel with back link
   expect(errors).toEqual([]);
-  await page.evaluate(() => { window.QSL.navigate('/dashboard/cards/nonexistent-id-404/edit'); });
+  await page.evaluate(() => { window.__appTest.navigate('/dashboard/cards/nonexistent-id-404/edit'); });
   await expect(page.locator('[data-vue3="card-editor"] .empty-state')).toBeVisible();
   expect(errors.every(e => e.includes('404 (Not Found)'))).toBe(true);
   errors.length = 0;
@@ -299,14 +299,14 @@ test('card-editor leave guard preserves browser history, forward stack, multi-st
   // 1. Clean page: / -> /explore (with custom history.state) -> /dashboard/cards/new -> Back -> Forward
   await page.goto('/');
   await page.evaluate(s => {
-    window.QSL.api.setToken(s.token);
-    window.QSL.setUser(s.user);
-    window.QSL.navigate('/explore');
+    window.__appTest.api.setToken(s.token);
+    window.__appTest.setUser(s.user);
+    window.__appTest.navigate('/explore');
   }, session);
   await expect(page.locator('[data-vue3="explore"]')).toBeVisible();
   await page.evaluate(() => {
     history.replaceState({ ...(history.state || {}), exploreMarker: 'keep-me' }, '', location.href);
-    window.QSL.navigate('/dashboard/cards/new');
+    window.__appTest.navigate('/dashboard/cards/new');
   });
   await expect(page.locator('[data-vue3="card-editor"] #fCardTitle')).toBeVisible();
 

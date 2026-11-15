@@ -3,7 +3,9 @@ import { flushPromises, mount } from '@vue/test-utils';
 import SpaceVue3 from '../src/pages/Space.vue';
 import Card3DViewerVue3 from '../src/components/Card3DViewer.vue';
 import CardTileVue3 from '../src/components/CardTile.vue';
-import { registerSpaceVue3 } from '../src/bridge';
+import RoutePage from '../src/components/RoutePage.vue';
+import { createRouter,createMemoryHistory } from 'vue-router';
+import { defineComponent,onMounted } from 'vue';
 import type { CardVue3, ServicesVue3, SpaceResponseVue3 } from '../src/contracts';
 
 const user = { uid: '012345678', displayName: '<img src=x onerror=alert(1)>', bio: 'A'.repeat(60), joinedAt: '2026-10-01', stats: { cards: 2, likesReceived: 0 } };
@@ -134,21 +136,15 @@ it('cleans the responsive image observer and ignores a late like after unmount �
   expect(wrapper.emitted('liked')).toBeUndefined();
 });
 
-it('does not mount a late chunk after navigation and returns idempotent cleanup — vue3', async () => {
-  let render!: (root: HTMLElement, ctx: unknown) => () => void;
-  let resolve!: (module: { mountSpaceVue3: ReturnType<typeof vi.fn> }) => void;
-  const off = vi.fn();
-  const qsl = { t: (x: string) => x, escapeHtml: (x: string) => x, on: vi.fn(() => off), registerPage: (_: string, page: any) => { render = page.render; } };
-  registerSpaceVue3(qsl as any, () => new Promise(done => { resolve = done; }));
-  const root = document.createElement('div');
-  const cleanup = render(root, { params: { uid: user.uid } });
-  cleanup(); cleanup();
-  const mountSpaceVue3 = vi.fn();
-  resolve({ mountSpaceVue3 });
-  await flushPromises();
-  expect(mountSpaceVue3).not.toHaveBeenCalled();
-  expect(off).toHaveBeenCalledOnce();
-  expect(root.childElementCount).toBe(0);
+it('does not mount a late page chunk after unmount', async () => {
+  let resolve!: (value: any) => void;
+  const mounted=vi.fn(),ready=vi.fn();
+  const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',component:{template:'<div />'}}]});
+  await router.push('/');await router.isReady();
+  const wrapper=mount(RoutePage,{props:{platform:{t:(v:string)=>v} as any,load:()=>new Promise(done=>{resolve=done;}),buildProps:()=>({}),buildContext:()=>({params:{},query:new URLSearchParams(),hash:''}),onReady:ready},global:{plugins:[router]}});
+  await flushPromises();wrapper.unmount();
+  resolve({default:defineComponent({setup(){onMounted(mounted);return()=>null;}})});await flushPromises();
+  expect(mounted).not.toHaveBeenCalled();expect(ready).not.toHaveBeenCalled();
 });
 
 it('retains like feedback and clears its timer on unmount — vue3', async () => {

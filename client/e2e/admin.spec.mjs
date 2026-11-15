@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 
 async function sessions(request) {
   const config = await (await request.get('/api/config')).json();
@@ -10,7 +10,7 @@ async function sessions(request) {
   return {admin:result.find(s=>s.user.role==='admin'),member:result.find(s=>s.user.role==='user')};
 }
 async function enter(page, session, path='/admin') {
-  await page.evaluate(({session,path})=>{ window.QSL.api.setToken(session.token);window.QSL.setUser(session.user);return window.QSL.navigate(path); },{session,path});
+  await page.evaluate(({session,path})=>{ window.__appTest.api.setToken(session.token);window.__appTest.setUser(session.user);return window.__appTest.navigate(path); },{session,path});
   await expect(page.locator('[data-vue3="admin"]')).toBeVisible();
 }
 async function noOverflow(page) {
@@ -26,7 +26,7 @@ test('admin Vue modules, permission boundaries, query history, shell round-trip 
   await page.goto('/admin');
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin/);
   const {admin,member}=await sessions(request);
-  await page.evaluate(s=>{window.QSL.api.setToken(s.token);window.QSL.setUser(s.user);return window.QSL.navigate('/admin');},member);
+  await page.evaluate(s=>{window.__appTest.api.setToken(s.token);window.__appTest.setUser(s.user);return window.__appTest.navigate('/admin');},member);
   await expect(page.locator('.route-forbidden')).toBeVisible();
   expect((await request.get('/api/admin/users',{headers:{Authorization:'Bearer '+member.token}})).status()).toBe(403);
   await enter(page,admin);
@@ -44,16 +44,16 @@ test('admin Vue modules, permission boundaries, query history, shell round-trip 
   await expect(page.getByRole('heading',{name:'人工评审管理',exact:true})).toBeVisible();
   await page.waitForFunction(() => getComputedStyle(document.querySelector('#a-panel > .a-tab-body')).opacity === '1');
   await page.screenshot({path:testInfo.outputPath('admin-contest.png'),fullPage:true});
-  await page.evaluate(()=>window.QSL.navigate('/admin?tab=users'));
+  await page.evaluate(()=>window.__appTest.navigate('/admin?tab=users'));
   await expect(page.locator('#a-panel table')).toBeVisible();
   await page.waitForFunction(() => getComputedStyle(document.querySelector('#a-panel > .a-tab-body')).opacity === '1');
   await page.screenshot({path:testInfo.outputPath('admin-users.png'),fullPage:true});
-  await page.evaluate(()=>window.QSL.navigate('/admin?tab=cards'));
+  await page.evaluate(()=>window.__appTest.navigate('/admin?tab=cards'));
   await page.goBack(); await expect(page.locator('[data-tab=users]')).toHaveAttribute('aria-selected','true');
   await page.goForward(); await expect(page.locator('[data-tab=cards]')).toHaveAttribute('aria-selected','true');
-  await page.evaluate(()=>window.QSL.navigate('/'));
+  await page.evaluate(()=>window.__appTest.navigate('/'));
   await expect(page.locator('[data-vue3=home]')).toBeVisible();
-  await page.evaluate(()=>window.QSL.navigate('/admin?tab=users'));
+  await page.evaluate(()=>window.__appTest.navigate('/admin?tab=users'));
   await expect(page.locator('[data-vue3=admin]')).toHaveCount(1);
   await page.goto('/admin?tab=users&lang=en');
   await expect(page.locator('html')).toHaveAttribute('lang','en');
@@ -126,7 +126,7 @@ test('announcement writes and voting conflicts remain isolated from session swit
   await page.getByRole('button',{name:'保存投票时间',exact:true}).click();
   await expect(page.getByRole('button',{name:'保存投票时间',exact:true})).toBeDisabled();
   await expect(page.locator('[name=startsAt]')).toHaveValue(/2099-11-20T16:00/);
-  await page.evaluate(s=>{window.QSL.api.setToken(s.token);window.QSL.setUser(s.user);},member);
+  await page.evaluate(s=>{window.__appTest.api.setToken(s.token);window.__appTest.setUser(s.user);},member);
   await expect(page.locator('[data-vue3=admin]')).toHaveCount(0);
   await expect(page.locator('.modal-overlay')).toHaveCount(0);
   await expect(page.locator('.route-forbidden')).toBeVisible();

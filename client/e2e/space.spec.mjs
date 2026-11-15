@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 
 test('mouse tilt follows direction, resets, and respects reduced motion — vue3', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name === 'mobile', 'Mouse hover requires a fine pointer');
@@ -87,9 +87,9 @@ test('home loads only needed chunks, admin loads its own Vue page chunk without 
   const adminLogin = await (await request.post('/api/auth/login', { data: { identifier: adminAccount.id, password: adminAccount.pass } })).json();
   chunks.length = 0;
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
-    window.QSL.navigate('/admin');
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
+    window.__appTest.navigate('/admin');
   }, adminLogin);
   await expect(page.locator('#app')).not.toHaveAttribute('data-vue3', /.+/);
   await expect(page.locator('#app [data-vue3="admin"]')).toBeVisible();
@@ -97,16 +97,16 @@ test('home loads only needed chunks, admin loads its own Vue page chunk without 
   expect(chunks.filter(url => /(?:Home|Space|Explore|CardDetail|Share|Login|Register|Dashboard|Profile|MyCards|CardEditor|Exchanges|Logbook|Contest(?:Landing|Works|WorkDetail|Judging|Registration)|exchange-request-entry)/.test(url))).toEqual([]);
   const account = config.demoAccounts.find(item => item.role === '普通用户');
   const login = await (await request.post('/api/auth/login', { data: { identifier: account.id, password: account.pass } })).json();
-  await page.evaluate(() => { window.QSL.api.setToken(null); window.QSL.setUser(null); });
+  await page.evaluate(() => { window.__appTest.api.setToken(null); window.__appTest.setUser(null); });
   chunks.length = 0;
   await page.goto('/');
   await expect(page.locator('[data-vue3="home"] .qsl-tile').first()).toBeVisible();
   expect(chunks.some(url => /Home/.test(url))).toBe(true);
   expect(chunks.filter(url => /(?:Space|Explore|CardDetail|Share|Login|Register|Dashboard|Profile|MyCards|CardEditor|Exchanges|Logbook|Contest(?:Landing|Works|WorkDetail|Judging|Registration)|exchange-request-entry)/.test(url))).toEqual([]);
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
-    window.QSL.navigate('/space/' + session.user.uid);
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
+    window.__appTest.navigate('/space/' + session.user.uid);
   }, login);
   await expect(page.getByRole('link', { name: '编辑资料', exact: true })).toBeVisible();
   const like = page.locator('.qsl-like').first();
@@ -114,7 +114,7 @@ test('home loads only needed chunks, admin loads its own Vue page chunk without 
   await like.click();
   if (wasLiked) await expect(like).not.toHaveClass(/is-liked/);
   else await expect(like).toHaveClass(/is-liked/);
-  await page.evaluate(() => { window.QSL.api.setToken(null); window.QSL.setUser(null); });
+  await page.evaluate(() => { window.__appTest.api.setToken(null); window.__appTest.setUser(null); });
   await expect(page.getByRole('link', { name: '编辑资料', exact: true })).toHaveCount(0);
   await expect(page.locator('.g-space__grid')).not.toHaveAttribute('aria-busy', 'true');
   await page.goto('/space/' + login.user.uid + '?lang=en');
@@ -134,7 +134,7 @@ test('a delayed response cannot write into another route and missing users show 
   });
   await page.goto('/space/' + uid);
   await expect(page.locator('[data-vue3="space"]')).toHaveCount(1);
-  await page.evaluate(() => window.QSL.navigate('/explore'));
+  await page.evaluate(() => window.__appTest.navigate('/explore'));
   release();
   await expect(page).toHaveURL(/\/explore$/);
   await expect(page.locator('[data-vue3="space"]')).toHaveCount(0);

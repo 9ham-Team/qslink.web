@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 
 const TINY_PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
 
@@ -94,9 +94,9 @@ test('query-only exchanges navigation syncs box/status, history and rapid naviga
 
   await page.goto('/');
   await page.evaluate(s => {
-    window.QSL.api.setToken(s.token);
-    window.QSL.setUser(s.user);
-    window.QSL.navigate('/dashboard/exchanges?box=incoming&status=pending');
+    window.__appTest.api.setToken(s.token);
+    window.__appTest.setUser(s.user);
+    window.__appTest.navigate('/dashboard/exchanges?box=incoming&status=pending');
   }, session);
   await expect(page.locator('[data-box="incoming"]')).toHaveClass(/is-active/);
   await expect(page.locator('.f-ex-filters [data-status="pending"]')).toHaveClass(/is-active/);
@@ -104,11 +104,11 @@ test('query-only exchanges navigation syncs box/status, history and rapid naviga
     element.dataset.queryIdentity = 'same-exchanges';
   });
 
-  await page.evaluate(() => window.QSL.navigate('/dashboard/exchanges?box=outgoing&status=approved'));
+  await page.evaluate(() => window.__appTest.navigate('/dashboard/exchanges?box=outgoing&status=approved'));
   await expect(page.locator('[data-box="outgoing"]')).toHaveClass(/is-active/);
   await expect(page.locator('.f-ex-filters [data-status="approved"]')).toHaveClass(/is-active/);
 
-  await page.evaluate(() => window.QSL.navigate('/dashboard/exchanges?box=incoming&status=completed'));
+  await page.evaluate(() => window.__appTest.navigate('/dashboard/exchanges?box=incoming&status=completed'));
   await page.goBack();
   await expect(page.locator('[data-box="outgoing"]')).toHaveClass(/is-active/);
   await expect(page.locator('.f-ex-filters [data-status="approved"]')).toHaveClass(/is-active/);
@@ -117,13 +117,13 @@ test('query-only exchanges navigation syncs box/status, history and rapid naviga
   await expect(page.locator('.f-ex-filters [data-status="completed"]')).toHaveClass(/is-active/);
 
   await page.evaluate(() => {
-    void window.QSL.navigate('/dashboard/exchanges?box=outgoing&status=pending');
-    void window.QSL.navigate('/dashboard/exchanges?box=incoming&status=all');
+    void window.__appTest.navigate('/dashboard/exchanges?box=outgoing&status=pending');
+    void window.__appTest.navigate('/dashboard/exchanges?box=incoming&status=all');
   });
   await expect(page.locator('[data-box="incoming"]')).toHaveClass(/is-active/);
   await expect(page.locator('.f-ex-filters [data-status="all"]')).toHaveClass(/is-active/);
 
-  await page.evaluate(() => window.QSL.navigate('/dashboard/exchanges'));
+  await page.evaluate(() => window.__appTest.navigate('/dashboard/exchanges'));
   await expect(page).toHaveURL(/\/dashboard\/exchanges$/);
   await expect(page.locator('[data-box="incoming"]')).toHaveClass(/is-active/);
   await expect(page.locator('.f-ex-filters [data-status="all"]')).toHaveClass(/is-active/);
@@ -175,9 +175,9 @@ test('exchange request modal, exchanges management, and logbook flows work end-t
 
   // 3. Logbook: missing callsign lock -> update callsign -> reactive unlock -> ADIF import -> invalid TQ8 -> LoTW mock
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
-    window.QSL.navigate('/dashboard/logbook');
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
+    window.__appTest.navigate('/dashboard/logbook');
   }, requester1);
 
   await expect(page.locator('section[data-vue3="logbook"]')).toBeVisible();
@@ -195,7 +195,7 @@ test('exchange request modal, exchanges management, and logbook flows work end-t
   const updatedProfile = await profileUpdateRes.json();
   requester1.user = updatedProfile.user;
   await page.evaluate(user => {
-    window.QSL.setUser(user);
+    window.__appTest.setUser(user);
   }, updatedProfile.user);
 
   await expect(page.locator('section[data-vue3="logbook"] form[data-file-import] button[type="submit"]')).toBeEnabled();
@@ -250,21 +250,21 @@ test('exchange request modal, exchanges management, and logbook flows work end-t
   await page.locator('section[data-vue3="logbook"] form[data-lotw] button[type="submit"]').click();
   await expect(page.locator('section[data-vue3="logbook"] [data-result]')).toContainText('频繁');
   await expect(page.locator('section[data-vue3="logbook"] form[data-lotw] input[name="password"]')).toHaveValue('');
-  expect(await page.evaluate(() => Boolean(window.QSL.api.token && window.QSL.state.user))).toBe(true);
+  expect(await page.evaluate(() => Boolean(window.__appTest.api.token && window.__appTest.store.user))).toBe(true);
   await page.unroute('**/api/me/logbook/lotw');
 
   // 4. Exchange Request Modal from Share page & Card Detail page
-  await page.evaluate(url => window.QSL.navigate(url), `/share/${shareToken}`);
+  await page.evaluate(url => window.__appTest.navigate(url), `/share/${shareToken}`);
   await expect(page.locator('[data-vue3="share"] h1.g-share__title')).toBeVisible();
   await page.locator('[data-vue3="share"] .g-share__cta .btn-primary').filter({ visible: true }).first().click();
   await expect(page.locator('[data-xreq-form]')).toBeVisible();
 
   // Duplicate open while already open does not create a second modal
-  await page.evaluate(id => window.QSL.exchangeRequest.open({ id, title: 'Dup', owner: {} }), cardId);
+  await page.evaluate(id => window.__appTest.exchangeRequest.open({ id, title: 'Dup', owner: {} }), cardId);
   await expect(page.locator('[data-xreq-form]')).toHaveCount(1);
 
   // Close via route navigation
-  await page.evaluate(id => window.QSL.navigate(`/card/${id}`), cardId);
+  await page.evaluate(id => window.__appTest.navigate(`/card/${id}`), cardId);
   await expect(page.locator('[data-xreq-form]')).toHaveCount(0);
   await expect(page.locator('.g-detail[data-vue3="card-detail"]')).toBeVisible();
 
@@ -306,9 +306,9 @@ test('exchange request modal, exchanges management, and logbook flows work end-t
 
   // 5. Switch to Owner -> /dashboard/exchanges incoming -> Approve -> OUT_OF_STOCK -> Complete
   await page.evaluate(session => {
-    window.QSL.api.setToken(session.token);
-    window.QSL.setUser(session.user);
-    window.QSL.navigate('/dashboard/exchanges?box=incoming&status=pending');
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
+    window.__appTest.navigate('/dashboard/exchanges?box=incoming&status=pending');
   }, owner);
 
   const pendingCards = page.locator('.f-exchanges[data-vue3="exchanges"] article.f-ex', { hasText: `E2E Limited Card ${suffix}` });

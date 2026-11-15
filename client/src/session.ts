@@ -2,7 +2,7 @@ import type { Router } from 'vue-router';
 import type {
   AppConfigVue3,
   AuthUserVue3,
-  LegacyQslVue3,
+  ApplicationContext,
 } from './contracts';
 import {
   DEFAULT_CONFIG_VUE3,
@@ -16,9 +16,9 @@ type SessionSnapshot = {
   userRevision: number;
 };
 
-function snapshotSessionVue3(qsl: LegacyQslVue3, store: RuntimeStoreVue3): SessionSnapshot {
+function snapshotSessionVue3(platform: ApplicationContext, store: RuntimeStoreVue3): SessionSnapshot {
   return {
-    token: typeof qsl.api?.token === 'function' ? qsl.api.token() : null,
+    token: typeof platform.api?.token === 'function' ? platform.api.token() : null,
     tokenVersion: store.tokenVersion,
     sessionVersion: store.sessionVersion,
     userRevision: store.userRevision,
@@ -26,13 +26,13 @@ function snapshotSessionVue3(qsl: LegacyQslVue3, store: RuntimeStoreVue3): Sessi
 }
 
 function sessionStillMatchesVue3(
-  qsl: LegacyQslVue3,
+  platform: ApplicationContext,
   store: RuntimeStoreVue3,
   snapshot: SessionSnapshot,
   token = snapshot.token,
 ): boolean {
   return (
-    (typeof qsl.api?.token === 'function' ? qsl.api.token() : null) === token &&
+    (typeof platform.api?.token === 'function' ? platform.api.token() : null) === token &&
     store.tokenVersion === snapshot.tokenVersion &&
     store.sessionVersion === snapshot.sessionVersion &&
     store.userRevision === snapshot.userRevision
@@ -49,7 +49,7 @@ function errorMessageVue3(err: unknown): string {
 }
 
 export function createSessionRuntimeVue3(
-  qsl: LegacyQslVue3,
+  platform: ApplicationContext,
   store: RuntimeStoreVue3,
   router: Router,
 ) {
@@ -64,7 +64,7 @@ export function createSessionRuntimeVue3(
     bootPromise = (async () => {
       let config: AppConfigVue3 = DEFAULT_CONFIG_VUE3;
       try {
-        config = (qsl.api.config ? await qsl.api.config() : await qsl.api.get<AppConfigVue3>('/api/config')) || DEFAULT_CONFIG_VUE3;
+        config = (platform.api.config ? await platform.api.config() : await platform.api.get<AppConfigVue3>('/api/config')) || DEFAULT_CONFIG_VUE3;
         store.setConfig(config);
       } catch (err) {
         store.setConfig(DEFAULT_CONFIG_VUE3);
@@ -74,7 +74,7 @@ export function createSessionRuntimeVue3(
       const current = router.currentRoute.value;
       const devToken = typeof current.query.devToken === 'string' ? current.query.devToken : null;
       if (devToken) {
-        if (config.demo) qsl.api.setToken?.(devToken);
+        if (config.demo) platform.api.setToken?.(devToken);
         try {
           const query = { ...current.query };
           delete query.devToken;
@@ -84,35 +84,35 @@ export function createSessionRuntimeVue3(
         }
       }
 
-      const snapshot = snapshotSessionVue3(qsl, store);
+      const snapshot = snapshotSessionVue3(platform, store);
       let resolvedUser: AuthUserVue3 | null = null;
       let applyBootAuth = true;
       if (snapshot.token) {
         try {
-          const data = qsl.api.auth
-            ? await qsl.api.auth.me({ skipAuthClear: true })
-            : await qsl.api.get<{ user?: AuthUserVue3 | null }>('/api/auth/me', { skipAuthClear: true });
-          if (sessionStillMatchesVue3(qsl, store, snapshot)) {
+          const data = platform.api.auth
+            ? await platform.api.auth.me({ skipAuthClear: true })
+            : await platform.api.get<{ user?: AuthUserVue3 | null }>('/api/auth/me', { skipAuthClear: true });
+          if (sessionStillMatchesVue3(platform, store, snapshot)) {
             resolvedUser = data?.user || null;
           } else {
             applyBootAuth = false;
           }
         } catch (err) {
-          if (!sessionStillMatchesVue3(qsl, store, snapshot)) {
+          if (!sessionStillMatchesVue3(platform, store, snapshot)) {
             applyBootAuth = false;
           } else if (authFailureVue3(err)) {
-            qsl.api.setToken?.(null);
+            platform.api.setToken?.(null);
           } else {
             bootError = errorMessageVue3(err) || bootError;
           }
         }
       } else {
-        applyBootAuth = sessionStillMatchesVue3(qsl, store, snapshot);
+        applyBootAuth = sessionStillMatchesVue3(platform, store, snapshot);
       }
 
       if (applyBootAuth) {
         authNotified = store.setUser(resolvedUser);
-        if (!authNotified) qsl.emit?.('auth', resolvedUser);
+        if (!authNotified) platform.emit?.('auth', resolvedUser);
       }
       store.finishBoot(bootError || null);
     })();
@@ -122,36 +122,36 @@ export function createSessionRuntimeVue3(
       await bootPromise;
     } catch (err) {
       store.finishBoot(errorMessageVue3(err));
-      qsl.emit?.('auth', store.user);
+      platform.emit?.('auth', store.user);
     }
     return bootPromise;
   }
 
   async function refreshUser(): Promise<AuthUserVue3 | null> {
-    const snapshot = snapshotSessionVue3(qsl, store);
+    const snapshot = snapshotSessionVue3(platform, store);
     if (!snapshot.token) {
       store.setUser(null);
       return null;
     }
     try {
-      const data = qsl.api.auth
-        ? await qsl.api.auth.me({ skipAuthClear: true })
-        : await qsl.api.get<{ user?: AuthUserVue3 | null }>('/api/auth/me', { skipAuthClear: true });
-      if (!sessionStillMatchesVue3(qsl, store, snapshot)) return null;
+      const data = platform.api.auth
+        ? await platform.api.auth.me({ skipAuthClear: true })
+        : await platform.api.get<{ user?: AuthUserVue3 | null }>('/api/auth/me', { skipAuthClear: true });
+      if (!sessionStillMatchesVue3(platform, store, snapshot)) return null;
       const user = data?.user || null;
       store.setUser(user);
       return user;
     } catch (err) {
-      if (authFailureVue3(err) && sessionStillMatchesVue3(qsl, store, snapshot)) {
-        qsl.api.setToken?.(null);
+      if (authFailureVue3(err) && sessionStillMatchesVue3(platform, store, snapshot)) {
+        platform.api.setToken?.(null);
         store.setUser(null);
       }
       return null;
     }
   }
 
-  qsl.boot = boot;
-  qsl.refreshUser = refreshUser;
+  platform.boot = boot;
+  platform.refreshUser = refreshUser;
   store.ready = bootPromise || Promise.resolve();
 
   return { boot, refreshUser };

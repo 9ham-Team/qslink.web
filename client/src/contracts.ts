@@ -134,7 +134,7 @@ export interface CardDetailServicesVue3 extends ServicesVue3 {
   getPublicCard(token: string, signal: AbortSignal): Promise<CardDetailResponseVue3>;
   getPopularCards(signal: AbortSignal): Promise<CardPageVue3>;
   createViewer: HomeServicesVue3['createViewer'];
-  bindShare(button: HTMLButtonElement, card: CardDetailVue3): () => void;
+  sharing: import('./sharing').SharingService;
   openExchange(card: CardDetailVue3): { close(): void } | null;
   isExchangeReady(): boolean;
   copyText(text: string, message: string): Promise<unknown>;
@@ -490,29 +490,6 @@ export interface LogbookServicesVue3 extends ServicesVue3 {
   importLotw(payload: { username: string; password: string }, signal: AbortSignal): Promise<LogbookImportResultVue3>;
 }
 
-export interface ModalActionVue3 {
-  label?: string;
-  type?: 'primary' | 'ghost' | 'danger' | 'soft' | string;
-  disabled?: boolean;
-  closeOnClick?: boolean;
-  onClick?: (instance: ModalInstanceVue3) => unknown | Promise<unknown>;
-}
-
-export interface ModalOptionsVue3 {
-  title?: string;
-  content?: string | HTMLElement | Node | null;
-  size?: 'sm' | 'md' | 'lg' | string;
-  dismissible?: boolean;
-  actions?: ModalActionVue3[];
-  onClose?: () => void;
-}
-
-export interface ModalInstanceVue3 {
-  el: HTMLElement | null;
-  body: HTMLElement;
-  close(): void;
-}
-
 export interface ConfirmOptionsVue3 {
   title?: string;
   message?: string;
@@ -521,11 +498,15 @@ export interface ConfirmOptionsVue3 {
   danger?: boolean;
 }
 
-export interface LegacyQslVue3 {
+export interface ApplicationContext {
+  pinia?: import('pinia').Pinia;
+  sharing: import('./sharing').SharingService;
+  dialogs: ReturnType<typeof import('./dialog-service').createDialogService>;
+  dispose?(): void;
   t: ServicesVue3['t'];
   i18n?: { language?: string; switching?: boolean; resetEdits?(): void; error?(source: string): string; switchLanguage?(): void };
   AVATAR_COLORS?: string[];
-  state: {
+  store: {
     user: AuthUserVue3 | null;
     config?: AppConfigVue3;
     booted?: boolean;
@@ -549,7 +530,8 @@ export interface LegacyQslVue3 {
   boot?(): Promise<void>;
   refreshUser?(): Promise<AuthUserVue3 | null>;
   footerBuildText?(build: AppConfigVue3['build']): string;
-  router?: {
+  navigation?: {
+    instance?: import('vue-router').Router;
     start?(): void;
     current?: RouteContextVue3 | null;
     render?(): void | Promise<boolean>;
@@ -557,7 +539,6 @@ export interface LegacyQslVue3 {
   };
   imageUpload?: {
     createProcessor(): ImageProcessorVue3;
-    createWorker?: () => Worker;
   };
   shareCard?: (card: unknown) => Promise<unknown>;
   setUser?: (user: AuthUserVue3 | null) => void;
@@ -581,29 +562,18 @@ export interface LegacyQslVue3 {
   card3d: {
     create: HomeServicesVue3['createViewer'];
   };
-  cardShare?: {
-    bind(button: HTMLButtonElement, card: CardDetailVue3): () => void;
-  };
   exchangeRequest?: {
     open(card: CardDetailVue3): { close(): void } | null | void;
-    recordsHtml?(exchange: ExchangeItemVue3): string;
+    closeAll?(): void;
   };
   fx?: {
-    init?(opts?: { externalBackground?: boolean }): void;
-    setExternalBackground?(enabled: boolean): void;
+    dispose?(): void;
     confetti(x: number, y: number): void;
     heartbeat?(el: HTMLElement): void;
   };
   escapeHtml(value: unknown): string;
-  pages?: Record<string, { title?: string; render(root: HTMLElement, ctx: RouteContextVue3): (() => void) | void | Promise<(() => void) | void> }>;
   copyText(text: string, message: string): Promise<unknown>;
-  modal(options: ModalOptionsVue3): ModalInstanceVue3;
   confirm?(options: ConfirmOptionsVue3): Promise<boolean>;
   on(event: string, fn: (...args: any[]) => void): () => void;
   emit?(event: string, ...args: unknown[]): void;
-  registerPage(name: string, page: { title: string; render(root: HTMLElement, ctx: RouteContextVue3): () => void }): void;
-}
-
-declare global {
-  interface Window { QSL: LegacyQslVue3 }
 }

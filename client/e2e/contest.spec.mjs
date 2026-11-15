@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 const eventPath = '/events/qsl-design-2026-11';
 const eventApi = '/api/contests/qsl-design-2026-11';
 async function sessions(request) {
@@ -11,7 +11,7 @@ async function sessions(request) {
 }
 async function authenticate(page, session, path) {
   await page.goto('/');
-  await page.evaluate(({ session, path }) => { window.QSL.api.setToken(session.token); window.QSL.setUser(session.user); window.QSL.navigate(path); }, { session, path });
+  await page.evaluate(({ session, path }) => { window.__appTest.api.setToken(session.token); window.__appTest.setUser(session.user); window.__appTest.navigate(path); }, { session, path });
 }
 async function approve(request, admin, entry) {
   if (entry.status === 'approved') return entry;
@@ -73,7 +73,7 @@ test('real registration, moderation, public work details and non-optimistic voti
     data: { startsAt: new Date(Date.now() - 60000).toISOString(), endsAt: new Date(Date.now() + 3600000).toISOString(), expectedRevision: settings.voting.revision } });
   expect(set.ok()).toBe(true);
   const work = entry.works[0];
-  await page.evaluate(path => window.QSL.navigate(path), eventPath + '/works');
+  await page.evaluate(path => window.__appTest.navigate(path), eventPath + '/works');
   await expect(page.locator('[data-work-id="' + work.id + '"]')).toBeVisible();
   await expect(page.locator('[data-vue3="qsl-design-works"] .qsl-like')).toHaveCount(0);
   await page.locator('[data-work-id="' + work.id + '"] .qsl-tile-media').click();

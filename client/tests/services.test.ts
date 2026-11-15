@@ -1,12 +1,12 @@
 // @vitest-environment node
 import { expect, it, vi } from 'vitest';
 import { createAccountServicesVue3, createCardDetailServicesVue3, createExchangeRequestServicesVue3, createServicesVue3 } from '../src/services';
-import type { CardDetailVue3, LegacyQslVue3 } from '../src/contracts';
+import type { CardDetailVue3, ApplicationContext } from '../src/contracts';
 
 it('encodes public call-sign filters and forwards abort signals through the existing client — vue3', async () => {
   const get = vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pages: 1 });
-  const qsl = { api: { get }, setQuery: vi.fn(() => { throw Error('history unavailable'); }) } as unknown as LegacyQslVue3;
-  const services = createServicesVue3(qsl);
+  const platform = { api: { get }, setQuery: vi.fn(() => { throw Error('history unavailable'); }) } as unknown as ApplicationContext;
+  const services = createServicesVue3(platform);
   const signal = new AbortController().signal;
   await services.listCards({ callSign: 'BG7/P & test', sort: 'oldest' }, 2, signal);
   const [url, options] = get.mock.calls[0];
@@ -24,14 +24,14 @@ it('forwards abort signals and preserves case-sensitive share tokens in card det
   const bind = vi.fn(() => () => {});
   const close = vi.fn();
   const open = vi.fn(() => ({ close }));
-  const qsl = {
+  const platform = {
     api: { get },
     cardShare: { bind },
     exchangeRequest: { open },
-    state: { user: null },
+    store: { user: null },
     on: vi.fn(() => () => {}),
-  } as unknown as LegacyQslVue3;
-  const services = createCardDetailServicesVue3(qsl);
+  } as unknown as ApplicationContext;
+  const services = createCardDetailServicesVue3(platform);
   const signal = new AbortController().signal;
 
   await services.getCardDetail('c/1', signal);
@@ -63,16 +63,16 @@ it('updatePassword distinguishes INVALID_CREDENTIALS 401, real session 401, and 
     return new Promise((_, rej) => { rejectLate = rej; });
   });
 
-  const qsl = {
+  const platform = {
     t: (s: string) => s,
     api: { put, token: () => token, setToken },
     setUser,
     toast,
-    state: { user: null },
+    store: { user: null },
     on: vi.fn(() => () => {}),
-  } as unknown as LegacyQslVue3;
+  } as unknown as ApplicationContext;
 
-  const services = createAccountServicesVue3(qsl);
+  const services = createAccountServicesVue3(platform);
   const signal = new AbortController().signal;
 
   // 1. INVALID_CREDENTIALS 401 preserves token and user
@@ -119,19 +119,19 @@ it('updateProfileAddress aborts on auth switch, protects new session from late 4
     return new Promise((_, rej) => { rejectPending = rej; });
   });
 
-  const qsl = {
+  const platform = {
     t: (s: string) => s,
     api: { put, token: () => token, setToken },
     setUser,
     toast,
-    state: { get user() { return user; }, set user(next) { user = next; } },
+    store: { get user() { return user; }, set user(next) { user = next; } },
     on: (_ev: string, fn: (u: unknown) => void) => {
       authHandlers.add(fn);
       return () => { authHandlers.delete(fn); };
     },
-  } as unknown as LegacyQslVue3;
+  } as unknown as ApplicationContext;
 
-  const services = createExchangeRequestServicesVue3(qsl);
+  const services = createExchangeRequestServicesVue3(platform);
   const addr = { name: '张三', phone: '', province: '', city: '南京市', line1: '中山路 1 号', postalCode: '', country: '中国' };
 
   // 1. Account switch aborts in-flight silent save and late 401 does NOT clear Account B

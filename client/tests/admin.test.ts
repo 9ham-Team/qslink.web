@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
-import type { LegacyQslVue3 } from '../src/contracts';
+import type { ApplicationContext } from '../src/contracts';
 import { beijingInput, beijingIso, normalizeTab, type AdminCard, type AdminUser } from '../src/admin/contracts';
 import { useAdmin } from '../src/admin/use-admin';
 import AdminUsers from '../src/admin/AdminUsers.vue';
@@ -14,22 +14,22 @@ import AdminEntryDialog from '../src/admin/AdminEntryDialog.vue';
 import AdminJudging from '../src/admin/AdminJudging.vue';
 
 const wrappers:VueWrapper[] = [];
-function render(component:any, qsl:LegacyQslVue3, props = {}) {
-  const wrapper = mount(component,{props:{qsl,...props},attachTo:document.body}); wrappers.push(wrapper); return wrapper;
+function render(component:any, platform:ApplicationContext, props = {}) {
+  const wrapper = mount(component,{props:{platform,...props},attachTo:document.body}); wrappers.push(wrapper); return wrapper;
 }
 function mock() {
   let token:string|null = 'token-a';
   const listeners = new Set<() => void>();
-  const qsl = {
-    t:(s:string) => s, state:{user:{id:'admin',role:'admin',username:'admin'}},
+  const platform = {
+    t:(s:string) => s, store:{user:{id:'admin',role:'admin',username:'admin'}},
     api:{ token:() => token, setToken:vi.fn((value:string|null) => {token=value;}),
       get:vi.fn().mockResolvedValue({items:[],total:0,page:1,pages:1}), put:vi.fn().mockResolvedValue({}), post:vi.fn().mockResolvedValue({}), del:vi.fn().mockResolvedValue({ok:true}) },
     on:vi.fn((_event:string,fn:() => void) => {listeners.add(fn);return () => listeners.delete(fn);}),
-    setUser:vi.fn((user:any) => {qsl.state.user = user;listeners.forEach(fn=>fn());}), toast:vi.fn(),
+    setUser:vi.fn((user:any) => {platform.store.user = user;listeners.forEach(fn=>fn());}), toast:vi.fn(),
     formatDate:(s:string) => s, formatDateTime:(s:string) => s, statusText:(s:string) => s,
     images:{apply:vi.fn()},PLACEHOLDER_IMAGE:'',AVATAR_COLORS:['#0eaf8f'],card3d:{create:vi.fn()},
   };
-  return {qsl:qsl as unknown as LegacyQslVue3, raw:qsl, change:() => {token='token-b';qsl.setUser({id:'other',role:'admin'});} };
+  return {platform:platform as unknown as ApplicationContext, raw:platform, change:() => {token='token-b';platform.setUser({id:'other',role:'admin'});} };
 }
 const user = {id:'u1',username:'user',uid:'000000001',displayName:'User',email:'u@example.test',status:'active',role:'user',avatarColor:'#22c55e',createdAt:'2026-01-01'} as AdminUser;
 const card = {id:'c1',title:'Card',status:'pending',ratio:{w:3,h:2},contestOptIn:true,contestDescription:'<img src=x onerror=alert(1)>',owner:{username:'user'}} as AdminCard;
@@ -44,18 +44,18 @@ it('normalizes tabs and converts Beijing inputs independent of device timezone',
   expect(beijingIso('')).toBeNull();
 });
 it('aborts module requests on account switch and rejects late successful responses', async () => {
-  const {qsl,raw,change} = mock(); let resolve!:(v:any)=>void;
+  const {platform,raw,change} = mock(); let resolve!:(v:any)=>void;
   raw.api.get.mockImplementation(()=>new Promise(r=>{resolve=r;}));
   let scope!:ReturnType<typeof useAdmin>;
-  const wrapper=mount(defineComponent({setup(){scope=useAdmin(qsl);return()=>h('div');}})); wrappers.push(wrapper);
+  const wrapper=mount(defineComponent({setup(){scope=useAdmin(platform);return()=>h('div');}})); wrappers.push(wrapper);
   const pending=scope.get('/api/admin/users').catch(err=>err);
   const signal=raw.api.get.mock.calls[0][1].signal; change(); expect(signal.aborted).toBe(true);
   resolve({items:[user]}); expect((await pending).name).toBe('AbortError');
 });
 it('ignores out-of-order searches and retries the failed target page', async () => {
-  const {qsl,raw}=mock();
+  const {platform,raw}=mock();
   raw.api.get.mockResolvedValue({items:[user],total:12,page:1,pages:2});
-  const wrapper=render(AdminUsers,qsl);await flushPromises();
+  const wrapper=render(AdminUsers,platform);await flushPromises();
   raw.api.get.mockRejectedValueOnce(new Error('page two failed'));
   await wrapper.find('.a-pager-btns button:last-child').trigger('click');await flushPromises();
   expect(wrapper.text()).toContain('page two failed');
@@ -71,8 +71,8 @@ it('ignores out-of-order searches and retries the failed target page', async () 
   expect(wrapper.text()).toContain('Newest');expect(wrapper.text()).not.toContain('Stale');
 });
 it('saves Unicode names and original passwords, keeps arbitrary valid avatar colors, and omits self role/status', async () => {
-  const {qsl,raw}=mock();raw.api.put.mockResolvedValue({user:{...user,id:'admin',role:'admin'}});
-  render(AdminUserDialog,qsl,{user:{...user,id:'admin',role:'admin'},action:'edit'});
+  const {platform,raw}=mock();raw.api.put.mockResolvedValue({user:{...user,id:'admin',role:'admin'}});
+  render(AdminUserDialog,platform,{user:{...user,id:'admin',role:'admin'},action:'edit'});
   const form=document.querySelector('form')!;
   const set = async (name:string,value:string) => { const input=form.querySelector<HTMLInputElement>('[name="'+name+'"]')!;input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));await flushPromises(); };
   await set('displayName','😀'.repeat(30));await set('newPassword','  Abcdef123😀  ');
@@ -82,8 +82,8 @@ it('saves Unicode names and original passwords, keeps arbitrary valid avatar col
   expect(body.avatarColor).toBe('#22c55e');expect(body).not.toHaveProperty('role');expect(body).not.toHaveProperty('status');
 });
 it('keeps a user editor open on failure and allows a successful retry', async () => {
-  const {qsl,raw}=mock();raw.api.put.mockRejectedValueOnce(Object.assign(new Error('taken'),{fields:{email:'EMAIL_TAKEN'}}));
-  const wrapper=render(AdminUserDialog,qsl,{user,action:'edit'});
+  const {platform,raw}=mock();raw.api.put.mockRejectedValueOnce(Object.assign(new Error('taken'),{fields:{email:'EMAIL_TAKEN'}}));
+  const wrapper=render(AdminUserDialog,platform,{user,action:'edit'});
   document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await flushPromises();
   expect(document.body.textContent).toContain('EMAIL_TAKEN');expect(wrapper.emitted('saved')).toBeUndefined();
   raw.api.put.mockResolvedValue({user});
@@ -91,7 +91,7 @@ it('keeps a user editor open on failure and allows a successful retry', async ()
   expect(wrapper.emitted('saved')).toHaveLength(1);
 });
 it('requires explicit card approval, escapes auto-entry description, and never sends stock', async () => {
-  const {qsl,raw}=mock();const wrapper=render(AdminCardDialog,qsl,{card,action:'approve'});
+  const {platform,raw}=mock();const wrapper=render(AdminCardDialog,platform,{card,action:'approve'});
   expect(raw.api.put).not.toHaveBeenCalled();expect(document.querySelector('img[src=x]')).toBeNull();
   expect(document.body.textContent).toContain(card.contestDescription);
   document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await flushPromises();
@@ -99,12 +99,12 @@ it('requires explicit card approval, escapes auto-entry description, and never s
   expect(wrapper.emitted('saved')).toHaveLength(1);
 });
 it('cancelling dangerous deletion sends no mutation', async () => {
-  const {qsl,raw}=mock();const wrapper=render(AdminCardDialog,qsl,{card,action:'delete'});
+  const {platform,raw}=mock();const wrapper=render(AdminCardDialog,platform,{card,action:'delete'});
   (document.querySelector('.modal-x') as HTMLButtonElement).click();await flushPromises();
   expect(wrapper.emitted('close')).toHaveLength(1);expect(raw.api.del).not.toHaveBeenCalled();
 });
 it('publishes announcements as plain text with separate event scope', async () => {
-  const {qsl,raw}=mock();const wrapper=render(AdminAnnouncements,qsl,{eventKey:'qsl-design-2026-11'});await flushPromises();
+  const {platform,raw}=mock();const wrapper=render(AdminAnnouncements,platform,{eventKey:'qsl-design-2026-11'});await flushPromises();
   await wrapper.find('button.btn-primary').trigger('click');await flushPromises();
   const form=document.querySelector('form#admin-announcement-form')!;
   for (const name of ['title','body']) { const input=form.querySelector<HTMLInputElement>('[name="'+name+'"]')!;input.value='<b>text</b>';input.dispatchEvent(new Event('input',{bubbles:true})); }
@@ -112,8 +112,8 @@ it('publishes announcements as plain text with separate event scope', async () =
   expect(raw.api.post.mock.calls[0][1]).toMatchObject({eventKey:'qsl-design-2026-11',title:'<b>text</b>',body:'<b>text</b>',displaySeconds:30});
 });
 it('preserves voting drafts after revision conflict and requires explicit refresh', async () => {
-  const {qsl,raw}=mock();raw.api.get.mockResolvedValue({voting:{revision:4,startsAt:null,endsAt:null}});
-  const wrapper=render(AdminVoting,qsl);await flushPromises();
+  const {platform,raw}=mock();raw.api.get.mockResolvedValue({voting:{revision:4,startsAt:null,endsAt:null}});
+  const wrapper=render(AdminVoting,platform);await flushPromises();
   await wrapper.find('[name=startsAt]').setValue('2026-11-20T16:00');
   await wrapper.find('[name=endsAt]').setValue('2026-11-21T16:00');
   raw.api.put.mockRejectedValueOnce(Object.assign(new Error('conflict'),{status:409}));
@@ -123,17 +123,17 @@ it('preserves voting drafts after revision conflict and requires explicit refres
   expect((wrapper.find('[name=startsAt]').element as HTMLInputElement).value).toContain('2026-11-20');
 });
 it('blocks stale contest reviews until details are refreshed', async () => {
-  const {qsl,raw}=mock();raw.api.get.mockResolvedValue({entry:{id:'e1',revision:7,status:'pending',cards:[{...card,status:'approved'}],works:[],contactEmail:'contact@test.dev'}});
-  render(AdminEntryDialog,qsl,{id:'e1'});await flushPromises();
+  const {platform,raw}=mock();raw.api.get.mockResolvedValue({entry:{id:'e1',revision:7,status:'pending',cards:[{...card,status:'approved'}],works:[],contactEmail:'contact@test.dev'}});
+  render(AdminEntryDialog,platform,{id:'e1'});await flushPromises();
   raw.api.put.mockRejectedValueOnce(Object.assign(new Error('stale'),{status:409}));
   const approve=Array.from(document.querySelectorAll<HTMLButtonElement>('.modal-actions button')).find(b=>b.textContent==='通过作品说明')!;
   approve.click();await flushPromises();expect(approve.disabled).toBe(true);
   expect(raw.api.put.mock.calls[0][1]).toMatchObject({expectedRevision:7,status:'approved'});
 });
 it('never auto-fetches judge scores and confirms starting a saved judging configuration', async () => {
-  const {qsl,raw}=mock();const judges=Array.from({length:5},(_,i)=>({userId:'u'+i,slot:i+1,username:'judge'+i}));
+  const {platform,raw}=mock();const judges=Array.from({length:5},(_,i)=>({userId:'u'+i,slot:i+1,username:'judge'+i}));
   raw.api.get.mockResolvedValue({judging:{revision:2,deadline:'2099-12-01T00:00:00.000Z',frozenAt:null,judges,totalWorks:0,canViewResults:false}});
-  const wrapper=render(AdminJudging,qsl);await flushPromises();
+  const wrapper=render(AdminJudging,platform);await flushPromises();
   expect(raw.api.get.mock.calls).toHaveLength(1);expect(wrapper.text()).not.toContain('加载人工评审结果');
   const start=wrapper.findAll('button').find(b=>b.text()==='开始并固定评审')!;
   expect(start.attributes('disabled')).toBeUndefined();await start.trigger('click');await flushPromises();
@@ -143,8 +143,8 @@ it('never auto-fetches judge scores and confirms starting a saved judging config
   expect(raw.api.post.mock.calls[0][1]).toEqual({expectedRevision:2});
 });
 it('revokes download object URLs when leaving and prevents late 401 clearing another session', async () => {
-  const {qsl,raw,change}=mock();let scope!:ReturnType<typeof useAdmin>;
-  const wrapper=mount(defineComponent({setup(){scope=useAdmin(qsl);return()=>h('div');}}));wrappers.push(wrapper);
+  const {platform,raw,change}=mock();let scope!:ReturnType<typeof useAdmin>;
+  const wrapper=mount(defineComponent({setup(){scope=useAdmin(platform);return()=>h('div');}}));wrappers.push(wrapper);
   vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,blob:async()=>new Blob(['test'])}));
   const create=vi.fn(()=> 'blob:test'), revoke=vi.fn();
   vi.stubGlobal('URL',Object.assign(URL,{createObjectURL:create,revokeObjectURL:revoke}));
@@ -152,7 +152,7 @@ it('revokes download object URLs when leaving and prevents late 401 clearing ano
   await scope.download('/api/admin/contests/qsl-design-2026-11/votes.xlsx','votes.xlsx','application/octet-stream');
   wrapper.unmount();expect(revoke).toHaveBeenCalledWith('blob:test');
   wrappers.splice(wrappers.indexOf(wrapper),1);
-  const second=mount(defineComponent({setup(){scope=useAdmin(qsl);return()=>h('div');}}));wrappers.push(second);
+  const second=mount(defineComponent({setup(){scope=useAdmin(platform);return()=>h('div');}}));wrappers.push(second);
   let resolve!:(value:any)=>void;(fetch as any).mockImplementation(()=>new Promise(r=>{resolve=r;}));
   const download=scope.download('/api/admin/contests/qsl-design-2026-11/votes.xlsx','votes.xlsx','application/octet-stream').catch(err=>err);
   change();resolve({ok:false,status:401,json:async()=>({})});await download;
@@ -161,17 +161,17 @@ it('revokes download object URLs when leaving and prevents late 401 clearing ano
 
 
 it('moves to the last valid page after deleting its final row', async () => {
-  const {qsl,raw}=mock();
+  const {platform,raw}=mock();
   raw.api.get.mockResolvedValueOnce({items:[user],total:2,page:1,pages:2});
-  const wrapper=render(AdminUsers,qsl);await flushPromises();
+  const wrapper=render(AdminUsers,platform);await flushPromises();
   raw.api.get.mockResolvedValueOnce({items:[],total:1,page:2,pages:1}).mockResolvedValueOnce({items:[user],total:1,page:1,pages:1});
   await wrapper.find('.a-pager-btns button:last-child').trigger('click');await flushPromises();
   expect(raw.api.get.mock.calls.at(-1)?.[0]).toContain('page=1');
   expect(wrapper.text()).toContain('User');
 });
 it('keeps voting writes disabled if an explicit configuration refresh fails', async () => {
-  const {qsl,raw}=mock();raw.api.get.mockResolvedValueOnce({voting:{revision:4,startsAt:null,endsAt:null}});
-  const wrapper=render(AdminVoting,qsl);await flushPromises();
+  const {platform,raw}=mock();raw.api.get.mockResolvedValueOnce({voting:{revision:4,startsAt:null,endsAt:null}});
+  const wrapper=render(AdminVoting,platform);await flushPromises();
   raw.api.get.mockRejectedValueOnce(new Error('offline'));
   await wrapper.findAll('button').find(b=>b.text()==='刷新投票配置')!.trigger('click');await flushPromises();
   expect(wrapper.text()).toContain('offline');expect(wrapper.find('[type=submit]').attributes('disabled')).toBeDefined();
@@ -181,11 +181,11 @@ it('keeps voting writes disabled if an explicit configuration refresh fails', as
 });
 it('clears loaded private judging results on a changed revision without overwriting the draft', async () => {
   vi.useFakeTimers();
-  const {qsl,raw}=mock();
+  const {platform,raw}=mock();
   const initial={revision:2,deadline:'2026-01-01T00:00:00Z',frozenAt:'2025-12-01T00:00:00Z',judges:[],totalWorks:1,canViewResults:true};
   raw.api.get.mockImplementation(async(path:string)=>path.endsWith('/results') ?
     {judges:[{slot:1}],items:[{number:1,title:'Material',complete:false,humanScore:null,scores:[{slot:1,score:5,comment:'private judge comment'}]}]} : {judging:initial});
-  const wrapper=render(AdminJudging,qsl);await flushPromises();
+  const wrapper=render(AdminJudging,platform);await flushPromises();
   try {
     await wrapper.findAll('button').find(b=>b.text()==='加载人工评审结果')!.trigger('click');await flushPromises();
     expect(wrapper.text()).toContain('private judge comment');
@@ -199,10 +199,10 @@ it('clears loaded private judging results on a changed revision without overwrit
 });
 
 it('does not treat native text-selection events as admin tab navigation', async () => {
-  const {qsl,raw}=mock();const setQuery=vi.fn();qsl.setQuery=setQuery;
+  const {platform,raw}=mock();const setQuery=vi.fn();platform.setQuery=setQuery;
   raw.api.get.mockImplementation(async(path:string)=>path==='/api/admin/stats' ?
     {users:{total:0},cards:{pending:0},exchanges:{pending:0}} : {items:[user],page:1,pages:1,total:1});
-  const wrapper=render(Admin,qsl,{ctx:{path:'/admin',params:{},query:new URLSearchParams('tab=users'),hash:''}});
+  const wrapper=render(Admin,platform,{ctx:{path:'/admin',params:{},query:new URLSearchParams('tab=users'),hash:''}});
   await flushPromises();
   await wrapper.find('input[type=search]').trigger('select');
   expect(setQuery).not.toHaveBeenCalled();

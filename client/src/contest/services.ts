@@ -1,31 +1,26 @@
 import { createServicesVue3 } from '../services';
-import type { LegacyQslVue3 } from '../contracts';
-import type { ContestLegacyVue3, ContestServicesVue3 } from './contracts';
-export function createContestServicesVue3(qsl: ContestLegacyVue3): ContestServicesVue3 {
+import type { ApplicationContext } from '../contracts';
+import type { ContestRuntime, ContestServicesVue3 } from './contracts';
+export function createContestServicesVue3(platform: ContestRuntime): ContestServicesVue3 {
   return {
-    ...createServicesVue3(qsl as unknown as LegacyQslVue3),
-    get: (path, signal) => qsl.api.get(path, { signal, cache: 'no-store' }),
-    put: (path, payload, signal) => qsl.api.put(path, payload, { signal }),
-    post: (path, payload, signal) => qsl.api.post(path, payload, { signal }),
-    currentUser: () => qsl.state.user,
-    resetEdits: () => qsl.i18n.resetEdits(),
-    scrollHash: () => { qsl.scrollToHash(); },
-    createViewer: (root, options) => qsl.card3d.create(root, options),
-    bindShare(root, card, work) {
-      const button = document.createElement('button');
-      button.className = 'btn btn-soft'; button.type = 'button'; button.textContent = qsl.t('分享作品');
-      root.replaceChildren(button);
-      const release = qsl.cardShare.bind(button, card, { contestWork: work });
-      return () => { release(); root.replaceChildren(); };
-    },
+    ...createServicesVue3(platform as unknown as ApplicationContext),
+    get: (path, signal) => platform.api.get(path, { signal, cache: 'no-store' }),
+    put: (path, payload, signal) => platform.api.put(path, payload, { signal }),
+    post: (path, payload, signal) => platform.api.post(path, payload, { signal }),
+    currentUser: () => platform.store.user,
+    resetEdits: () => platform.i18n.resetEdits(),
+    scrollHash: () => { platform.scrollToHash(); },
+    createViewer: (root, options) => platform.card3d.create(root, options),
+    sharing: platform.sharing,
+    copyText: (url, message) => platform.copyText(url,message),
     async privateImage(path, signal) {
-      if (!/^\/api\/contests\/qsl-design-2026-11\/judging\/materials\/[A-Za-z0-9_-]+\/(?:front|back)$/.test(path)) throw new Error(qsl.t('无效的评审资源地址'));
-      const token = qsl.api.token();
+      if (!/^\/api\/contests\/qsl-design-2026-11\/judging\/materials\/[A-Za-z0-9_-]+\/(?:front|back)$/.test(path)) throw new Error(platform.t('无效的评审资源地址'));
+      const token = platform.api.token();
       const response = await fetch(path, { signal, cache: 'no-store', credentials: 'same-origin', redirect: 'error', headers: { Accept: 'image/*', ...(token ? { Authorization: 'Bearer ' + token } : {}) } });
       if (!response.ok) {
-        if (response.status === 401 && token && qsl.api.token() === token) { qsl.api.setToken(null); qsl.setUser(null); }
-        let message = qsl.t('评审资源加载失败，请刷新后重试');
-        try { const body = await response.json(); if (body.error?.message) message = qsl.i18n.error(body.error.message); } catch { /* status fallback */ }
+        if (response.status === 401 && token && platform.api.token() === token) { platform.api.setToken(null); platform.setUser(null); }
+        let message = platform.t('评审资源加载失败，请刷新后重试');
+        try { const body = await response.json(); if (body.error?.message) message = platform.i18n.error(body.error.message); } catch { /* status fallback */ }
         throw Object.assign(new Error(message), { status: response.status });
       }
       return response.blob();

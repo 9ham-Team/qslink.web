@@ -1,4 +1,4 @@
-import type { CardVue3, LegacyQslVue3, ServicesVue3 } from '../contracts';
+import type { CardVue3, ApplicationContext, ServicesVue3 } from '../contracts';
 export const contestKeyVue3 = 'qsl-design-2026-11';
 export const contestPathVue3 = '/events/' + contestKeyVue3;
 export const contestApiVue3 = '/api/contests/' + contestKeyVue3;
@@ -18,21 +18,21 @@ export interface ContestServicesVue3 extends Pick<ServicesVue3, 't' | 'user' | '
   put<T>(path: string, payload: unknown, signal: AbortSignal): Promise<T>;
   post<T>(path: string, payload: unknown, signal: AbortSignal): Promise<T>;
   createViewer(root: HTMLElement, options: Record<string, unknown>): ViewerVue3;
-  bindShare(root: HTMLElement, card: ContestCardVue3, work: WorkVue3): () => void;
+  sharing: import('../sharing').SharingService;
+  copyText(url:string,message:string):Promise<unknown>;
   privateImage(path: string, signal: AbortSignal): Promise<Blob>;
   currentUser(): { uid?: string; email?: string } | null;
   resetEdits(): void;
   scrollHash(): void;
 }
-export interface ContestLegacyVue3 extends Omit<LegacyQslVue3, 'cardShare' | 'setUser'> {
-  api: LegacyQslVue3['api'] & {
+export interface ContestRuntime extends Omit<ApplicationContext, 'setUser'> {
+  api: ApplicationContext['api'] & {
     put<T>(path: string, body: unknown, options: { signal: AbortSignal }): Promise<T>;
     post<T>(path: string, body: unknown, options: { signal: AbortSignal }): Promise<T>;
     token(): string | null;
     setToken(value: string | null): void;
   };
   card3d: { create(root: HTMLElement, options: Record<string, unknown>): ViewerVue3 };
-  cardShare: { bind(button: HTMLButtonElement, card: ContestCardVue3, options: { contestWork: WorkVue3 }): () => void };
   setUser(user: null): void;
   scrollToHash(): void;
   i18n: { resetEdits(): void; error(source: string): string };

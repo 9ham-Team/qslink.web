@@ -73,7 +73,7 @@ function createShareServices(initialUser: { id?: string; uid?: string } | null =
     getPublicCard: vi.fn().mockResolvedValue({ card: makeCard(), owner: makeOwner() }),
     getPopularCards: vi.fn(),
     createViewer,
-    bindShare: vi.fn(() => () => {}),
+    sharing:{getUrl:vi.fn().mockResolvedValue('https://example.test/s/AbCdEf'),poster:vi.fn(),qr:vi.fn(()=>document.createElement('canvas'))},
     openExchange,
     isExchangeReady: () => true,
   };
