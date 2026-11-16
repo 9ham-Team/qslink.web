@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-16T12:44:45.623Z",
+  "head": "1888c0447e1ee8d39ff185e96403cc9c483f6edc",
+  "baseline": "f3289231bb3fd50941980eb146b5e5667095b034",
+  "browser": "157.0.4341.60",
+  "node": "v24.15.0",
+  "repeats": 5,
+  "data": {
+    "cards": 10,
+    "cardId": "c_113462c02d23554821595473",
+    "cardRatio": {
+      "h": 2,
+      "w": 3
+    }
+  },
+  "network": {
+    "latencyMs": 80,
+    "downloadBytesPerSecond": 200000,
+    "uploadBytesPerSecond": 93750
+  },
+  "compression": "identical gzip proxy model; not CDN measurement",
+  "cache": "cold=new context, hot=same context navigate away then back; no-cache legacy revalidates, hashed build immutable",
+  "lcpWindow": "networkidle + 700ms; no input before collection",
+  "devices": {
+    "desktop": {
+      "width": 1440,
+      "height": 1000,
+      "dpr": 1,
+      "cpuRate": 1
+    },
+    "mobile": {
+      "width": 375,
+      "height": 812,
+      "dpr": 2,
+      "cpuRate": 4
+    }
+  }
+}

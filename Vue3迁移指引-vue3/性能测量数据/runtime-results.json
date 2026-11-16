@@ -1,0 +1,2992 @@
+[
+  {
+    "version": "legacy",
+    "interactions": [
+      {
+        "kind": "search",
+        "repeat": 1,
+        "inputToResponsePaintMs": 340.79999999701977
+      },
+      {
+        "kind": "flip",
+        "repeat": 1,
+        "eventToSecondFrameMs": 14.200000002980232
+      },
+      {
+        "kind": "modal",
+        "repeat": 1,
+        "eventToSecondFrameMs": 10.900000005960464,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 1,
+        "linkToFirstUiMs": 1.2999999970197678,
+        "linkToDataPaintMs": 22.700000002980232,
+        "responseToDataPaintMs": 11.600000001490116
+      },
+      {
+        "kind": "search",
+        "repeat": 2,
+        "inputToResponsePaintMs": 342.1000000014901
+      },
+      {
+        "kind": "flip",
+        "repeat": 2,
+        "eventToSecondFrameMs": 10.700000002980232
+      },
+      {
+        "kind": "modal",
+        "repeat": 2,
+        "eventToSecondFrameMs": 10.899999998509884,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 2,
+        "linkToFirstUiMs": 0.8999999985098839,
+        "linkToDataPaintMs": 17.200000002980232,
+        "responseToDataPaintMs": 8.200000002980232
+      },
+      {
+        "kind": "search",
+        "repeat": 3,
+        "inputToResponsePaintMs": 337.80000000447035
+      },
+      {
+        "kind": "flip",
+        "repeat": 3,
+        "eventToSecondFrameMs": 7.300000004470348
+      },
+      {
+        "kind": "modal",
+        "repeat": 3,
+        "eventToSecondFrameMs": 10.900000005960464,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 3,
+        "linkToFirstUiMs": 1.2999999970197678,
+        "linkToDataPaintMs": 18.5,
+        "responseToDataPaintMs": 8.700000002980232
+      },
+      {
+        "kind": "search",
+        "repeat": 4,
+        "inputToResponsePaintMs": 341.5
+      },
+      {
+        "kind": "flip",
+        "repeat": 4,
+        "eventToSecondFrameMs": 6.899999998509884
+      },
+      {
+        "kind": "modal",
+        "repeat": 4,
+        "eventToSecondFrameMs": 11,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 4,
+        "linkToFirstUiMs": 1.2999999970197678,
+        "linkToDataPaintMs": 16.899999998509884,
+        "responseToDataPaintMs": 8
+      },
+      {
+        "kind": "search",
+        "repeat": 5,
+        "inputToResponsePaintMs": 335.79999999701977
+      },
+      {
+        "kind": "flip",
+        "repeat": 5,
+        "eventToSecondFrameMs": 9.300000004470348
+      },
+      {
+        "kind": "modal",
+        "repeat": 5,
+        "eventToSecondFrameMs": 10.700000002980232,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 5,
+        "linkToFirstUiMs": 1.0999999940395355,
+        "linkToDataPaintMs": 16.799999997019768,
+        "responseToDataPaintMs": 9
+      }
+    ],
+    "snapshots": [
+      {
+        "cycle": 0,
+        "Documents": 13,
+        "JSEventListeners": 70,
+        "Nodes": 3848,
+        "JSHeapUsedSize": 3280736,
+        "documents": 13,
+        "nodes": 3848,
+        "jsEventListeners": 70,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 1,
+        "Documents": 12,
+        "JSEventListeners": 108,
+        "Nodes": 4160,
+        "JSHeapUsedSize": 3530376,
+        "documents": 12,
+        "nodes": 4160,
+        "jsEventListeners": 108,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 2,
+        "Documents": 13,
+        "JSEventListeners": 146,
+        "Nodes": 4580,
+        "JSHeapUsedSize": 3622320,
+        "documents": 13,
+        "nodes": 4580,
+        "jsEventListeners": 146,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 3,
+        "Documents": 13,
+        "JSEventListeners": 184,
+        "Nodes": 4943,
+        "JSHeapUsedSize": 3667124,
+        "documents": 13,
+        "nodes": 4943,
+        "jsEventListeners": 184,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 4,
+        "Documents": 13,
+        "JSEventListeners": 220,
+        "Nodes": 5284,
+        "JSHeapUsedSize": 3752448,
+        "documents": 13,
+        "nodes": 5284,
+        "jsEventListeners": 220,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 5,
+        "Documents": 12,
+        "JSEventListeners": 257,
+        "Nodes": 5579,
+        "JSHeapUsedSize": 3790972,
+        "documents": 12,
+        "nodes": 5579,
+        "jsEventListeners": 257,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 6,
+        "Documents": 13,
+        "JSEventListeners": 294,
+        "Nodes": 5988,
+        "JSHeapUsedSize": 3817544,
+        "documents": 13,
+        "nodes": 5988,
+        "jsEventListeners": 294,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 7,
+        "Documents": 13,
+        "JSEventListeners": 331,
+        "Nodes": 6340,
+        "JSHeapUsedSize": 3828900,
+        "documents": 13,
+        "nodes": 6340,
+        "jsEventListeners": 331,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 8,
+        "Documents": 12,
+        "JSEventListeners": 368,
+        "Nodes": 6635,
+        "JSHeapUsedSize": 3847592,
+        "documents": 12,
+        "nodes": 6635,
+        "jsEventListeners": 368,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 9,
+        "Documents": 13,
+        "JSEventListeners": 405,
+        "Nodes": 7044,
+        "JSHeapUsedSize": 3949648,
+        "documents": 13,
+        "nodes": 7044,
+        "jsEventListeners": 405,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 10,
+        "Documents": 13,
+        "JSEventListeners": 442,
+        "Nodes": 7396,
+        "JSHeapUsedSize": 3983100,
+        "documents": 13,
+        "nodes": 7396,
+        "jsEventListeners": 442,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 11,
+        "Documents": 12,
+        "JSEventListeners": 479,
+        "Nodes": 7691,
+        "JSHeapUsedSize": 4007684,
+        "documents": 12,
+        "nodes": 7691,
+        "jsEventListeners": 479,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 12,
+        "Documents": 13,
+        "JSEventListeners": 516,
+        "Nodes": 8100,
+        "JSHeapUsedSize": 4017308,
+        "documents": 13,
+        "nodes": 8100,
+        "jsEventListeners": 516,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 13,
+        "Documents": 13,
+        "JSEventListeners": 553,
+        "Nodes": 8452,
+        "JSHeapUsedSize": 4020848,
+        "documents": 13,
+        "nodes": 8452,
+        "jsEventListeners": 553,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 14,
+        "Documents": 12,
+        "JSEventListeners": 590,
+        "Nodes": 8747,
+        "JSHeapUsedSize": 4037588,
+        "documents": 12,
+        "nodes": 8747,
+        "jsEventListeners": 590,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 15,
+        "Documents": 13,
+        "JSEventListeners": 627,
+        "Nodes": 9156,
+        "JSHeapUsedSize": 4048144,
+        "documents": 13,
+        "nodes": 9156,
+        "jsEventListeners": 627,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 16,
+        "Documents": 13,
+        "JSEventListeners": 664,
+        "Nodes": 9508,
+        "JSHeapUsedSize": 4064528,
+        "documents": 13,
+        "nodes": 9508,
+        "jsEventListeners": 664,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 17,
+        "Documents": 12,
+        "JSEventListeners": 701,
+        "Nodes": 9803,
+        "JSHeapUsedSize": 4079088,
+        "documents": 12,
+        "nodes": 9803,
+        "jsEventListeners": 701,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 18,
+        "Documents": 13,
+        "JSEventListeners": 738,
+        "Nodes": 10212,
+        "JSHeapUsedSize": 4093296,
+        "documents": 13,
+        "nodes": 10212,
+        "jsEventListeners": 738,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 19,
+        "Documents": 13,
+        "JSEventListeners": 775,
+        "Nodes": 10564,
+        "JSHeapUsedSize": 4108028,
+        "documents": 13,
+        "nodes": 10564,
+        "jsEventListeners": 775,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 20,
+        "Documents": 12,
+        "JSEventListeners": 812,
+        "Nodes": 10859,
+        "JSHeapUsedSize": 4146852,
+        "documents": 12,
+        "nodes": 10859,
+        "jsEventListeners": 812,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 21,
+        "Documents": 13,
+        "JSEventListeners": 849,
+        "Nodes": 11268,
+        "JSHeapUsedSize": 4164656,
+        "documents": 13,
+        "nodes": 11268,
+        "jsEventListeners": 849,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 22,
+        "Documents": 13,
+        "JSEventListeners": 886,
+        "Nodes": 11620,
+        "JSHeapUsedSize": 4180680,
+        "documents": 13,
+        "nodes": 11620,
+        "jsEventListeners": 886,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 23,
+        "Documents": 12,
+        "JSEventListeners": 923,
+        "Nodes": 11915,
+        "JSHeapUsedSize": 4218348,
+        "documents": 12,
+        "nodes": 11915,
+        "jsEventListeners": 923,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 24,
+        "Documents": 13,
+        "JSEventListeners": 960,
+        "Nodes": 12324,
+        "JSHeapUsedSize": 4227300,
+        "documents": 13,
+        "nodes": 12324,
+        "jsEventListeners": 960,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 25,
+        "Documents": 13,
+        "JSEventListeners": 997,
+        "Nodes": 12676,
+        "JSHeapUsedSize": 4236860,
+        "documents": 13,
+        "nodes": 12676,
+        "jsEventListeners": 997,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 26,
+        "Documents": 12,
+        "JSEventListeners": 1034,
+        "Nodes": 12971,
+        "JSHeapUsedSize": 4263356,
+        "documents": 12,
+        "nodes": 12971,
+        "jsEventListeners": 1034,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 27,
+        "Documents": 13,
+        "JSEventListeners": 1071,
+        "Nodes": 13380,
+        "JSHeapUsedSize": 4265952,
+        "documents": 13,
+        "nodes": 13380,
+        "jsEventListeners": 1071,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 28,
+        "Documents": 13,
+        "JSEventListeners": 1108,
+        "Nodes": 13732,
+        "JSHeapUsedSize": 4277760,
+        "documents": 13,
+        "nodes": 13732,
+        "jsEventListeners": 1108,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 29,
+        "Documents": 12,
+        "JSEventListeners": 1145,
+        "Nodes": 14027,
+        "JSHeapUsedSize": 4294868,
+        "documents": 12,
+        "nodes": 14027,
+        "jsEventListeners": 1145,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 30,
+        "Documents": 13,
+        "JSEventListeners": 1182,
+        "Nodes": 14436,
+        "JSHeapUsedSize": 4304820,
+        "documents": 13,
+        "nodes": 14436,
+        "jsEventListeners": 1182,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 2
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      }
+    ],
+    "beforeHeap": {
+      "detachedNodes": 3,
+      "nodeCount": 157014
+    },
+    "afterHeap": {
+      "detachedNodes": 1343,
+      "nodeCount": 226184
+    },
+    "errors": []
+  },
+  {
+    "version": "vue",
+    "interactions": [
+      {
+        "kind": "search",
+        "repeat": 1,
+        "inputToResponsePaintMs": 340.30000000447035
+      },
+      {
+        "kind": "flip",
+        "repeat": 1,
+        "eventToSecondFrameMs": 11.700000002980232
+      },
+      {
+        "kind": "modal",
+        "repeat": 1,
+        "eventToSecondFrameMs": 10.799999997019768,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 1,
+        "linkToFirstUiMs": 1.5,
+        "linkToDataPaintMs": 12,
+        "responseToDataPaintMs": 2.7999999970197678
+      },
+      {
+        "kind": "search",
+        "repeat": 2,
+        "inputToResponsePaintMs": 341.19999999552965
+      },
+      {
+        "kind": "flip",
+        "repeat": 2,
+        "eventToSecondFrameMs": 7.5999999940395355
+      },
+      {
+        "kind": "modal",
+        "repeat": 2,
+        "eventToSecondFrameMs": 11.199999995529652,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 2,
+        "linkToFirstUiMs": 1.2999999970197678,
+        "linkToDataPaintMs": 9,
+        "responseToDataPaintMs": null
+      },
+      {
+        "kind": "search",
+        "repeat": 3,
+        "inputToResponsePaintMs": 340.30000000447035
+      },
+      {
+        "kind": "flip",
+        "repeat": 3,
+        "eventToSecondFrameMs": 9.200000002980232
+      },
+      {
+        "kind": "modal",
+        "repeat": 3,
+        "eventToSecondFrameMs": 11.300000004470348,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 3,
+        "linkToFirstUiMs": 1.1999999955296516,
+        "linkToDataPaintMs": 8.199999995529652,
+        "responseToDataPaintMs": null
+      },
+      {
+        "kind": "search",
+        "repeat": 4,
+        "inputToResponsePaintMs": 336.69999999552965
+      },
+      {
+        "kind": "flip",
+        "repeat": 4,
+        "eventToSecondFrameMs": 7
+      },
+      {
+        "kind": "modal",
+        "repeat": 4,
+        "eventToSecondFrameMs": 11,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 4,
+        "linkToFirstUiMs": 1.3000000044703484,
+        "linkToDataPaintMs": 8.600000001490116,
+        "responseToDataPaintMs": null
+      },
+      {
+        "kind": "search",
+        "repeat": 5,
+        "inputToResponsePaintMs": 337.09999999403954
+      },
+      {
+        "kind": "flip",
+        "repeat": 5,
+        "eventToSecondFrameMs": 7.5
+      },
+      {
+        "kind": "modal",
+        "repeat": 5,
+        "eventToSecondFrameMs": 12,
+        "visible": true
+      },
+      {
+        "kind": "route",
+        "repeat": 5,
+        "linkToFirstUiMs": 1.7999999970197678,
+        "linkToDataPaintMs": 14,
+        "responseToDataPaintMs": null
+      }
+    ],
+    "snapshots": [
+      {
+        "cycle": 0,
+        "Documents": 13,
+        "JSEventListeners": 170,
+        "Nodes": 3811,
+        "JSHeapUsedSize": 5477888,
+        "documents": 13,
+        "nodes": 3811,
+        "jsEventListeners": 170,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 1,
+        "Documents": 13,
+        "JSEventListeners": 230,
+        "Nodes": 4197,
+        "JSHeapUsedSize": 5798508,
+        "documents": 13,
+        "nodes": 4197,
+        "jsEventListeners": 230,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 2,
+        "Documents": 13,
+        "JSEventListeners": 290,
+        "Nodes": 4576,
+        "JSHeapUsedSize": 6174040,
+        "documents": 13,
+        "nodes": 4576,
+        "jsEventListeners": 290,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 3,
+        "Documents": 13,
+        "JSEventListeners": 350,
+        "Nodes": 4955,
+        "JSHeapUsedSize": 6394476,
+        "documents": 13,
+        "nodes": 4955,
+        "jsEventListeners": 350,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 4,
+        "Documents": 13,
+        "JSEventListeners": 410,
+        "Nodes": 5334,
+        "JSHeapUsedSize": 6610720,
+        "documents": 13,
+        "nodes": 5334,
+        "jsEventListeners": 410,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 5,
+        "Documents": 13,
+        "JSEventListeners": 470,
+        "Nodes": 5713,
+        "JSHeapUsedSize": 6776700,
+        "documents": 13,
+        "nodes": 5713,
+        "jsEventListeners": 470,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 6,
+        "Documents": 13,
+        "JSEventListeners": 529,
+        "Nodes": 6079,
+        "JSHeapUsedSize": 6898400,
+        "documents": 13,
+        "nodes": 6079,
+        "jsEventListeners": 529,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 7,
+        "Documents": 13,
+        "JSEventListeners": 588,
+        "Nodes": 6445,
+        "JSHeapUsedSize": 7006196,
+        "documents": 13,
+        "nodes": 6445,
+        "jsEventListeners": 588,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 8,
+        "Documents": 13,
+        "JSEventListeners": 647,
+        "Nodes": 6811,
+        "JSHeapUsedSize": 7111536,
+        "documents": 13,
+        "nodes": 6811,
+        "jsEventListeners": 647,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 9,
+        "Documents": 13,
+        "JSEventListeners": 706,
+        "Nodes": 7177,
+        "JSHeapUsedSize": 7301492,
+        "documents": 13,
+        "nodes": 7177,
+        "jsEventListeners": 706,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 10,
+        "Documents": 13,
+        "JSEventListeners": 765,
+        "Nodes": 7543,
+        "JSHeapUsedSize": 7454420,
+        "documents": 13,
+        "nodes": 7543,
+        "jsEventListeners": 765,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 11,
+        "Documents": 13,
+        "JSEventListeners": 824,
+        "Nodes": 7909,
+        "JSHeapUsedSize": 7569944,
+        "documents": 13,
+        "nodes": 7909,
+        "jsEventListeners": 824,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 12,
+        "Documents": 13,
+        "JSEventListeners": 883,
+        "Nodes": 8275,
+        "JSHeapUsedSize": 7682252,
+        "documents": 13,
+        "nodes": 8275,
+        "jsEventListeners": 883,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 13,
+        "Documents": 13,
+        "JSEventListeners": 942,
+        "Nodes": 8641,
+        "JSHeapUsedSize": 7794096,
+        "documents": 13,
+        "nodes": 8641,
+        "jsEventListeners": 942,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 14,
+        "Documents": 13,
+        "JSEventListeners": 1001,
+        "Nodes": 9007,
+        "JSHeapUsedSize": 7900628,
+        "documents": 13,
+        "nodes": 9007,
+        "jsEventListeners": 1001,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 15,
+        "Documents": 13,
+        "JSEventListeners": 1060,
+        "Nodes": 9373,
+        "JSHeapUsedSize": 8035892,
+        "documents": 13,
+        "nodes": 9373,
+        "jsEventListeners": 1060,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 16,
+        "Documents": 13,
+        "JSEventListeners": 1119,
+        "Nodes": 9739,
+        "JSHeapUsedSize": 8177348,
+        "documents": 13,
+        "nodes": 9739,
+        "jsEventListeners": 1119,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 17,
+        "Documents": 13,
+        "JSEventListeners": 1178,
+        "Nodes": 10105,
+        "JSHeapUsedSize": 8272036,
+        "documents": 13,
+        "nodes": 10105,
+        "jsEventListeners": 1178,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 18,
+        "Documents": 13,
+        "JSEventListeners": 1237,
+        "Nodes": 10471,
+        "JSHeapUsedSize": 8472088,
+        "documents": 13,
+        "nodes": 10471,
+        "jsEventListeners": 1237,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 19,
+        "Documents": 13,
+        "JSEventListeners": 1295,
+        "Nodes": 10824,
+        "JSHeapUsedSize": 8594600,
+        "documents": 13,
+        "nodes": 10824,
+        "jsEventListeners": 1295,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 20,
+        "Documents": 13,
+        "JSEventListeners": 1354,
+        "Nodes": 11190,
+        "JSHeapUsedSize": 8704780,
+        "documents": 13,
+        "nodes": 11190,
+        "jsEventListeners": 1354,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 21,
+        "Documents": 13,
+        "JSEventListeners": 1414,
+        "Nodes": 11569,
+        "JSHeapUsedSize": 8872704,
+        "documents": 13,
+        "nodes": 11569,
+        "jsEventListeners": 1414,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 22,
+        "Documents": 13,
+        "JSEventListeners": 1473,
+        "Nodes": 11935,
+        "JSHeapUsedSize": 9000808,
+        "documents": 13,
+        "nodes": 11935,
+        "jsEventListeners": 1473,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 23,
+        "Documents": 13,
+        "JSEventListeners": 1532,
+        "Nodes": 12301,
+        "JSHeapUsedSize": 9098132,
+        "documents": 13,
+        "nodes": 12301,
+        "jsEventListeners": 1532,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 24,
+        "Documents": 13,
+        "JSEventListeners": 1591,
+        "Nodes": 12667,
+        "JSHeapUsedSize": 9211788,
+        "documents": 13,
+        "nodes": 12667,
+        "jsEventListeners": 1591,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 25,
+        "Documents": 13,
+        "JSEventListeners": 1650,
+        "Nodes": 13033,
+        "JSHeapUsedSize": 9326920,
+        "documents": 13,
+        "nodes": 13033,
+        "jsEventListeners": 1650,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 26,
+        "Documents": 13,
+        "JSEventListeners": 1709,
+        "Nodes": 13399,
+        "JSHeapUsedSize": 9423124,
+        "documents": 13,
+        "nodes": 13399,
+        "jsEventListeners": 1709,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 27,
+        "Documents": 13,
+        "JSEventListeners": 1768,
+        "Nodes": 13765,
+        "JSHeapUsedSize": 9538332,
+        "documents": 13,
+        "nodes": 13765,
+        "jsEventListeners": 1768,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 28,
+        "Documents": 13,
+        "JSEventListeners": 1827,
+        "Nodes": 14131,
+        "JSHeapUsedSize": 9646916,
+        "documents": 13,
+        "nodes": 14131,
+        "jsEventListeners": 1827,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 29,
+        "Documents": 13,
+        "JSEventListeners": 1886,
+        "Nodes": 14497,
+        "JSHeapUsedSize": 9746812,
+        "documents": 13,
+        "nodes": 14497,
+        "jsEventListeners": 1886,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      },
+      {
+        "cycle": 30,
+        "Documents": 13,
+        "JSEventListeners": 1945,
+        "Nodes": 14863,
+        "JSHeapUsedSize": 9857524,
+        "documents": 13,
+        "nodes": 14863,
+        "jsEventListeners": 1945,
+        "pendingRaf": 1,
+        "observers": [
+          {
+            "kind": "ResizeObserver",
+            "count": 5
+          },
+          {
+            "kind": "IntersectionObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          },
+          {
+            "kind": "ResizeObserver",
+            "count": 1
+          }
+        ],
+        "liveWorkers": 0,
+        "viewerCount": 0,
+        "modalCount": 0
+      }
+    ],
+    "beforeHeap": {
+      "detachedNodes": 4,
+      "nodeCount": 184876
+    },
+    "afterHeap": {
+      "detachedNodes": 6165,
+      "nodeCount": 322826
+    },
+    "errors": []
+  }
+]

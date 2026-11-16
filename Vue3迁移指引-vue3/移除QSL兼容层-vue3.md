@@ -2,6 +2,8 @@
 
 本轮在 codex/remove-qsl-runtime 实施，基于正式 dev 的 b5c466e。目标是默认站点采用 Vue 组件、Pinia / Vue Router 和标准模块，保留成熟算法；不把逐帧旋转或图片转换塞进 Vue 响应式状态。
 
+> 发布核验基线（2026-11-16）：本工作已通过 PR #72 合入 dev，后续页眉修复经 PR #73 合入。dev/44381 已发布 `1888c0447e1ee8d39ff185e96403cc9c483f6edc`，[完整 CI 与镜像发布](https://github.com/9ham-Team/qslink.web/actions/runs/43861003572) 成功。后续发布不改写这一核验基线。下文“本轮”验证和未提交说明保留为实施当时的历史记录；性能与设备收尾见 [收尾验收](性能对照与收尾验收-vue3.md)。
+
 ## 默认运行边界
 
 - client/src/application.ts 显式组装应用服务；entry.ts 导出应用模块实例，默认页面及法律页都不注册 window.QSL / self.QSL。
@@ -40,4 +42,4 @@ public/js 和 npm run start:legacy 仍作为独立的历史对照应用保留；
 - 最终补充事件异常隔离与重复解绑/重订阅回归；独立进程专项 8 项通过。Windows 最后一轮线程池全量复验停滞后已中止该轮；此前完整 177 项已通过，最终受影响模块专项再次通过。
 - 已检查桌面/手机 Vue 海报弹窗截图。原 bridge 注册卸载测试改为真实 RoutePage 迟到 chunk 不挂载测试；旧 DOM 岛测试改为 Vue 内容安全渲染、嵌套 Escape、焦点与应用清理测试，业务断言保留。
 
-本轮未改后端权限/数据库/接口，未运行后端 npm test / test:production；未进行 Docker、远端 CI、真实手机或远端部署验收。当前未提交、未推送、未部署，dev 测试站仍为 b5c466e；既有 .gitignore 的 /.zcode/ 保留。
+以上为移除兼容层在本地交付时的验证范围：当时未改后端权限/数据库/接口，未运行后端 npm test / test:production、Docker、远端 CI、真实手机或远端部署；当时尚未提交/推送/部署，测试站为 b5c466e。其后的 dev/44381 发布与完整 CI 已完成，见本文顶部当前状态；真实设备不能以 CI 替代。既有 .gitignore 的 /.zcode/ 仍保留。

@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-16T12:55:31.655Z",
+  "head": "1888c0447e1ee8d39ff185e96403cc9c483f6edc",
+  "baseline": "f3289231bb3fd50941980eb146b5e5667095b034",
+  "browser": "138.0.7204.45",
+  "node": "v24.15.0",
+  "repeats": 5,
+  "data": {
+    "cards": 10,
+    "cardId": "c_a58fe8d363bae0b1659cbdf4",
+    "cardRatio": {
+      "h": 2,
+      "w": 3
+    }
+  },
+  "network": {
+    "latencyMs": 80,
+    "downloadBytesPerSecond": 200000,
+    "uploadBytesPerSecond": 93750
+  },
+  "compression": "identical gzip proxy model; not CDN measurement",
+  "cache": "cold=CDP cache bypass; hot=cache enabled, unmeasured priming load then measured revisit; existing user cache never cleared",
+  "lcpWindow": "networkidle + 700ms; no input before collection",
+  "devices": {
+    "android": {
+      "physical": true,
+      "cpuRate": 1
+    }
+  },
+  "host": {
+    "os": "win32",
+    "release": "10.0.26100",
+    "cpu": "AMD Ryzen 5 9600X 6-Core Processor             ",
+    "logicalProcessors": 12,
+    "memoryGiB": 23
+  },
+  "device": {
+    "manufacturer": "HONOR",
+    "model": "AAK-AN00",
+    "android": "16",
+    "apiLevel": 36,
+    "physicalScreen": "1272x2800",
+    "cssViewport": "363x705",
+    "deviceScaleFactor": 3.5,
+    "foreground": "explicit bringToFront; verified native screencap; FocusEmulation disabled"
+  }
+}

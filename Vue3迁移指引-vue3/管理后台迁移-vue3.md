@@ -1,6 +1,6 @@
 # 管理后台 Vue3 迁移 — vue3
 
-本轮将 `/admin?tab=overview|users|cards|exchanges|announcements|contest` 的业务界面迁入 Vue，分支保持 `dev-vue3`。权限仍由既有 Router/Pinia 与服务端 `requireAdmin` 共同校验；未新增后台 API、权限或数据库迁移。
+本工作将 `/admin?tab=overview|users|cards|exchanges|announcements|contest` 的业务界面迁入 Vue，实施时分支为 `dev-vue3`，现已随 Vue3 正式接管 `dev` 并发布到 44381。权限仍由 Router/Pinia 与服务端 `requireAdmin` 共同校验；未新增后台 API、权限或数据库迁移。当前版本与完整 CI 见 [迁移进度](迁移进度-vue3.md#当前状态2026-11-16)，后文保留阶段验证范围。
 
 ## 实现与所有权
 
