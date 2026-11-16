@@ -642,7 +642,7 @@ export function createCard3dEngine(dependencies) {
       root.removeEventListener('pointercancel', onPointerCancel);
       root.removeEventListener('pointerenter', onPointerEnter);
       root.removeEventListener('pointerleave', onPointerLeave);
-      cardEl.removeEventListener('dblclick', onDoubleClick);
+      root.removeEventListener('dblclick', onDoubleClick);
       cardEl.removeEventListener('keydown', onKeyDown);
       if (controlsEl) controlsEl.removeEventListener('click', onControlsClick);
       if (frontImg) { frontImg.onload = null; frontImg.onerror = null; }
@@ -672,7 +672,8 @@ export function createCard3dEngine(dependencies) {
     root.addEventListener('pointercancel', onPointerCancel);
     root.addEventListener('pointerenter', onPointerEnter);
     root.addEventListener('pointerleave', onPointerLeave);
-    cardEl.addEventListener('dblclick', onDoubleClick);
+    // Pointer capture retargets native mouse clicks to root, including dblclick.
+    root.addEventListener('dblclick', onDoubleClick);
     cardEl.addEventListener('keydown', onKeyDown);
     if (controlsEl) controlsEl.addEventListener('click', onControlsClick);
 
