@@ -1,5 +1,90 @@
 import { test, expect } from './fixtures.mjs';
 
+test('English header uses one row when space permits and a menu when it cannot fit', async ({ page, request }, testInfo) => {
+  const errors = [];
+  page.on('pageerror', err => errors.push(err.message));
+  await page.setViewportSize({ width: 2248, height: 1100 });
+  await page.goto('/events/qsl-design-2026-11');
+  await page.locator('#site-header [data-language]').click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  const config = await (await request.get('/api/config')).json();
+  const account = config.demoAccounts.find(item => item.role === '普通用户');
+  const login = await (await request.post('/api/auth/login', { data: { identifier: account.id, password: account.pass } })).json();
+  await page.evaluate(session => {
+    window.__appTest.api.setToken(session.token);
+    window.__appTest.setUser(session.user);
+  }, login);
+  const header = page.locator('#site-header');
+  const nav = header.locator('.nav-links');
+  const toggle = header.locator('.nav-toggle');
+  const readLayout = () => page.evaluate(() => {
+    const rect = selector => {
+      const r = document.querySelector(selector).getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, height: r.height, width: r.width };
+    };
+    return {
+      brand: rect('#site-header .brand'), nav: rect('#site-header .nav-links'),
+      actions: rect('#site-header .nav-actions'), row: rect('.nav-main-row'),
+      panel: rect('#nav-contest-desktop'),
+      needed: parseFloat(document.querySelector('#site-header').style.getPropertyValue('--nav-required-width')),
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    };
+  });
+  await expect(nav).toBeVisible();
+  await expect(toggle).toBeHidden();
+  await expect.poll(async () => (await readLayout()).row.height).toBeLessThan(90);
+  await expect.poll(async () => {
+    const layout = await readLayout();
+    return Math.abs(layout.row.width - layout.needed);
+  }).toBeLessThan(1);
+  let layout = await readLayout();
+  expect(layout.brand.right).toBeLessThanOrEqual(layout.nav.left);
+  expect(layout.nav.right).toBeLessThanOrEqual(layout.actions.left);
+  expect(layout.panel.top).toBeGreaterThanOrEqual(layout.row.bottom);
+  expect(layout.overflow).toBe(false);
+  expect(layout.row.width).toBeGreaterThan(1240);
+  await page.screenshot({ path: testInfo.outputPath('english-wide-header.png') });
+
+  // Check both directions around the measured threshold, above the phone breakpoint.
+  const fits = Math.ceil(layout.needed + 44);
+  for (const width of [fits - 12, fits + 12, fits - 12]) {
+    await page.setViewportSize({ width, height: 1000 });
+    if (width < fits) {
+      await expect(toggle).toBeVisible();
+      await expect(nav).toBeHidden();
+    } else {
+      await expect(toggle).toBeHidden();
+      await expect(nav).toBeVisible();
+      await expect.poll(async () => (await readLayout()).row.height).toBeLessThan(90);
+    }
+    expect((await readLayout()).overflow).toBe(false);
+  }
+  await toggle.click();
+  await expect(page.locator('#nav-mobile')).toBeVisible();
+  await expect(page.locator('#nav-mobile a[href="/events/qsl-design-2026-11/registration"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#nav-mobile')).toBeHidden();
+  await toggle.click();
+  await page.setViewportSize({ width: 2248, height: 1100 });
+  await expect(toggle).toBeHidden();
+  await expect(header).not.toHaveClass(/is-menu-open/);
+  await page.locator('#site-header [data-language]').click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+  await expect(nav).toBeVisible();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.locator('#site-header [data-language]').click();
+  await toggle.click();
+  await expect(page.locator('#nav-mobile')).toBeVisible();
+  expect((await readLayout()).overflow).toBe(false);
+  await page.locator('#nav-mobile a[href="/explore"]').click();
+  await expect(page.locator('#nav-mobile')).toBeHidden();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: fits - 12, height: 1000 });
+  await toggle.click();
+  await expect(page.locator('#nav-mobile')).toHaveCSS('transform', 'none');
+  expect(errors).toEqual([]);
+});
+
 test('desktop & mobile shell navigation, contest sub-nav, footer, language switch, and #fx-layer round-trip — vue3', async ({ page, request }) => {
   const errors = [];
   const legacyShellRequests = [];
