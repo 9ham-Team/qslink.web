@@ -36,6 +36,7 @@ const userMenuOpen = ref(false);
 const mobileMenuOpen = ref(false);
 const logoutBusy = ref(false);
 const scrolled = ref(false);
+const compactHeader = ref(false);
 const menuAnchorRight = ref('32px');
 
 const desktopPanelRef = ref<HTMLElement>();
@@ -76,6 +77,7 @@ function syncHeaderClasses() {
   el.classList.toggle('is-scrolled', scrolled.value);
   el.classList.toggle('is-contest-open', contestOpen.value);
   el.classList.toggle('is-menu-open', mobileMenuOpen.value);
+  el.classList.toggle('is-nav-compact', compactHeader.value);
 }
 
 function alignContestPanel() {
@@ -218,10 +220,41 @@ function onWindowScroll() {
   });
 }
 
+function syncNavLayout() {
+  const header = getHeaderEl();
+  const links = navLinksRef.value;
+  const brand = header?.querySelector<HTMLElement>('.brand');
+  const actions = header?.querySelector<HTMLElement>('.nav-actions');
+  if (!header || !links || !brand || !actions) return;
+  const viewportWidth = document.documentElement.clientWidth;
+  let compact = viewportWidth <= 900;
+  if (isEnglish.value && !compact) {
+    // Measure the intrinsic row even while the actual navigation is folded.
+    const probe = links.cloneNode(true) as HTMLElement;
+    probe.setAttribute('aria-hidden', 'true');
+    probe.inert = true;
+    probe.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+    probe.style.cssText = 'position:fixed;left:-10000px;top:0;display:flex;width:max-content;flex:none;padding:0;margin:0;visibility:hidden;pointer-events:none';
+    header.appendChild(probe);
+    const navWidth = probe.getBoundingClientRect().width;
+    probe.remove();
+    const row = header.querySelector<HTMLElement>('.nav-main-row');
+    const gap = row ? parseFloat(getComputedStyle(row).columnGap) || 16 : 16;
+    const needed = Math.ceil(brand.getBoundingClientRect().width + navWidth + actions.getBoundingClientRect().width + gap * 2 + 2);
+    const baseline = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--container')) || 1240;
+    header.style.setProperty('--nav-required-width', Math.max(baseline, needed) + 'px');
+    compact = needed > viewportWidth - 44;
+  } else header.style.removeProperty('--nav-required-width');
+  if (compactHeader.value && !compact) closeNav();
+  compactHeader.value = compact;
+  syncHeaderClasses();
+  alignContestPanel();
+}
+
 function setupResizeObserver() {
   if (typeof ResizeObserver !== 'function') return;
   resizeObserver?.disconnect();
-  resizeObserver = new ResizeObserver(alignContestPanel);
+  resizeObserver = new ResizeObserver(syncNavLayout);
   const headerEl = getHeaderEl();
   if (!headerEl) return;
   ['.nav-main-row', '.nav-links', '.nav-actions', '.brand', '.nav-links [data-contest-toggle]'].forEach(selector => {
@@ -246,21 +279,23 @@ watch(
     logoutBusy.value = false;
     void nextTick(() => {
       setupResizeObserver();
-      alignContestPanel();
+      syncNavLayout();
     });
   },
 );
 
+watch(isEnglish, () => { void nextTick(syncNavLayout); });
 watch([contestOpen, mobileMenuOpen], syncHeaderClasses);
 
 onMounted(() => {
   scrolled.value = window.scrollY > 8;
   syncHeaderClasses();
   setupResizeObserver();
-  alignContestPanel();
+  syncNavLayout();
   document.addEventListener('click', onDocumentClick);
   document.addEventListener('keydown', onDocumentKeydown);
   window.addEventListener('scroll', onWindowScroll, { passive: true });
+  window.addEventListener('resize', syncNavLayout);
 });
 
 onBeforeUnmount(() => {
@@ -273,9 +308,11 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick);
   document.removeEventListener('keydown', onDocumentKeydown);
   window.removeEventListener('scroll', onWindowScroll);
+  window.removeEventListener('resize', syncNavLayout);
   const el = getHeaderEl();
   if (el) {
-    el.classList.remove('is-scrolled', 'is-contest-open', 'is-menu-open');
+    el.classList.remove('is-scrolled', 'is-contest-open', 'is-menu-open', 'is-nav-compact');
+    el.style.removeProperty('--nav-required-width');
     delete el.dataset.vue3;
   }
 });

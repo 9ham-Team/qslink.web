@@ -584,19 +584,79 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   }
 }
 
+/* Shared folded-menu appearance for phone and measured desktop compaction. */
+.nav-toggle {
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  background: rgba(255, 255, 255, 0.6);
+}
+.nav-mobile {
+  position: fixed;
+  top: var(--nav-h);
+  left: 0;
+  right: 0;
+  z-index: 49;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 22px 22px;
+  background: rgba(249, 254, 252, 0.98);
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(20px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-10px);
+  clip-path: inset(0 0 100% 0);
+  transition:
+    opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    clip-path 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 0.32s;
+}
+.nav-mobile.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  clip-path: inset(0 0 -40px 0);
+  transition:
+    opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    clip-path 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s;
+}
+.nav-mobile a,
+.nav-mobile .nav-contest-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.nav-mobile a:hover,
+.nav-mobile a.is-active { background: var(--brand-soft); color: var(--brand-deep); }
+.nav-mobile .btn { margin-top: 8px; }
+.nav-mobile .nav-contest-toggle { width: 100%; }
+.nav-mobile .nav-contest-toggle > span { min-width: 0; overflow-wrap: anywhere; }
+.nav-mobile .nav-contest-toggle > .icon:last-child { margin-left: auto; }
+.nav-mobile .nav-contest-toggle:hover,
+.nav-mobile .nav-contest-toggle.is-active { color: var(--brand-deep); background: var(--brand-soft); }
+.nav-mobile .nav-contest-links { flex-direction: column; gap: 4px; padding: 6px 6px 8px 22px; }
+.nav-mobile .nav-contest-links a { min-width: 0; padding: 10px 14px; }
+
 @media (max-width: 900px) {
   .nav-links { display: none; }
   .nav-toggle {
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 42px;
-    height: 42px;
-    flex: 0 0 auto;
-    border-radius: 12px;
-    border: 1px solid var(--line);
-    color: var(--ink-2);
-    background: rgba(255, 255, 255, 0.6);
   }
   .nav-shell { gap: 10px; }
   .nav-actions { margin-left: auto; }
@@ -605,66 +665,28 @@ html[lang="en"] .brand-text small { letter-spacing: 0; }
   .nav-guest .btn-ghost { display: none; }
   .site-header.is-menu-open { background: rgba(249, 254, 252, 0.97); }
   .nav-mobile {
-    position: fixed;
-    top: var(--nav-h);
-    left: 0;
-    right: 0;
-    z-index: 49;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 14px 22px 22px;
-    background: rgba(249, 254, 252, 0.98);
-    border-bottom: 1px solid var(--line);
-    box-shadow: var(--shadow-md);
-    backdrop-filter: blur(20px);
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transform: translateY(-10px);
-    clip-path: inset(0 0 100% 0);
-    transition:
-      opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-      transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-      clip-path 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-      visibility 0s linear 0.32s;
   }
-  .nav-mobile.is-open {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-    transform: none;
-    clip-path: inset(0 0 -40px 0);
-    transition:
-      opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-      transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-      clip-path 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-      visibility 0s;
-  }
-  .nav-mobile a,
-  .nav-mobile .nav-contest-toggle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 13px 14px;
-    border-radius: 12px;
-    font-weight: 600;
-    color: var(--ink-2);
-  }
-  .nav-mobile a:hover,
-  .nav-mobile a.is-active { background: var(--brand-soft); color: var(--brand-deep); }
-  .nav-mobile .btn { margin-top: 8px; }
   .nav-shell > .nav-contest-panel { display: none; }
   .nav-contest-group { min-width: 0; }
-  .nav-mobile .nav-contest-toggle { width: 100%; }
-  .nav-mobile .nav-contest-toggle > span { min-width: 0; overflow-wrap: anywhere; }
-  .nav-mobile .nav-contest-toggle > .icon:last-child { margin-left: auto; }
-  .nav-mobile .nav-contest-toggle:hover,
-  .nav-mobile .nav-contest-toggle.is-active { color: var(--brand-deep); background: var(--brand-soft); }
-  .nav-mobile .nav-contest-links { flex-direction: column; gap: 4px; padding: 6px 6px 8px 22px; }
-  .nav-mobile .nav-contest-links a { min-width: 0; padding: 10px 14px; }
   .site-header .nav-shell,
   .site-header.is-contest-open .nav-shell { width: calc(100% - 44px); }
+}
+
+/* Vue English desktop expands only as far as its content requires. */
+@media (min-width: 901px) {
+  html[lang="en"] .site-header[data-vue3="header"] .nav-shell { width: min(calc(100% - 44px), var(--nav-required-width, var(--container))); }
+  html[lang="en"] .site-header[data-vue3="header"] .nav-main-row { flex-wrap: nowrap; }
+  html[lang="en"] .site-header[data-vue3="header"] .nav-links { order: 0; flex: 0 0 auto; padding: 0; overflow: visible; }
+  .site-header[data-vue3="header"].is-nav-compact .nav-links { display: none; }
+  .site-header[data-vue3="header"].is-nav-compact .nav-toggle { display: inline-flex; }
+  .site-header[data-vue3="header"].is-nav-compact .nav-mobile { display: flex; }
+  .site-header[data-vue3="header"].is-nav-compact .nav-shell > .nav-contest-panel { display: none; }
+  .site-header[data-vue3="header"].is-nav-compact .nav-contest-group { min-width: 0; }
+  .site-header[data-vue3="header"].is-nav-compact.is-menu-open { background: rgba(249, 254, 252, .97); }
+}
+@media (min-width: 901px) and (prefers-reduced-motion: reduce) {
+  .site-header[data-vue3="header"].is-nav-compact .nav-mobile { transform: none; clip-path: none; transition: none; }
 }
 @media (max-width: 900px) {
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; }
