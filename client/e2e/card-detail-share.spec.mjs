@@ -1,5 +1,37 @@
 import { test, expect } from './fixtures.mjs';
 
+test('3D preview double click flips both ways with real pointer capture', async ({ page, request }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const { items } = await (await request.get('/api/cards?limit=12')).json();
+  await page.goto('/card/' + items.find(card => card.backImage).id);
+  const card = page.locator('.g-detail .card3d-card').first();
+  const side = page.locator('.g-detail .card3d-sr').first();
+  await expect(card).toBeVisible();
+  const image = page.locator('.g-detail .card3d-face--front img').first();
+  await expect(image).toHaveJSProperty('complete', true);
+  const src = await image.evaluate(el => el.currentSrc);
+  await card.dblclick();
+  await expect(side).toContainText('背面');
+  await expect(image).toHaveJSProperty('currentSrc', src);
+  // Wait for the existing flip debounce and for the rotating element to settle.
+  await page.waitForTimeout(400);
+  await card.dblclick();
+  await expect(side).toContainText('正面');
+  await page.waitForTimeout(400);
+  await page.locator('.g-detail [data-c3-act="flip"]').dblclick();
+  await expect(side).toContainText('背面');
+  if (testInfo.project.name === 'mobile') {
+    await page.waitForTimeout(400);
+    const box = await card.boundingBox();
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(90);
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(side).toContainText('正面');
+    await page.waitForTimeout(400);
+    await expect(side).toContainText('正面');
+  }
+});
+
 test('card detail renders 3D viewer, recommendations, Vue share control, like without viewer rebuild, and owner/404 states — vue3', async ({ page, request }, testInfo) => {
   const errors = [];
   page.on('pageerror', err => errors.push(err.message));
