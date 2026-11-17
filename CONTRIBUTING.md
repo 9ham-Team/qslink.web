@@ -1,5 +1,9 @@
 # QSLink 协作指南
 
+## Vue3 正式 dev 主线
+
+2026-11-15 用户授权原 dev → dev-outdate、dev-vue3 → dev。dev 为默认 Vue3 开发主线，新功能 PR base 为 dev；dev-outdate 只读归档。main/生产独立发布，不自动合入。默认 npm run build && npm start，44381 及现有隔离资源保持；详情见 [切换指引](Vue3迁移指引-vue3/正式dev主线切换-vue3.md)。下文 dev 均指新的 Vue3 主线。
+
 本文同时面向人类开发者和 AI agent。团队采用「从团队 dev 创建功能分支 → 团队内部 PR 整合到 dev → PR 合入团队 main → 打标签 → 手动部署 → main 回同步 dev」的流程。
 
 ## 1. 分支、远程与职责
@@ -67,7 +71,7 @@ git switch -c feature/card-search upstream/dev
 4. **仅在用户明确授权 commit 时创建提交。** 完成修改或验证不构成提交授权；未获授权时保留工作区改动并报告。
 5. 获准提交后，明确暂存本次任务文件，避免用无差别暂存把其他人的工作带入提交。
 
-项目使用 Node.js ≥ 20.9（CI 和生产镜像为 24）和 PostgreSQL 17。先执行 `npm ci` 安装锁定依赖，无需前端构建。常用检查：
+本分支使用 Node.js ≥24.15.0（CI/镜像为 Node 24）、PostgreSQL 17 和 Vue3 默认构建。执行 `npm ci --include=optional`、`npm run check`、`npm run test:unit` 和 `npm run build`；浏览器回归使用 `npm run test:e2e`。常用检查：
 
 ```powershell
 git diff --check

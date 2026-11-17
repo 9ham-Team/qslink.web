@@ -1,0 +1,261 @@
+[
+  {
+    "version": "legacy",
+    "shape": "landscape",
+    "before": {
+      "scrollY": 0,
+      "focused": true,
+      "front": "/uploads/c4f2e7d2-890c-4071-a634-ceed4819a0e1.webp?w=1280",
+      "back": "/uploads/27f32c62-2983-4ae1-a27f-4b0225fc0f65.webp?w=1280",
+      "viewport": {
+        "width": 363,
+        "height": 705,
+        "dpr": 3.5
+      },
+      "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36"
+    },
+    "after": {
+      "scrollY": 0,
+      "focused": true,
+      "front": "/uploads/c4f2e7d2-890c-4071-a634-ceed4819a0e1.webp?w=1280",
+      "back": "/uploads/27f32c62-2983-4ae1-a27f-4b0225fc0f65.webp?w=1280",
+      "overflow": false,
+      "images": [
+        {
+          "complete": true,
+          "width": 273
+        },
+        {
+          "complete": true,
+          "width": 273
+        }
+      ],
+      "visibility": []
+    },
+    "background": {
+      "focused": false,
+      "visibility": "visible"
+    },
+    "swipes": 20,
+    "explicitFlips": 9,
+    "flipSides": [
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面"
+    ],
+    "capturedFrames": 342,
+    "screencastFrames": 1024,
+    "imageRequests": [
+      "/uploads/27f32c62-2983-4ae1-a27f-4b0225fc0f65.webp?w=1280",
+      "/uploads/c4f2e7d2-890c-4071-a634-ceed4819a0e1.webp?w=1280",
+      "/uploads/27f32c62-2983-4ae1-a27f-4b0225fc0f65.webp?w=1280",
+      "/uploads/c4f2e7d2-890c-4071-a634-ceed4819a0e1.webp?w=1280"
+    ],
+    "sourceStable": true,
+    "scrollStable": true,
+    "frameMedianMs": 16.600000000000364,
+    "frameP95Ms": 16.700000000000728,
+    "errors": []
+  },
+  {
+    "version": "legacy",
+    "shape": "portrait",
+    "before": {
+      "scrollY": 0,
+      "focused": true,
+      "front": "/uploads/75c6ed4d-ea68-42e7-8c50-f07099794a01.webp?w=1280",
+      "back": "/uploads/710f1134-7ef7-476c-8ad5-748a261326b1.webp?w=1280",
+      "viewport": {
+        "width": 363,
+        "height": 705,
+        "dpr": 3.5
+      },
+      "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36"
+    },
+    "after": {
+      "scrollY": 0,
+      "focused": true,
+      "front": "/uploads/75c6ed4d-ea68-42e7-8c50-f07099794a01.webp?w=1280",
+      "back": "/uploads/710f1134-7ef7-476c-8ad5-748a261326b1.webp?w=1280",
+      "overflow": false,
+      "images": [
+        {
+          "complete": true,
+          "width": 171
+        },
+        {
+          "complete": true,
+          "width": 171
+        }
+      ],
+      "visibility": []
+    },
+    "background": {
+      "focused": false,
+      "visibility": "visible"
+    },
+    "swipes": 20,
+    "explicitFlips": 9,
+    "flipSides": [
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片背面"
+    ],
+    "capturedFrames": 362,
+    "screencastFrames": 1084,
+    "imageRequests": [],
+    "sourceStable": true,
+    "scrollStable": true,
+    "frameMedianMs": 16.600000000000364,
+    "frameP95Ms": 16.700000000000728,
+    "errors": []
+  },
+  {
+    "version": "vue",
+    "shape": "landscape",
+    "before": {
+      "scrollY": 0,
+      "focused": true,
+      "front": "/uploads/c4f2e7d2-890c-4071-a634-ceed4819a0e1.webp?w=1280",
+      "back": "/uploads/27f32c62-2983-4ae1-a27f-4b0225fc0f65.webp?w=1280",
+      "viewport": {
+        "width": 363,
+        "height": 705,
+        "dpr": 3.5
+      },
+      "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36"
+    },
+    "after": {
+      "scrollY": 0,
+      "focused": true,
+      "front": "/uploads/c4f2e7d2-890c-4071-a634-ceed4819a0e1.webp?w=1280",
+      "back": "/uploads/27f32c62-2983-4ae1-a27f-4b0225fc0f65.webp?w=1280",
+      "overflow": false,
+      "images": [
+        {
+          "complete": true,
+          "width": 273
+        },
+        {
+          "complete": true,
+          "width": 273
+        }
+      ],
+      "visibility": []
+    },
+    "background": {
+      "focused": false,
+      "visibility": "visible"
+    },
+    "swipes": 20,
+    "explicitFlips": 9,
+    "flipSides": [
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面"
+    ],
+    "capturedFrames": 396,
+    "screencastFrames": 1186,
+    "imageRequests": [
+      "/uploads/27f32c62-2983-4ae1-a27f-4b0225fc0f65.webp?w=1280",
+      "/uploads/c4f2e7d2-890c-4071-a634-ceed4819a0e1.webp?w=1280",
+      "/uploads/seed-7.svg",
+      "/uploads/seed-11.svg",
+      "/uploads/seed-5.svg",
+      "/uploads/seed-2.svg",
+      "/uploads/27f32c62-2983-4ae1-a27f-4b0225fc0f65.webp?w=1280",
+      "/uploads/c4f2e7d2-890c-4071-a634-ceed4819a0e1.webp?w=1280",
+      "/uploads/seed-7.svg",
+      "/uploads/seed-11.svg",
+      "/uploads/seed-5.svg",
+      "/uploads/seed-2.svg"
+    ],
+    "sourceStable": true,
+    "scrollStable": true,
+    "frameMedianMs": 16.600000000000364,
+    "frameP95Ms": 16.700000000000728,
+    "errors": []
+  },
+  {
+    "version": "vue",
+    "shape": "portrait",
+    "before": {
+      "scrollY": 0,
+      "focused": true,
+      "front": "/uploads/75c6ed4d-ea68-42e7-8c50-f07099794a01.webp?w=1280",
+      "back": "/uploads/710f1134-7ef7-476c-8ad5-748a261326b1.webp?w=1280",
+      "viewport": {
+        "width": 363,
+        "height": 705,
+        "dpr": 3.5
+      },
+      "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36"
+    },
+    "after": {
+      "scrollY": 0,
+      "focused": true,
+      "front": "/uploads/75c6ed4d-ea68-42e7-8c50-f07099794a01.webp?w=1280",
+      "back": "/uploads/710f1134-7ef7-476c-8ad5-748a261326b1.webp?w=1280",
+      "overflow": false,
+      "images": [
+        {
+          "complete": true,
+          "width": 171
+        },
+        {
+          "complete": true,
+          "width": 171
+        }
+      ],
+      "visibility": []
+    },
+    "background": {
+      "focused": false,
+      "visibility": "visible"
+    },
+    "swipes": 20,
+    "explicitFlips": 9,
+    "flipSides": [
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面",
+      "当前展示：卡片背面",
+      "当前展示：卡片正面"
+    ],
+    "capturedFrames": 405,
+    "screencastFrames": 1213,
+    "imageRequests": [
+      "/uploads/seed-7.svg",
+      "/uploads/seed-11.svg",
+      "/uploads/seed-5.svg",
+      "/uploads/seed-2.svg",
+      "/uploads/seed-7.svg",
+      "/uploads/seed-11.svg",
+      "/uploads/seed-5.svg",
+      "/uploads/seed-2.svg"
+    ],
+    "sourceStable": true,
+    "scrollStable": true,
+    "frameMedianMs": 16.600000000000364,
+    "frameP95Ms": 16.700000000000728,
+    "errors": []
+  }
+]

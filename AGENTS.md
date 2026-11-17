@@ -1,12 +1,22 @@
 # AGENTS.md — QSLink agent 接手指南
 
+## 正式 dev 开发线约定 — vue3
+
+用户于 2026-11-15 明确授权：原 dev 改为 dev-outdate 只读归档，dev-vue3 正式接管 dev。团队默认分支与新功能 PR base 为 dev（Vue3），先读 [主线切换指引](Vue3迁移指引-vue3/正式dev主线切换-vue3.md)。保留历史，不自动合入 main，不操作原 44380 或生产。
+
+用户于 2026-11-15 明确调整命名和默认入口：Vue3 是本线默认实现，源码、测试、配置、脚本、专用目录、生成文件和 npm 命令使用常规名称，**不再添加 -vue3 / :vue3 后缀**。例如 `client/src/pages/Space.vue`、`tools/build.mjs`、`npm run build`。迁移文档继续放在 `Vue3迁移指引-vue3/` 并保留文档的 `-vue3.md` 标识；固定入口和既有业务文件保持原路径。此前强制源码、分支和提交/PR 标题后缀的约定取消，历史提交不改写。
+
+默认 `npm run build && npm start` 提供 `dist-public/`；构建资源使用内容哈希 URL，源站在持久数据目录 `static-assets/` 中保留旧资源，CDN 规则见 [缓存指引](Vue3迁移指引-vue3/CDN缓存与资源版本化-vue3.md)。`Dockerfile`、`compose.yaml` 和 `.github/workflows/ci.yml` 均使用 Vue3 构建。`npm run start:legacy` 才提供 `public/` 的原生对照。默认应用已移除全局 QSL 兼容层，采用实际 Pinia store、Vue Router 与显式模块服务；历史原生对照不参与默认 JS 构建，详见 [模块化指引](Vue3迁移指引-vue3/移除QSL兼容层-vue3.md)。业务与安全契约保持；后台六个分区及赛事管理已迁入 `client/src/admin/`；默认构建不执行原生后台脚本。
+
+正式分支为 dev，默认镜像为 sha-<完整SHA>；44381 及原有带 vue3 名称的容器/卷/网络/锁继续隔离。deployment/deploy-dev.sh 默认 dev profile，要求 QSL_EXPECTED_REVISION；旧参数/profile 仅作兼容且不能指向 44380。提交、推送、部署仍按每次授权执行。
+
 适用于整个仓库。目标：让没有历史会话的新 agent 能定位实现、安全修改、验证并按授权交付。本文是导航与执行约定，不替代具体契约；平台指令及用户当前明确要求优先。遇到文档与实现冲突，先核对并说明，不猜测。
 
 ## 1. 先了解项目
 
 QSLink 是中文 QSL 卡片交换社区，核心功能为双面图片上传、CSS 3D 展示、审核、公开分享、点赞、换卡申请和管理后台。
 
-- **前端**：原生 HTML/CSS/JavaScript，普通 script + `window.QSL`，无前端构建步骤，无前端框架、CDN 或第三方运行时依赖。
+- **前端**：Vue 3 + TypeScript + Vite，Vue Router 4 / Pinia 管理路由与状态；`client/` 为源码，`public/` 保留共享资源和原生对照，不使用外部 CDN。
 - **后端**：Node.js 原生 HTTP 服务，CommonJS，PostgreSQL 17（`pg`），Sharp 图片缩放，服务端邮件验证码。
 - **运行环境**：Node.js ≥20.9；CI 和生产镜像使用 Node.js 24。安装锁定依赖，不随意升级。
 - **数据**：业务数据在 PostgreSQL；上传原图和派生图片位于配置的数据目录。`data/` 是运行时目录，不提交。
@@ -42,7 +52,7 @@ git log --oneline -5
 2. 保留所有既有未提交修改，包括删除、未跟踪文件和文件迁移；不替用户还原、清空或一并提交。
 3. 先阅读相关实现和调用方，再改代码。多步骤任务简要列计划，优先做最小可验证改动。
 4. 团队仓库预期为 `https://github.com/9ham-Team/qslink.web.git`，通常名为 `upstream`；`origin` 是开发者个人独立仓库，实际地址必须核对，不能假定有效 fork。
-5. 日常默认从最新 `upstream/dev` 创建功能分支（agent 默认 `codex/<主题>`），经团队内部 PR 合入 `dev`。切换分支前确认工作区安全；用户要求留在当前分支时遵循要求。
+5. 本线日常默认从最新 `upstream/dev` 创建功能分支（agent 默认 `codex/<主题>`），经团队内部 PR 合入 `dev`。切换分支前确认工作区安全；用户要求留在当前分支时遵循要求。
 6. 不把过去一次直接推送 `dev` 或部署的授权当成永久授权。用户明确要求直接推送团队 `dev` 时，核对分支、远端和快进关系后按授权执行。
 
 ## 3. 实现地图与修改约束
@@ -51,20 +61,22 @@ git log --oneline -5
 
 | 文件 | 职责 |
 | --- | --- |
-| `public/index.html` | CSS/script 加载顺序；新增普通脚本需显式引入 |
-| `public/js/core.js` | QSL 全局、路由、状态、事件与通用工具 |
-| `public/js/api.js` | API 封装、token、错误及会话失效处理 |
-| `public/js/ui.js` | toast、modal、表单、卡片缩略图等共享 UI |
-| `public/js/images.js` | `QSL.images`、srcset/sizes、按实际布局宽度选图 |
-| `public/js/card3d.js` | 双面 3D 卡片、拖拽、惯性、图片和观察器生命周期 |
-| `public/js/effects.js` | 公共背景、进场与交互动效 |
-| `public/js/pages/` | 页面 render 与清理；`app.js` 最后启动应用 |
-| `public/css/` | base → components → gallery → flows → admin → animations |
+| client/index.html / client/src/entry.ts / runtime.ts | 默认 HTML、模块启动与 CSS；public/index.html 仅作原生对照 |
+| client/src/application.ts / events.ts | 显式服务组装和应用内事件；不注册浏览器全局对象 |
+| client/src/state.ts / session.ts / router.ts | 实际 Pinia、会话和单一 Vue Router |
+| client/src/lib/api.js | 唯一 token 持有者与 HTTP/错误/401 处理 |
+| client/src/lib/images.js / card3d.js | 响应式选图与独立 3D 引擎 |
+| client/src/lib/image-upload.js / image-upload.worker.js | 图片转换、串行处理和取消 |
+| client/src/sharing.ts / components/CardShareControl.vue / PosterPreview.vue | Vue 分享 UI 与模块化 QR/海报算法 |
+| client/src/dialog-service.ts / components/Dialog.vue | Vue 组件对话框与焦点/栈管理，不返回 DOM 岛 |
+| client/src/locales/en.js / lib/i18n.js | 默认词典与语言服务 |
+| public/js/ | 仅独立原生对照与历史算法参考，不属于默认 JS 依赖 |
+| public/css/ | 共享样式源，经 Vite 哈希构建 |
 
-- 保持原生架构及既有 `QSL` API，不为小改动引入框架或构建链。
-- 页面通过 `QSL.registerPage(name, { title, render })` 注册；`render(container, ctx)` 可返回 cleanup。离开页面必须释放动画、监听、定时器和观察器。
+- 默认代码位于 client/src/：application.ts 组装显式模块服务，lib/ 为算法与 API，state.ts / router.ts 是唯一状态/路由所有者。不得重新引入 window.QSL、状态镜像、registerPage 或 native DOM 岛；原生对照仅在 start:legacy 使用。
+- Vue 页面通过 `client/src/router.ts` 按需加载；管理后台由 `client/src/pages/Admin.vue` 及 `client/src/admin/` 渲染；原生对照继续兼容 `QSL.registerPage(name, { title, render })`，其 render 可返回 cleanup。离开页面必须释放动画、监听、定时器和观察器。
 - 样式沿用 tokens 和模块前缀：`.g-*` / `.card3d-*`、`.f-*`、`.a-*`、`.fx-*`。不要用页面规则随意覆盖共享组件。
-- 用户内容插值必须转义；优先用现有 `QSL.escapeHtml/escapeAttr`，不能直接拼入可信 HTML。
+- 用户内容插值必须转义；优先使用 Vue 文本绑定或模块化 escapeHtml，不能直接拼入可信 HTML。
 - 修改公共层时检查首页、详情、分享、编辑器等调用方；桌面和移动端都要考虑，并尊重 `prefers-reduced-motion`。
 - 图片沿用响应式图片接口。3D 旋转后的 `getBoundingClientRect()` 不是稳定布局宽度，不能据此每帧重新选图、写 src 或触发缩图请求。
 
@@ -80,8 +92,11 @@ git log --oneline -5
 
 ## 4. 本地启动与验证
 
+默认工具链要求 Node.js ≥24.15.0（CI/镜像为 Node 24）。前端检查为 `npm run check`、`npm run test:unit`、`npm run build`、`npm run test:e2e`；生成目录不提交。
+
 ```powershell
 npm ci --include=optional
+npm run build
 # 按 docs/POSTGRESQL.md 配置独立开发数据库 DATABASE_URL
 npm start
 # 开发时可改用 npm run dev；显式本地演示用 npm run demo
@@ -130,7 +145,7 @@ npm run test:production
 
 实际定义以 [.github/workflows/ci.yml](.github/workflows/ci.yml) 为准：
 
-- PR 到 dev/main、push dev/main、v* 标签及手动触发运行 CI。
+- PR/push 到 dev、main，以及 v* 标签和手动触发运行 CI；前端类型/组件/构建/浏览器与后端套件均须通过。
 - `API smoke tests` 包含测试、生产隔离、Compose 验证、镜像构建和容器启动检查。
 - 适用的非 PR 引用在测试通过后运行 `Publish image to GHCR`；PR 不发布镜像。
 - **必须查询目标完整 SHA 的运行**，测试和镜像发布均成功后才进入部署；不能用另一次绿色记录或“已入队”替代。
@@ -142,14 +157,14 @@ npm run test:production
 
 | 项目 | 预期值（执行前再次核对） |
 | --- | --- |
-| 测试入口 | `http://43.142.58.20:44380` |
-| 镜像 | `ghcr.io/9ham-team/qslink.web:dev` |
-| 应用容器 | `qslink-test-app` |
-| 网络 / 上传卷 | `qslink-test-net` / `qslink-test-uploads` |
-| 端口 / 挂载 | `44380:8787` / `/var/lib/qslink` |
+| 本线测试入口 | `http://43.142.58.20:44381` |
+| 本线镜像 | `ghcr.io/9ham-team/qslink.web:sha-<完整SHA>` |
+| 应用容器 | `qslink-test-app-vue3` |
+| 网络 / 上传卷 | `qslink-test-net-vue3` / `qslink-test-uploads-vue3` |
+| 端口 / 挂载 | `44381:8787` / `/var/lib/qslink` |
 | 更新脚本 | `deployment/deploy-dev.sh` |
 
-1. 核对团队远端 dev、目标 SHA、对应 CI 和镜像；dev 标签是浮动的，部署前后均验证 OCI revision。
+1. 本线核对团队远端 dev、目标完整 SHA、对应 CI 与固定 SHA 镜像，部署前后均验证 OCI revision。原 dev-outdate/44380 维护须另获授权并固定经核验的旧镜像 SHA/digest；归档脚本若硬编码浮动 :dev，不得原样执行，不套用本线默认入口。
 2. 使用已有且经核实的 SSH 身份和主机信任；不得硬编码本地私钥、代理、密码或禁用主机密钥检查。
 3. 记录旧容器镜像、健康、端口、网络和挂载，只查询必要字段，不打印全部环境变量。生产容器可能与测试容器同机，绝不能按通配符操作。
 4. 将当前脚本传到已确认的位置执行；它锁定部署、继承环境、保留停止的旧容器、复用数据卷并在失败时尝试恢复。不要另造命令绕过这些保护。

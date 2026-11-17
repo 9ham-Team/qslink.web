@@ -8,9 +8,11 @@
 | --- | --- | --- |
 | 向 `main`、`dev` 提交 PR | 执行 CI | 不发布 |
 | push / 合并到 `main` | 执行 CI | 成功后发布 `main`、`latest`、`sha-<完整提交SHA>` |
-| push / 合并到 `dev` | 执行 CI | 成功后发布 `dev`、`sha-<完整提交SHA>` |
+| push / 合并到 `dev` | 执行 CI | 成功后发布 `dev`、`sha-<完整提交SHA>`，兼容别名 `dev-vue3` / `sha-<完整提交SHA>-vue3` |
 | 推送 `v1.2.3` 等版本标签 | 执行 CI | 成功后发布 `1.2.3`、`1.2`、`sha-<完整提交SHA>` |
 | 在 Actions 手动运行 | 执行 CI | 仅所选 ref 为 `main`、`dev` 或 `v*` 标签时发布 |
+
+2026-11-15 起 dev 指 Vue3 正式主线，dev-outdate 仅归档、不发布镜像。兼容镜像标签不是同名分支。
 
 版本标签不会更新 `latest`；`latest` 始终跟随通过 CI 的 `main`。SemVer 标签使用 `v1.2.3` 等规范格式；不符合 SemVer 的 `v*` 标签仍有 SHA 标签，但不会生成版本号标签。
 

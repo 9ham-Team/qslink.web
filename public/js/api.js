@@ -48,9 +48,10 @@
 
   async function request(method, path, body, options) {
     const opts = options || {};
+    const requestToken = token;
     const headers = { Accept: 'application/json' };
     if (body !== undefined && body !== null) headers['Content-Type'] = 'application/json';
-    if (token) headers.Authorization = 'Bearer ' + token;
+    if (requestToken) headers.Authorization = 'Bearer ' + requestToken;
 
     let res;
     try {
@@ -80,10 +81,9 @@
       );
       // 登录态失效统一处理（登录/注册接口除外，避免误清）
       const isAuthCall = path.startsWith('/api/auth/login') || path.startsWith('/api/auth/register');
-      if (res.status === 401 && token && !opts.skipAuthClear && !isAuthCall) {
+      if (res.status === 401 && requestToken && token === requestToken && !opts.skipAuthClear && !isAuthCall) {
         setToken(null);
-        QSL.state.user = null;
-        QSL.emit('auth', null);
+        QSL.setUser(null);
         if (QSL.toast) QSL.toast(QSL.t("登录已过期，请重新登录"), 'error');
       }
       throw apiErr;

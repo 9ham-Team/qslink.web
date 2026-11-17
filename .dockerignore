@@ -9,3 +9,10 @@
 !public/
 !public/**
 server/seed.js
+
+# Frontend builder inputs
+!client/
+!client/**
+!tools/
+!tools/build.mjs
+!Dockerfile

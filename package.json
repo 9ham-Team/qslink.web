@@ -6,18 +6,24 @@
   "type": "commonjs",
   "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js",
-    "dev": "node --watch server/server.js",
-    "demo": "node tools/demo.mjs",
+    "start": "node tools/start.mjs",
+    "dev": "node tools/build.mjs && node tools/start.mjs --watch",
+    "demo": "node tools/build.mjs && node tools/demo.mjs",
+    "start:legacy": "node server/server.js",
+    "dev:legacy": "node --watch server/server.js",
     "admin:init": "node server/init-admin.js",
     "test": "node tools/run-tests.mjs smoke",
     "test:production": "node tools/run-tests.mjs production",
     "db:import-json": "node server/import-json.js",
     "db:local": "node tools/local-postgres.mjs",
-    "shot": "node tools/shot.mjs"
+    "shot": "node tools/shot.mjs",
+    "build": "node tools/build.mjs",
+    "check": "vue-tsc --project client/tsconfig.json --noEmit",
+    "test:unit": "vitest run --config client/vitest.config.mjs",
+    "test:e2e": "node tools/test-browser.mjs"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=24.15.0"
   },
   "dependencies": {
     "@alicloud/dm20151123": "1.11.0",
@@ -29,7 +35,23 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
-    "embedded-postgres": "17.10.0-beta.17"
+    "@playwright/test": "1.65.0",
+    "@vitejs/plugin-vue": "6.0.11",
+    "@vue/test-utils": "2.4.11",
+    "embedded-postgres": "17.10.0-beta.17",
+    "jsdom": "31.0.1",
+    "pinia": "3.0.4",
+    "typescript": "5.9.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0",
+    "vue": "3.5.45",
+    "vue-router": "4.6.5",
+    "vue-tsc": "3.3.14"
+  },
+  "overrides": {
+    "@vue/test-utils": {
+      "js-beautify": "1.14.8"
+    }
   },
   "license": "AGPL-3.0-only",
   "directories": {

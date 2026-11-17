@@ -26,6 +26,7 @@ const { readConfig, assertProductionData } = require('./lib/config');
 const { createAuthLimiter } = require('./lib/rate-limit');
 const { imageWidth, imageVariant } = require('./lib/image-variants');
 const contestVoting = require('./lib/contest-voting');
+const { prepareStaticAssets, IMMUTABLE } = require('./lib/static-assets');
 
 const authApi = require('./lib/api/auth');
 const meApi = require('./lib/api/me');
@@ -175,6 +176,8 @@ function sendJson(res, status, data) {
       'Content-Type': 'application/json; charset=utf-8',
       'Content-Length': payload.length,
       'Cache-Control': 'no-store',
+      'CDN-Cache-Control': 'no-store',
+      'Cloudflare-CDN-Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
     });
     res.end(payload);
@@ -191,6 +194,8 @@ function sendText(res, status, text) {
       'Content-Type': 'text/plain; charset=utf-8',
       'Content-Length': payload.length,
       'Cache-Control': 'no-store',
+      'CDN-Cache-Control': 'no-store',
+      'Cloudflare-CDN-Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
     });
     res.end(payload);
@@ -303,7 +308,9 @@ async function handleApi(req, res, { db, config, url, host }) {
   if (Buffer.isBuffer(result.body)) {
     if (res.writableEnded || res.destroyed) return;
     res.writeHead(status, { ...result.headers, 'Content-Length': result.body.length,
-      'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+      'Cache-Control': 'no-store',
+      'CDN-Cache-Control': 'no-store',
+      'Cloudflare-CDN-Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.end(result.body);
   } else {
     sendJson(res, status, result.body === undefined ? {} : result.body);
@@ -380,6 +387,8 @@ async function sendFile(res, file, { method, cache, upload = false }) {
     'Content-Type': contentTypeFor(file),
     'Content-Length': stat.size,
     'Cache-Control': cache,
+    'CDN-Cache-Control': cache,
+    'Cloudflare-CDN-Cache-Control': cache,
     'X-Content-Type-Options': 'nosniff',
   };
   if (upload) {
@@ -405,6 +414,9 @@ async function serveStatic(req, res, { config, pathname, searchParams }) {
     res.writeHead(405, {
       'Content-Type': 'text/plain; charset=utf-8',
       Allow: 'GET, HEAD',
+      'Cache-Control': 'no-store',
+      'CDN-Cache-Control': 'no-store',
+      'Cloudflare-CDN-Cache-Control': 'no-store',
     });
     res.end('Method Not Allowed');
     return;
@@ -453,12 +465,18 @@ async function serveStatic(req, res, { config, pathname, searchParams }) {
 
   let relative = decoded.replace(/^\/+/, '');
   if (relative === '') relative = 'index.html';
+  if (relative.startsWith('build/')) {
+    const retained = config.staticAssetFiles?.get(relative);
+    if (!retained) { sendText(res, 404, 'Not Found'); return; }
+    await sendFile(res, retained, { method: req.method, cache: IMMUTABLE });
+    return;
+  }
   const file = safeJoin(config.publicDir, relative);
   if (file && (await isFile(file))) {
     const noCache = /\.(?:html|css|js|mjs|json)$/i.test(file);
     await sendFile(res, file, {
       method: req.method,
-      cache: noCache ? 'no-cache' : 'public, max-age=3600',
+      cache: /\.(?:html|json)$/i.test(file) ? 'no-store' : noCache ? 'no-cache' : 'public, max-age=3600',
     });
     return;
   }
@@ -470,7 +488,7 @@ async function serveStatic(req, res, { config, pathname, searchParams }) {
   }
   await sendFile(res, path.join(config.publicDir, 'index.html'), {
     method: req.method,
-    cache: 'no-cache',
+    cache: 'no-store',
   });
 }
 
@@ -544,6 +562,7 @@ async function start({ mailTransport, exchangeMailTransport, cardReviewMailTrans
   let seeded = false;
   try {
     await fsp.mkdir(uploadsDir, { recursive: true, mode: 0o700 });
+    config.staticAssetFiles = await prepareStaticAssets(config);
 
     await db.migrate();
     await db.transaction(

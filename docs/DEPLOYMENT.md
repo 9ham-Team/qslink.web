@@ -2,7 +2,9 @@
 
 适用于单机小型社区：Node.js + PostgreSQL 17 + Caddy HTTPS。代码和测试已支持 PostgreSQL 事务；上传文件仍需独立持久化。旧 JSON 数据迁移详见 [PostgreSQL 指南](POSTGRESQL.md)。
 
-## 当前运行状态（2026-10-25）
+dev 现为 Vue3 正式开发线，默认测试发布目标是独立 44381；见 [主线切换指引](../Vue3迁移指引-vue3/正式dev主线切换-vue3.md)。下文 44380 / qslink-test-app 的旧通知重载示例仅属 dev-outdate 历史环境，不能用当前 dev 的默认脚本执行；本轮不改变生产部署。
+
+## 历史运行状态（2026-10-25）
 
 用户确认：网站已进入备案期，公网 80 和 443 端口已暂时关闭。期间通过域名或 IP 的标准 HTTP/HTTPS 公网访问不可用，属于主动暂停访问；排查时不要据此判断应用故障，也不要自行重新开放端口。待用户确认恢复后，再开放端口并检查 HTTPS 证书及续期状态。本记录为用户提供的状态，未进行服务器实测。
 
@@ -68,7 +70,7 @@ QSL_MAIL_ENV_FILE=/root/qslink-test/mail.env bash /root/deploy-dev.sh
 
 暂时没有域名时，可将 `QSL_DOMAIN` 设为服务器公网 IP，并通过 `docker compose -f compose.yaml -f compose.ip.yaml ...` 使用 IP 部署覆盖配置。它配置 Let’s Encrypt `shortlived` IP 证书、TLS-ALPN 验证和 2GB 主机的保守内存限制；仍保持 HTTPS 来源校验，不启用明文生产登录。需要支持 IP 签发的较新 Caddy、可用的出站 ACME 连接及公网 443 入站。Caddy 持久化证书并自动续期；短期证书尤其需要监测续期失败。
 
-直接运行 Node 时必须先 `npm ci --omit=dev`。必填 DATABASE_URL；生产还必须设置 NODE_ENV=production、独立绝对路径 QSL_DATA_DIR、HTTPS 的 QSL_PUBLIC_ORIGIN，并关闭 QSL_SEED_DEMO。QSL_DB_SCHEMA 默认 public。外部数据库必须按服务商要求校验 TLS。详见 POSTGRESQL.md。
+本分支默认 Dockerfile 已包含 Vue 前端构建。直接运行 Node 时先 `npm ci --include=optional` 与 `npm run build`，再执行 `npm start`；运行包可在构建后裁剪开发依赖，但须保留 dist-public 与 optional 依赖。必填 DATABASE_URL；生产还必须设置 NODE_ENV=production、独立绝对路径 QSL_DATA_DIR、HTTPS 的 QSL_PUBLIC_ORIGIN，并关闭 QSL_SEED_DEMO。QSL_DB_SCHEMA 默认 public。外部数据库必须按服务商要求校验 TLS。详见 POSTGRESQL.md。
 
 QSL_TRUST_PROXY 仅在应用端口被隔离、所有请求来自可信代理时启用。Compose 已覆盖 X-Real-IP 并隔离 app 端口。认证限流为单进程内存限流，不能替代公网网关的抗滥用保护。
 

@@ -118,7 +118,7 @@
         if (typeof scope.Worker !== 'function' || typeof scope.OffscreenCanvas !== 'function') return convert(file);
         return new Promise((resolve, reject) => {
           rejectActive = reject;
-          worker = new scope.Worker('/js/image-upload-worker.js');
+          worker = typeof QSL.imageUpload.createWorker === 'function' ? QSL.imageUpload.createWorker() : new scope.Worker('/js/image-upload-worker.js');
           const finish = () => { worker.terminate(); worker = null; rejectActive = null; };
           worker.onmessage = event => {
             finish();

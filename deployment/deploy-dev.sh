@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
-# QSLink 测试服务器：手动执行此脚本即可更新到 dev；不修改数据库或数据卷。
+# QSLink dev test deployment. Resource names retain their historical Vue3 suffix.
 set -Eeuo pipefail
 umask 077
+PROFILE=${QSL_DEPLOY_PROFILE:-dev}
+[[ "$PROFILE" == dev || "$PROFILE" == vue3 ]] || { echo '只支持 dev/44381；旧 dev-outdate/44380 使用归档分支自己的脚本。' >&2; exit 1; }
+TARGET_REVISION=${QSL_EXPECTED_REVISION:-${QSL_EXPECTED_REVISION_VUE3:-}}
+if [[ -n "${QSL_EXPECTED_REVISION:-}" && -n "${QSL_EXPECTED_REVISION_VUE3:-}" && "$QSL_EXPECTED_REVISION" != "$QSL_EXPECTED_REVISION_VUE3" ]]; then
+  echo '新旧 SHA 参数冲突。' >&2; exit 1
+fi
+[[ "$TARGET_REVISION" =~ ^[a-f0-9]{40}$ ]] || { echo '部署必须指定完整 SHA：QSL_EXPECTED_REVISION。' >&2; exit 1; }
+IMAGE="ghcr.io/9ham-team/qslink.web:sha-${TARGET_REVISION}"
+APP=qslink-test-app-vue3
+NETWORK=qslink-test-net-vue3
+VOLUME=qslink-test-uploads-vue3
+PORT=44381
+LOCK=/var/lock/qslink-deploy-dev-vue3.lock
+INITIAL_ENV_FILE=/root/qslink-vue3/app-vue3.env
 
-IMAGE=ghcr.io/9ham-team/qslink.web:dev
-APP=qslink-test-app
-NETWORK=qslink-test-net
-VOLUME=qslink-test-uploads
 MAIL_ENV_FILE=${QSL_MAIL_ENV_FILE:-}
 WEBHOOK_ENV_FILE=${QSL_WEBHOOK_ENV_FILE:-}
 [[ -z "$MAIL_ENV_FILE" || -z "$WEBHOOK_ENV_FILE" ]] || { echo '邮件与 Webhook 配置请分别重载。' >&2; exit 1; }
@@ -15,12 +25,24 @@ RELOAD_KIND=mail
 if [[ -n "$WEBHOOK_ENV_FILE" ]]; then RELOAD_KIND=webhook; fi
 
 [[ $(id -u) -eq 0 ]] || { echo '请以 root 身份执行。' >&2; exit 1; }
-exec 9>/var/lock/qslink-deploy-dev.lock
+exec 9>"$LOCK"
 flock -n 9 || { echo '已有部署任务运行中。' >&2; exit 1; }
 
-docker inspect "$APP" >/dev/null
+APP_EXISTS=0
+if docker inspect "$APP" >/dev/null 2>&1; then APP_EXISTS=1; fi
+if [[ "$APP_EXISTS" -eq 0 ]]; then
+  [[ -n "$INITIAL_ENV_FILE" && -f "$INITIAL_ENV_FILE" && ! -L "$INITIAL_ENV_FILE" ]] || { echo '缺少现有应用或 Vue3 首次部署配置。' >&2; exit 1; }
+  [[ $(stat -c '%u:%a' "$INITIAL_ENV_FILE") =~ ^0:(400|600)$ ]] || { echo 'Vue3 首次配置须属于 root，权限为 400 或 600。' >&2; exit 1; }
+fi
 docker network inspect "$NETWORK" >/dev/null
 docker volume inspect "$VOLUME" >/dev/null
+if [[ "$PROFILE" == dev || "$PROFILE" == vue3 ]]; then
+  [[ -z "$MAIL_ENV_FILE" && -z "$WEBHOOK_ENV_FILE" ]] || { echo 'Vue3 部署不重载原测试服通知配置。' >&2; exit 1; }
+  if [[ "$APP_EXISTS" -eq 1 ]]; then
+    [[ $(docker inspect "$APP" --format '{{(index (index .HostConfig.PortBindings "8787/tcp") 0).HostPort}}') == "$PORT" ]] || { echo 'Vue3 现有端口不符。' >&2; exit 1; }
+    [[ $(docker inspect "$APP" --format '{{range .Mounts}}{{if eq .Destination "/var/lib/qslink"}}{{.Name}}{{end}}{{end}}') == "$VOLUME" ]] || { echo 'Vue3 现有数据卷不符。' >&2; exit 1; }
+  fi
+fi
 
 if [[ -n "$CONFIG_ENV_FILE" ]]; then
   [[ "$CONFIG_ENV_FILE" == /* && -f "$CONFIG_ENV_FILE" && ! -L "$CONFIG_ENV_FILE" ]] || { echo '通知配置必须是绝对路径的常规文件。' >&2; exit 1; }
@@ -45,9 +67,13 @@ else
   docker pull "$IMAGE"
 fi
 # 常规部署固定刚拉取的镜像 ID；通知重载固定现有容器镜像。
-OLD_IMAGE=$(docker inspect "$APP" --format '{{.Image}}')
+OLD_IMAGE=
+if [[ "$APP_EXISTS" -eq 1 ]]; then OLD_IMAGE=$(docker inspect "$APP" --format '{{.Image}}'); fi
 NEW_IMAGE=$OLD_IMAGE
 if [[ -z "$CONFIG_ENV_FILE" ]]; then NEW_IMAGE=$(docker image inspect "$IMAGE" --format '{{.Id}}'); fi
+if [[ "$PROFILE" == dev || "$PROFILE" == vue3 ]]; then
+  [[ $(docker image inspect "$NEW_IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}') == "$TARGET_REVISION" ]] || { echo 'Vue3 镜像修订不符。' >&2; exit 1; }
+fi
 if [[ -z "$CONFIG_ENV_FILE" && "$NEW_IMAGE" == "$OLD_IMAGE" ]] && [[ $(docker inspect "$APP" --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}') == healthy ]]; then
   echo '当前已运行最新 dev 镜像且健康，无需重新部署。'
   exit 0
@@ -55,6 +81,7 @@ fi
 
 ENV_FILE=$(mktemp /tmp/qslink-deploy-env.XXXXXX)
 BACKUP="${APP}-backup-$(date +%Y%m%d%H%M%S)-$$"
+ASSET_STAGE=
 RENAMED=0
 STOPPED=0
 CREATED=0
@@ -63,6 +90,7 @@ cleanup() {
   local code=$?
   trap - EXIT INT TERM
   rm -f "$ENV_FILE"
+  if [[ "$ASSET_STAGE" == /tmp/qslink-assets.* && -d "$ASSET_STAGE" && ! -L "$ASSET_STAGE" ]]; then rm -rf -- "$ASSET_STAGE"; fi
   if [[ "$SUCCESS" -eq 0 ]]; then
     echo '部署未完成，尝试恢复原容器。' >&2
     if [[ "$CREATED" -eq 1 ]]; then
@@ -83,7 +111,11 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 # 从原容器继承环境变量，避免在脚本中存储数据库密码。
-docker inspect "$APP" --format '{{range .Config.Env}}{{println .}}{{end}}' > "$ENV_FILE"
+if [[ "$APP_EXISTS" -eq 1 ]]; then
+  docker inspect "$APP" --format '{{range .Config.Env}}{{println .}}{{end}}' > "$ENV_FILE"
+else
+  cp "$INITIAL_ENV_FILE" "$ENV_FILE"
+fi
 EXTRA_ENV_ARGS=()
 if [[ -n "$CONFIG_ENV_FILE" ]]; then
   EXTRA_ENV_ARGS=(--env-file "$CONFIG_ENV_FILE")
@@ -99,17 +131,40 @@ if [[ -n "$CONFIG_ENV_FILE" ]]; then
     '
 fi
 
+if [[ "$APP_EXISTS" -eq 1 ]]; then
+# Archive the previous image's hashed chunks before stopping it. The helper
+# only appends immutable files to the existing isolated data volume.
+ASSET_TOOL=0
+if docker run --rm --network none --read-only --entrypoint node "$NEW_IMAGE" -e 'process.exit(require("node:fs").existsSync("/app/server/lib/static-assets.js") ? 0 : 42)'; then
+  ASSET_TOOL=1
+else
+  ASSET_PROBE_CODE=$?
+  # 42 means an older image; a Docker/runtime failure must stop this deployment.
+  [[ "$ASSET_PROBE_CODE" -eq 42 ]] || exit "$ASSET_PROBE_CODE"
+fi
+if [[ "$ASSET_TOOL" -eq 1 ]]; then
+  ASSET_STAGE=$(mktemp -d /tmp/qslink-assets.XXXXXX)
+  chmod 755 "$ASSET_STAGE"
+  docker cp "$APP:/app/public/build" "$ASSET_STAGE/build"
+  docker run --rm --network none --read-only \
+    -v "$ASSET_STAGE/build:/previous-build:ro" -v "$VOLUME:/var/lib/qslink" \
+    --entrypoint node "$NEW_IMAGE" /app/server/lib/static-assets.js /previous-build /var/lib/qslink
+fi
 echo "保留原容器为 $BACKUP"
 # 先标记停止，确保 stop 被中断时也尝试恢复。
 STOPPED=1
 docker stop -t 15 "$APP" >/dev/null
 docker rename "$APP" "$BACKUP"
 RENAMED=1
+else
+  BACKUP=none-initial-vue3
+  echo '首次启动独立 Vue3 应用；失败保留数据库和上传卷。'
+fi
 
 docker create --name "$APP" \
   --network "$NETWORK" \
   --restart unless-stopped \
-  -p 44380:8787 \
+  -p "$PORT:8787" \
   --env-file "$ENV_FILE" \
   "${EXTRA_ENV_ARGS[@]}" \
   -v "$VOLUME:/var/lib/qslink" \

@@ -1,0 +1,38 @@
+[
+  {
+    "version": "legacy",
+    "stage": "before",
+    "totalDetached": 3,
+    "detachedReachableWithoutConsoleRoots": 3,
+    "detachedEditorForms": 0,
+    "editorFormsReachableWithoutConsoleRoots": 0,
+    "reachableSelfBytes": 13085847
+  },
+  {
+    "version": "legacy",
+    "stage": "after",
+    "totalDetached": 1343,
+    "detachedReachableWithoutConsoleRoots": 3,
+    "detachedEditorForms": 0,
+    "editorFormsReachableWithoutConsoleRoots": 0,
+    "reachableSelfBytes": 14660512
+  },
+  {
+    "version": "vue",
+    "stage": "before",
+    "totalDetached": 4,
+    "detachedReachableWithoutConsoleRoots": 4,
+    "detachedEditorForms": 0,
+    "editorFormsReachableWithoutConsoleRoots": 0,
+    "reachableSelfBytes": 13928240
+  },
+  {
+    "version": "vue",
+    "stage": "after",
+    "totalDetached": 6165,
+    "detachedReachableWithoutConsoleRoots": 4,
+    "detachedEditorForms": 30,
+    "editorFormsReachableWithoutConsoleRoots": 0,
+    "reachableSelfBytes": 16464757
+  }
+]
