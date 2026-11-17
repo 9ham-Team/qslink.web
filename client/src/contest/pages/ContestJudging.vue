@@ -10,9 +10,10 @@ const props = defineProps<{ services: ContestServicesVue3 }>(); const t = props.
 const endpoint = contestApiVue3 + '/judging';
 const judging = ref<JudgingVue3 | null>(null), items = ref<MaterialVue3[]>([]), selected = ref(''), filter = ref('all');
 const loading = ref(false), busy = ref(false), uncertain = ref(true), conflict = ref(false), error = ref(''), confirmation = ref(false), now = ref(Date.now());
+const refreshing = ref(false);
 const value = ref(''), comment = ref('');
 const drafts = reactive(new Map<string, { value: string; comment: string; expectedRevision: number }>());
-const scope = useContestScopeVue3(props.services, () => { clearPrivate(); loading.value = busy.value = false; if (props.services.user()) void load(false); });
+const scope = useContestScopeVue3(props.services, () => { clearPrivate(); loading.value = refreshing.value = busy.value = false; if (props.services.user()) void load(false); });
 const item = computed(() => items.value.find(work => work.id === selected.value));
 function canWriteNow() { return !!judging.value?.isOpen && !uncertain.value && !conflict.value && Date.parse(judging.value.deadline || '') > Date.now(); }
 const writable = computed(() => { void now.value; return canWriteNow(); });
@@ -28,7 +29,7 @@ function clearPrivate() { items.value = []; judging.value = null; selected.value
 function problem(failure: unknown) {
   const issue = failure as ContestErrorVue3;
   uncertain.value = true;
-  if ([401, 403, 404].includes(issue.status || 0)) { scope.renew(); loading.value = busy.value = false; clearPrivate(); }
+  if ([401, 403, 404].includes(issue.status || 0)) { scope.renew(); loading.value = refreshing.value = busy.value = false; clearPrivate(); }
   if (issue.status === 409) conflict.value = true;
   error.value = issue.message || t('加载失败');
 }
@@ -49,10 +50,10 @@ function discard() {
   if (drafts.has(selected.value) && !window.confirm(t('确定放弃此作品未保存的修改？'))) return;
   drafts.delete(selected.value); readEditor();
 }
-async function load(discardDrafts = false) {
-  if (loading.value || busy.value || confirmation.value) return;
+async function load(discardDrafts = false, quiet = false) {
+  if (loading.value || refreshing.value || busy.value || confirmation.value) return;
   if (discardDrafts && drafts.size && !window.confirm(t('刷新会放弃全部未保存修改，确定继续？'))) return;
-  const task = scope.renew(); loading.value = true;
+  const task = scope.renew(); if (quiet) refreshing.value = true; else loading.value = true;
   try {
     const data = await props.services.get<{ judging: JudgingVue3; items: MaterialVue3[] }>(endpoint, task.signal);
     if (!scope.valid(task.id)) return;
@@ -63,13 +64,13 @@ async function load(discardDrafts = false) {
     if (!data.items.some(work => work.id === selected.value)) selected.value = data.items[0]?.id || '';
     if (!drafts.has(selected.value)) readEditor();
   } catch (failure) { if (scope.valid(task.id)) problem(failure); }
-  finally { if (scope.valid(task.id)) loading.value = false; }
+  finally { if (scope.valid(task.id)) { loading.value = false; refreshing.value = false; } }
 }
 async function save() {
   if (busy.value || loading.value || !canWriteNow() || !item.value) return;
   if (!validScoreVue3(value.value, comment.value)) { error.value = t('请输入 0–10 的评分（最多一位小数），评语不能超过 1000 字。'); return; }
   const work = item.value, draft = drafts.get(work.id), task = scope.renew();
-  busy.value = true; error.value = '';
+  refreshing.value = false; busy.value = true; error.value = '';
   try {
     const data = await props.services.put<{ score: ScoreVue3; judging: JudgingVue3 }>(endpoint + '/materials/' + encodeURIComponent(work.id) + '/score',
       { expectedRevision: draft ? draft.expectedRevision : work.score?.revision || 0, score: Number(value.value), comment: comment.value }, task.signal);
@@ -81,7 +82,7 @@ async function save() {
 }
 async function complete() {
   if (!confirmation.value || !canComplete.value || !canWriteNow()) return;
-  confirmation.value = false; const task = scope.renew(); busy.value = true; error.value = '';
+  confirmation.value = false; const task = scope.renew(); refreshing.value = false; busy.value = true; error.value = '';
   try {
     const data = await props.services.post<{ judging: JudgingVue3 }>(endpoint + '/submit', { expectedRevision: judging.value!.revision }, task.signal);
     if (scope.valid(task.id)) judging.value = data.judging;
@@ -89,7 +90,7 @@ async function complete() {
   finally { if (scope.valid(task.id)) busy.value = false; }
 }
 const tick = window.setInterval(() => { now.value = Date.now(); }, 1000);
-const poll = window.setInterval(() => { void load(false); }, 30000);
+const poll = window.setInterval(() => { if (!document.hidden) void load(false, true); }, 30000);
 void load(true);
 onBeforeUnmount(() => { clearInterval(tick); clearInterval(poll); drafts.clear(); items.value = []; judging.value = null; });
 </script>

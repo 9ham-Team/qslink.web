@@ -11,8 +11,8 @@ const { withImageSlot } = require('./image-variants');
 const { badRequest, conflict, forbidden, notFound, payloadTooLarge } = require('./errors');
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_ZIP_BYTES = 64 * 1024 * 1024;
-const MAX_WORKS_PER_ZIP = 20;
+// Frozen images are capped at 256 MiB; reserve space for text and ZIP metadata.
+const MAX_ZIP_BYTES = 272 * 1024 * 1024;
 const MAX_FROZEN_BYTES = 256 * 1024 * 1024;
 const MAX_FROZEN_WORKS = 1000;
 function audit(ctx, action) {
@@ -28,16 +28,25 @@ function expected(value, revision) {
 }
 function scope(ctx) { requireContest(ctx.params.eventKey); return ctx.params.eventKey; }
 async function setting(ctx) {
-  return (await ctx.db.client.query('SELECT * FROM "contestJudging" WHERE id=$1', [scope(ctx)])).rows[0] || null;
+  const config = (await ctx.db.client.query('SELECT * FROM "contestJudging" WHERE id=$1', [scope(ctx)])).rows[0] || null;
+  if (config?.frozenAt) {
+    const all = await materials(ctx, true), active = await materials(ctx);
+    // Audit snapshots survive withdrawal; the exposed version identifies the active set.
+    if (active.length !== all.length) config.materialVersion = hash(JSON.stringify([config.materialVersion, active.map(m => m.id)]));
+  }
+  return config;
 }
 async function judges(ctx) {
   return (await ctx.db.client.query('SELECT * FROM "contestJudges" WHERE "eventKey"=$1 ORDER BY slot', [scope(ctx)])).rows;
 }
-async function materials(ctx) {
-  return (await ctx.db.client.query('SELECT * FROM "contestMaterials" WHERE "eventKey"=$1 ORDER BY number', [scope(ctx)])).rows;
+async function materials(ctx, includeInactive = false) {
+  const rows = (await ctx.db.client.query('SELECT * FROM "contestMaterials" WHERE "eventKey"=$1 ORDER BY number', [scope(ctx)])).rows;
+  if (includeInactive) return rows;
+  const eligible = new Set(ctx.db.data.contestWorks.filter(w => w.eventKey === scope(ctx) && reviewedWork(ctx.db, w)).map(w => w.id));
+  return rows.filter(m => eligible.has(m.id));
 }
 async function total(ctx) {
-  return (await ctx.db.client.query('SELECT count(*)::integer AS count FROM "contestMaterials" WHERE "eventKey"=$1', [scope(ctx)])).rows[0].count;
+  return (await materials(ctx)).length;
 }
 async function requireJudge(ctx) {
   const user = auth.requireUser(ctx);
@@ -59,11 +68,12 @@ async function judgeState(ctx, config, judge) {
 }
 async function adminState(ctx) {
   const config = await setting(ctx);
-  const counts = (await ctx.db.client.query('SELECT slot,count(*)::integer AS count FROM "contestScores" WHERE "eventKey"=$1 GROUP BY slot', [scope(ctx)])).rows;
+  const active = new Set((await materials(ctx)).map(m => m.id));
+  const scores = (await ctx.db.client.query('SELECT slot,"materialId" FROM "contestScores" WHERE "eventKey"=$1', [scope(ctx)])).rows;
   return { revision: config ? config.revision : 0, deadline: config ? iso(config.deadline) : null,
     frozenAt: config ? iso(config.frozenAt) : null, materialVersion: config ? config.materialVersion : null, totalWorks: await total(ctx),
     judges: (await judges(ctx)).map(j => ({ slot: j.slot, userId: j.userId, username: j.username, uid: j.uid,
-      displayName: j.displayName, scoredCount: counts.find(c => c.slot === j.slot)?.count || 0, submittedAt: iso(j.submittedAt) })),
+      displayName: j.displayName, scoredCount: scores.filter(s => s.slot === j.slot && active.has(s.materialId)).length, submittedAt: iso(j.submittedAt) })),
     canViewResults: !!(config && config.frozenAt && Date.now() >= new Date(config.deadline).getTime()) };
 }
 async function getSettings(ctx) {
@@ -231,7 +241,7 @@ function withNewMaterials(handler, authorize) {
       await authorize(ctx);
       const config = await setting(ctx);
       if (!isOpen(config)) return null;
-      const existing = await materials(ctx);
+      const existing = await materials(ctx, true);
       const works = publicSnapshot(ctx).filter(w => !existing.some(m => m.id === w.id));
       if (!works.length) return null;
       if (existing.length + works.length > MAX_FROZEN_WORKS) throw payloadTooLarge('冻结作品超过 1000 件');
@@ -259,7 +269,7 @@ function withNewMaterials(handler, authorize) {
           const config = await setting(ctx);
           // A competing sync/configuration change wins; the next read can retry.
           if (!isOpen(config) || config.revision !== prepared.config.revision) return false;
-          const existing = await materials(ctx);
+          const existing = await materials(ctx, true);
           const works = publicSnapshot(ctx).filter(w => !existing.some(m => m.id === w.id));
           if (JSON.stringify(works) !== JSON.stringify(prepared.works)) return false;
           const combined = [...existing, ...frozen].sort((a, b) => a.number - b.number);
@@ -310,8 +320,9 @@ async function submit(ctx) {
   const config = await setting(ctx);
   writable(config);
   expected(bodyOf(ctx).expectedRevision, judge.revision);
-  const count = (await ctx.db.client.query('SELECT count(*)::integer AS count FROM "contestScores" WHERE "eventKey"=$1 AND slot=$2', [scope(ctx), judge.slot])).rows[0].count;
-  if (count !== await total(ctx)) throw conflict('JUDGING_INCOMPLETE', '请先完成全部作品评分');
+  const active = new Set((await materials(ctx)).map(m => m.id));
+  const count = (await ctx.db.client.query('SELECT "materialId" FROM "contestScores" WHERE "eventKey"=$1 AND slot=$2', [scope(ctx), judge.slot])).rows.filter(s => active.has(s.materialId)).length;
+  if (!active.size || count !== active.size) throw conflict('JUDGING_INCOMPLETE', '请先完成全部作品评分');
   writable(config);
   const result = await ctx.db.client.query('UPDATE "contestJudges" SET "submittedAt"=clock_timestamp(),revision=revision+1 WHERE "eventKey"=$1 AND slot=$2 AND EXISTS (SELECT 1 FROM "contestJudging" WHERE id=$1 AND deadline>clock_timestamp()) RETURNING *', [scope(ctx), judge.slot]);
   if (!result.rows.length) throw conflict('JUDGING_CLOSED', '评审已截止');
@@ -385,12 +396,14 @@ async function exportMaterials(ctx) {
   auth.requireAdmin(ctx);
   const config = await setting(ctx);
   if (!config || !config.frozenAt) throw conflict('JUDGING_NOT_STARTED', '评审尚未开始');
+  const all = await materials(ctx);
+  const full = !ctx.query.has('from') && !ctx.query.has('to');
   const fromText = ctx.query.get('from'), toText = ctx.query.get('to');
-  const from = Number(fromText), to = Number(toText);
-  if (!/^[1-9]\d*$/.test(fromText || '') || !/^[1-9]\d*$/.test(toText || '') || !Number.isSafeInteger(from) || !Number.isSafeInteger(to) || to < from || to-from+1 > MAX_WORKS_PER_ZIP) {
-    throw badRequest({ range: '请指定作品编号闭区间 from/to，每包最多 20 件作品' });
+  const from = full ? all[0]?.number : Number(fromText), to = full ? all.at(-1)?.number : Number(toText);
+  if (!full && (!/^[1-9]\d*$/.test(fromText || '') || !/^[1-9]\d*$/.test(toText || '') || !Number.isSafeInteger(from) || !Number.isSafeInteger(to) || to < from)) {
+    throw badRequest({ range: '请指定有效作品编号闭区间 from/to' });
   }
-  const selected = (await materials(ctx)).filter(m => m.number >= from && m.number <= to);
+  const selected = all.filter(m => m.number >= from && m.number <= to);
   if (!selected.length) throw notFound('范围内没有冻结作品');
   const JSZip = require('jszip');
   const zip = new JSZip();
@@ -398,7 +411,7 @@ async function exportMaterials(ctx) {
   function add(name, value) {
     const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value);
     size += bytes.length;
-    if (size > MAX_ZIP_BYTES) throw payloadTooLarge('材料包超过 64MiB，请缩小作品编号范围');
+    if (size > MAX_ZIP_BYTES) throw payloadTooLarge('材料包超过 272MiB，请缩小作品编号范围');
     zip.file(name, bytes, { date: new Date(config.frozenAt) });
   }
   // Explicit allowlist: no user IDs, contacts, judge identities, comments, scores, tokens or storage keys.
@@ -418,7 +431,7 @@ async function exportMaterials(ctx) {
   add('README.txt', 'QSLink 冻结作品材料包\n仅供独立离线 AI 评审；本服务不向任何外部系统发送材料，不执行评分。\n下载不代表第三方上传或再授权许可；卡面可能含呼号、地址等个人信息，外发前须核对作者授权和平台条款。\n三名 AI 各自独立评审每件作品，0–10 分，允许 0.5 分档。模板仅为空白输入，不包含人工分数、评语或身份。\n保留 manifest 的 materialVersion 和图片 SHA-256 以核对材料一致性。本包不生成 AI 分数或总排名。\n');
   add('template.json', JSON.stringify({ materialVersion: config.materialVersion, items: selected.map(m => ({ id: m.id, number: m.number, aiScore: null, comment: '' })) }, null, 2));
   const bytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'STORE' });
-  if (bytes.length > MAX_ZIP_BYTES) throw payloadTooLarge('材料包超过 64MiB，请缩小范围');
+  if (bytes.length > MAX_ZIP_BYTES) throw payloadTooLarge('材料包超过 272MiB，请缩小范围');
   return { body: bytes, headers: { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${scope(ctx)}-materials-${from}-${to}.zip"` }, afterCommit: audit(ctx, 'materials.export') };
 }
 const adminPrefix = '/api/admin/contests/:eventKey/judging';
@@ -435,4 +448,4 @@ const routes = [
   { method: 'POST', pattern: judgePrefix + '/submit', handler: submit },
   { method: 'GET', pattern: judgePrefix + '/materials/:id/:side', handler: image },
 ];
-module.exports = { routes, MAX_IMAGE_BYTES, MAX_ZIP_BYTES, MAX_WORKS_PER_ZIP };
+module.exports = { routes, MAX_IMAGE_BYTES, MAX_ZIP_BYTES };
