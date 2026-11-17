@@ -73,6 +73,8 @@
   "数据已更新，请刷新后重试": "The data has changed. Refresh and try again.",
   "仅授权的普通用户评委可访问": "Only authorized regular-user judges may access this resource",
   "未获本赛事评委授权": "You are not assigned as a judge for this contest",
+  "还有参赛作品的评审材料未更新，请联系管理员": "Some eligible entries still need judging materials. Contact an administrator.",
+  "评审材料更新失败（作品 #{number}）：{reason}。已有材料仍可评分，请联系管理员。": "Could not update judging materials (entry #{number}): {reason}. Existing materials can still be scored. Contact an administrator.",
   "评审已截止": "The judging deadline has passed",
   "请输入含时区的有效 ISO 截止时间": "Enter a valid ISO deadline including its time zone",
   "截止时间须晚于当前时间": "The deadline must be in the future",

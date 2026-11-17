@@ -10,7 +10,7 @@ const props = defineProps<{ services: ContestServicesVue3 }>(); const t = props.
 const endpoint = contestApiVue3 + '/judging';
 const judging = ref<JudgingVue3 | null>(null), items = ref<MaterialVue3[]>([]), selected = ref(''), filter = ref('all');
 const loading = ref(false), busy = ref(false), uncertain = ref(true), conflict = ref(false), error = ref(''), confirmation = ref(false), now = ref(Date.now());
-const refreshing = ref(false);
+const refreshing = ref(false), syncError = ref('');
 const value = ref(''), comment = ref('');
 const drafts = reactive(new Map<string, { value: string; comment: string; expectedRevision: number }>());
 const scope = useContestScopeVue3(props.services, () => { clearPrivate(); loading.value = refreshing.value = busy.value = false; if (props.services.user()) void load(false); });
@@ -18,20 +18,20 @@ const item = computed(() => items.value.find(work => work.id === selected.value)
 function canWriteNow() { return !!judging.value?.isOpen && !uncertain.value && !conflict.value && Date.parse(judging.value.deadline || '') > Date.now(); }
 const writable = computed(() => { void now.value; return canWriteNow(); });
 const savedCount = computed(() => items.value.filter(work => !!work.score).length);
-const canComplete = computed(() => writable.value && !busy.value && !loading.value && !judging.value?.submittedAt && !drafts.size && !!items.value.length && savedCount.value === items.value.length);
+const canComplete = computed(() => writable.value && !syncError.value && !busy.value && !loading.value && !judging.value?.submittedAt && !drafts.size && !!items.value.length && savedCount.value === items.value.length);
 const visible = computed(() => items.value.filter(work => filter.value === 'all' || (filter.value === 'dirty' ? drafts.has(work.id) : filter.value === 'scored' ? !!work.score : !work.score)));
 const status = computed(() => !judging.value ? '' : t('已保存 {n}/{total} 件 · 未保存 {dirty} 件', { n: savedCount.value, total: items.value.length, dirty: drafts.size }) + ' · ' +
   t('材料版本：{version} · 共 {n} 件作品', { version: judging.value.materialVersion || '—', n: judging.value.totalWorks }) + ' · ' +
   t('截止时间（北京时间）：{time}', { time: beijingTimeVue3(judging.value.deadline) }) + ' · ' +
   t(!judging.value.frozenAt ? '评审尚未开始' : !writable.value ? '评审已关闭或需刷新（只读）' : judging.value.submittedAt ? '已标记完成（截止前仍可修改）' : '评审进行中'));
 useContestLeaveVue3(() => drafts.size > 0, () => t('存在未保存的评分，离开将丢失这些修改。确定离开？'));
-function clearPrivate() { items.value = []; judging.value = null; selected.value = ''; value.value = comment.value = ''; drafts.clear(); confirmation.value = false; uncertain.value = true; error.value = t('此账号没有评审权限，或评审材料不可用。'); }
+function clearPrivate() { syncError.value = ''; items.value = []; judging.value = null; selected.value = ''; value.value = comment.value = ''; drafts.clear(); confirmation.value = false; uncertain.value = true; error.value = t('此账号没有评审权限，或评审材料不可用。'); }
 function problem(failure: unknown) {
   const issue = failure as ContestErrorVue3;
   uncertain.value = true;
   if ([401, 403, 404].includes(issue.status || 0)) { scope.renew(); loading.value = refreshing.value = busy.value = false; clearPrivate(); }
   if (issue.status === 409) conflict.value = true;
-  error.value = issue.message || t('加载失败');
+  error.value = Object.values(issue.fields || {}).join('；') || issue.message || t('加载失败');
 }
 function readEditor() {
   const draft = drafts.get(selected.value);
@@ -55,10 +55,11 @@ async function load(discardDrafts = false, quiet = false) {
   if (discardDrafts && drafts.size && !window.confirm(t('刷新会放弃全部未保存修改，确定继续？'))) return;
   const task = scope.renew(); if (quiet) refreshing.value = true; else loading.value = true;
   try {
-    const data = await props.services.get<{ judging: JudgingVue3; items: MaterialVue3[] }>(endpoint, task.signal);
+    const data = await props.services.get<{ judging: JudgingVue3; items: MaterialVue3[]; materialSyncError?: { number: number | null; reason: string } }>(endpoint, task.signal);
     if (!scope.valid(task.id)) return;
     if (discardDrafts) { drafts.clear(); conflict.value = false; }
     judging.value = data.judging; items.value = data.items; uncertain.value = false; error.value = '';
+    syncError.value = data.materialSyncError ? t('评审材料更新失败（作品 #{number}）：{reason}。已有材料仍可评分，请联系管理员。', { number: data.materialSyncError.number ?? '—', reason: t(data.materialSyncError.reason) }) : '';
     // Remove drafts for materials no longer authorized by this sheet.
     for (const id of drafts.keys()) if (!data.items.some(work => work.id === id)) drafts.delete(id);
     if (!data.items.some(work => work.id === selected.value)) selected.value = data.items[0]?.id || '';
@@ -95,7 +96,7 @@ void load(true);
 onBeforeUnmount(() => { clearInterval(tick); clearInterval(poll); drafts.clear(); items.value = []; judging.value = null; });
 </script>
 <template><section class="container section f-judging"><p class="eyebrow">QSL DESIGN CONTEST · 2026.11</p><h1>{{ t('评委工作台') }}</h1><p class="muted">{{ t('仅显示本人评分。每件作品 0–10 分，最多一位小数；评语最多 1000 字。截止前可随时保存和修改。完成标记为可选，不会锁定评分；再次保存会清除完成标记。截止后以已保存评分汇总，无需完成标记。') }}</p><p role="status" aria-live="polite">{{ loading && !judging ? t('加载中…') : status }}</p><p v-if="error" class="f-judging-error" role="alert">{{ error }}</p>
-  <div class="f-judging-toolbar"><label>{{ t('筛选作品') }}<select v-model="filter" class="select"><option value="all">{{ t('全部作品') }}</option><option value="pending">{{ t('未评分') }}</option><option value="scored">{{ t('已评分') }}</option><option value="dirty">{{ t('未保存') }}</option></select></label><button class="btn btn-ghost" type="button" :disabled="loading || busy" @click="load(true)">{{ t('刷新评审数据') }}</button><button class="btn btn-primary" type="button" :disabled="!canComplete" @click="confirmation = true">{{ t('标记评分完成') }}</button></div>
+  <p v-if="syncError" class="f-judging-error" role="alert">{{ syncError }}</p><div class="f-judging-toolbar"><label>{{ t('筛选作品') }}<select v-model="filter" class="select"><option value="all">{{ t('全部作品') }}</option><option value="pending">{{ t('未评分') }}</option><option value="scored">{{ t('已评分') }}</option><option value="dirty">{{ t('未保存') }}</option></select></label><button class="btn btn-ghost" type="button" :disabled="loading || busy" @click="load(true)">{{ t('刷新评审数据') }}</button><button class="btn btn-primary" type="button" :disabled="!canComplete" @click="confirmation = true">{{ t('标记评分完成') }}</button></div>
   <div class="f-judging-layout"><nav class="f-judging-list" :aria-label="t('评审作品')"><button v-for="work in visible" :key="work.id" class="f-judging-work" :class="{ 'is-active': work.id === selected }" type="button" :disabled="busy" :aria-current="work.id === selected ? 'true' : undefined" @click="selected = work.id"><b>#{{ String(work.number).padStart(3, '0') }} {{ work.title }}</b><small>{{ t(drafts.has(work.id) ? '未保存' : work.score ? '已评分' : '未评分') }}</small></button></nav>
   <section class="f-judging-detail"><template v-if="item"><h2>#{{ String(item.number).padStart(3, '0') }} {{ item.title }}</h2><p class="f-judging-description">{{ item.description }}</p><JudgingImagesVue3 :item="item" :services="services" @forbidden="problem" />
   <form @submit.prevent="save"><fieldset :disabled="busy || !writable" style="border:0;padding:0;min-width:0"><div class="f-judging-toolbar"><label>{{ t('评分（0–10，最多一位小数）') }}<input :value="value" class="input" name="score" type="number" min="0" max="10" step="0.1" required @input="scoreInput"></label><span role="status">{{ t(drafts.has(selected) ? '未保存' : item.score ? '已保存到服务器' : '未评分') }}</span></div><label>{{ t('评语（最多 1000 字）') }}<textarea v-model="comment" class="input" name="comment" rows="5" @input="edit"></textarea></label><p class="muted">{{ Array.from(comment).length }} / 1000</p><div class="f-judging-toolbar"><button class="btn btn-primary" type="submit" :disabled="loading">{{ t('保存此作品评分') }}</button><button class="btn btn-ghost" type="button" @click="discard">{{ t('放弃此作品未保存修改') }}</button></div></fieldset></form></template><p v-else class="muted">{{ t('请选择作品；评审开始后会显示固定版本的材料。') }}</p></section></div>

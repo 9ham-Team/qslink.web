@@ -236,6 +236,7 @@ async function own(ctx) {
 // frozen identity. Image preparation stays outside the shared writer lock.
 function withNewMaterials(handler, authorize) {
   return async base => {
+    let materialSyncError = null;
     const prepared = await base.db.transaction(async unit => {
       const ctx = independentContext(base, unit);
       await authorize(ctx);
@@ -251,11 +252,12 @@ function withNewMaterials(handler, authorize) {
       const storageKey = crypto.randomUUID();
       const directory = path.join(base.config.dataDir, 'judging', storageKey);
       await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-      let committed = false;
+      let committed = false, currentWork = null;
       try {
         const frozen = [];
         let bytes = prepared.bytes;
         for (const work of prepared.works) {
+          currentWork = work;
           const images = { front: await freezeImage(work.front, base.config.uploadsDir, directory, `${work.number}-front.webp`),
             back: work.back ? await freezeImage(work.back, base.config.uploadsDir, directory, `${work.number}-back.webp`) : null };
           for (const image of Object.values(images)) if (image) image.storageKey = storageKey;
@@ -286,11 +288,20 @@ function withNewMaterials(handler, authorize) {
           return true;
         }, { write: true });
         if (committed) console.info('[admin:contest-judging]', JSON.stringify({ action: 'materials.append', eventKey: base.params.eventKey, actorId: prepared.actorId, at: new Date().toISOString() }));
+      } catch (failure) {
+        // An invalid new image must not make already-frozen scores unreadable.
+        // Exports still fail rather than silently downloading an incomplete set.
+        if (![own, getSettings].includes(handler) || !(failure.status === 400 && failure.fields?.images || failure.status === 413)) throw failure;
+        materialSyncError = { number: currentWork?.number || null, reason: failure.fields?.images || failure.message };
       } finally {
         if (!committed) await fs.rm(directory, { recursive: true, force: true });
       }
     }
-    return base.db.transaction(async unit => handler(independentContext(base, unit)));
+    return base.db.transaction(async unit => {
+      const result = await handler(independentContext(base, unit));
+      if (materialSyncError) result.body.materialSyncError = materialSyncError;
+      return result;
+    });
   };
 }
 async function putScore(ctx) {
@@ -319,6 +330,8 @@ async function submit(ctx) {
   const judge = await requireJudge(ctx);
   const config = await setting(ctx);
   writable(config);
+  const stored = new Set((await materials(ctx, true)).map(m => m.id));
+  if (publicSnapshot(ctx).some(w => !stored.has(w.id))) throw conflict('MATERIALS_PENDING', '还有参赛作品的评审材料未更新，请联系管理员');
   expected(bodyOf(ctx).expectedRevision, judge.revision);
   const active = new Set((await materials(ctx)).map(m => m.id));
   const count = (await ctx.db.client.query('SELECT "materialId" FROM "contestScores" WHERE "eventKey"=$1 AND slot=$2', [scope(ctx), judge.slot])).rows.filter(s => active.has(s.materialId)).length;

@@ -118,6 +118,36 @@ async function testNewJudgingMaterials() {
     const fullManifest = JSON.parse(await (await JSZip.loadAsync(fullZip.body)).file('manifest.json').async('string'));
     assert.equal(fullManifest.items.length, 24); // work3, work4, and 22 new works
     assert.ok(fullManifest.items.every(m => m.number >= 3));
+    // One newly eligible image failure must not hide already-frozen scores.
+    await f.db.transaction(unit => {
+      const card = unit.find('cards', c => c.id === 'card3');
+      unit.insert('cards', { ...card, id: 'broken-card', shareToken: 'broken-share', shortToken: 'Broken', backImage: '/uploads/missing.webp' });
+      unit.insert('contestWorks', { ...unit.find('contestWorks', w => w.id === 'work3'), id: 'broken-work', cardId: 'broken-card', number: 27 });
+      card.title = 'Edited after scoring';
+      card.frontImage = '/uploads/replaced-original.webp';
+    }, { write: true });
+    const frozenBeforeFailure = (await fs.readdir(path.join(f.dataDir, 'judging'))).length;
+    for (const imagePath of ['/uploads/missing.webp', '/uploads/broken.webp', 'https://invalid.test/image.png']) {
+      await fs.writeFile(path.join(f.uploadsDir, 'broken.webp'), 'not an image');
+      await f.db.transaction(unit => { unit.find('cards', c => c.id === 'broken-card').backImage = imagePath; }, { write: true });
+      const readable = (await read()).body;
+      assert.equal(readable.items.length, 24);
+      assert.equal(readable.materialSyncError.number, 27);
+      assert.ok(readable.materialSyncError.reason);
+      assert.equal(readable.items.find(m => m.id === 'work3').title, after.items[2].title, 'editing the source never replaces the frozen title');
+      assert.equal(readable.items.find(m => m.id === 'work3').score.value, 7);
+      assert.equal((await read(adminPath, 'admin')).body.materialSyncError.number, 27);
+      await assert.rejects(read(adminPath + '/materials.zip', 'admin'), e => e.status === 400);
+      await assert.rejects(write(judgePath + '/submit', { expectedRevision: readable.judging.revision }, 'judge1'), e => e.code === 'MATERIALS_PENDING');
+      assert.equal((await fs.readdir(path.join(f.dataDir, 'judging'))).length, frozenBeforeFailure, 'failed partial batch is removed');
+    }
+    const savedDespiteFailure = await write(judgePath + '/materials/:id/score', { expectedRevision: 1, score: 8, comment: 'can continue' }, 'judge1', 'work3');
+    assert.equal(savedDespiteFailure.body.score.revision, 2);
+    await f.db.transaction(unit => { unit.find('cards', c => c.id === 'broken-card').backImage = ''; }, { write: true });
+    const recovered = (await read()).body;
+    assert.equal(recovered.items.length, 25);
+    assert.equal(recovered.materialSyncError, undefined);
+    assert.equal(recovered.items.find(m => m.id === 'work3').score.value, 8);
   } finally { await f.cleanup(); }
 }
 

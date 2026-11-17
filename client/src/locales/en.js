@@ -76,6 +76,8 @@ export default {
   "一键导出全部材料 ZIP": "Export all materials (ZIP)",
   "正在生成材料包…": "Preparing archive…",
 
+  "还有参赛作品的评审材料未更新，请联系管理员": "Some eligible entries still need judging materials. Contact an administrator.",
+  "评审材料更新失败（作品 #{number}）：{reason}。已有材料仍可评分，请联系管理员。": "Could not update judging materials (entry #{number}): {reason}. Existing materials can still be scored. Contact an administrator.",
   "评审已截止": "The judging deadline has passed",
   "请输入含时区的有效 ISO 截止时间": "Enter a valid ISO deadline including its time zone",
   "截止时间须晚于当前时间": "The deadline must be in the future",
