@@ -19,15 +19,16 @@ const judgePath = '/api/contests/:eventKey/judging';
 
 async function testNewJudgingMaterials() {
   const f = await createJudgingFixture();
-  async function read(pattern = judgePath, viewer = 'judge1') {
+  async function read(pattern = judgePath, viewer = 'judge1', params = {}) {
     const route = judging.routes.find(r => r.method === 'GET' && r.pattern === pattern);
     const token = viewer === 'admin' ? f.adminToken : f.judgeTokens[f.ids.indexOf(viewer)];
-    return route.handler({ db: f.db, config: f.config, req: { headers: { authorization: 'Bearer ' + token } }, params: { eventKey }, query: new URLSearchParams('from=1&to=3') });
+    if (!route.outsideTransaction) return f.db.transaction(unit => route.handler({ db: unit, user: unit.find('users', u => u.id === viewer), dataDir: f.dataDir, params: { eventKey, ...params }, query: new URLSearchParams() }));
+    return route.handler({ db: f.db, config: f.config, req: { headers: { authorization: 'Bearer ' + token } }, params: { eventKey, ...params }, query: new URLSearchParams('from=1&to=3') });
   }
-  async function write(pattern, body, viewer = 'admin') {
+  async function write(pattern, body, viewer = 'admin', id = 'work1') {
     const route = judging.routes.find(r => r.method !== 'GET' && r.pattern === pattern);
     if (route.outsideTransaction) return route.handler({ db: f.db, config: f.config, req: { headers: { authorization: 'Bearer ' + f.adminToken } }, params: { eventKey }, body });
-    return f.db.transaction(unit => route.handler({ db: unit, user: unit.find('users', u => u.id === viewer), params: { eventKey, id: 'work1' }, body }), { write: true });
+    return f.db.transaction(unit => route.handler({ db: unit, user: unit.find('users', u => u.id === viewer), params: { eventKey, id }, body }), { write: true });
   }
   try {
     await write(adminPath, { expectedRevision: 0, judgeUserIds: f.ids, deadline: new Date(Date.now() + 3600000).toISOString() });
@@ -80,6 +81,43 @@ async function testNewJudgingMaterials() {
     assert.equal(closed.items.length, 3, 'cutoff prevents adding new works');
     assert.equal(closed.items[2].title, after.items[2].title, 'existing material stays frozen');
     assert.equal(closed.judging.materialVersion, after.judging.materialVersion);
+    // Withdrawal applies even after the cutoff; audit rows remain intact.
+    await f.db.transaction(unit => { unit.find('cards', c => c.id === 'card1').status = 'rejected'; }, { write: true });
+    const rejected = (await read()).body;
+    assert.deepEqual(rejected.items.map(m => m.number), [2, 3]);
+    assert.notEqual(rejected.judging.materialVersion, closed.judging.materialVersion);
+    for (const viewer of ['judge1', 'admin']) await assert.rejects(read(judgePath + '/materials/:id/:side', viewer, { id: 'work1', side: 'front' }), e => e.status === 404);
+    assert.equal((await read(adminPath, 'admin')).body.judging.judges[0].scoredCount, 0);
+    await f.db.transaction(unit => { unit.removeWhere('cards', c => c.id === 'card2'); }, { write: true });
+    assert.deepEqual((await read()).body.items.map(m => m.number), [3]);
+    const withdrawnZip = await JSZip.loadAsync((await read(adminPath + '/materials.zip', 'admin')).body);
+    assert.deepEqual(JSON.parse(await withdrawnZip.file('manifest.json').async('string')).items.map(m => m.number), [3]);
+    const result = (await read(adminPath + '/results', 'admin')).body;
+    assert.deepEqual(result.items.map(m => m.number), [3]);
+    await f.db.transaction(async unit => {
+      assert.equal((await unit.client.query('SELECT * FROM "contestMaterials"')).rows.length, 3);
+      assert.equal((await unit.client.query('SELECT * FROM "contestScores"')).rows.length, 1);
+    });
+    // Reopen and prove new scores cannot target a withdrawn snapshot.
+    await f.db.transaction(unit => unit.client.query('UPDATE "contestJudging" SET deadline=$2 WHERE id=$1', [eventKey, new Date(Date.now() + 3600000).toISOString()]), { write: true });
+    await assert.rejects(write(judgePath + '/materials/:id/score', { expectedRevision: 1, score: 9, comment: '' }, 'judge1'), e => e.status === 404);
+    for (const work of (await read()).body.items) await write(judgePath + '/materials/:id/score', { expectedRevision: 0, score: 7, comment: '' }, 'judge1', work.id);
+    const ready = (await read()).body.judging;
+    assert.ok((await write(judgePath + '/submit', { expectedRevision: ready.revision }, 'judge1')).body.judging.submittedAt, 'inactive audit scores do not block completion');
+    // One download includes more than the former 20-entry limit, including gaps.
+    await f.db.transaction(unit => {
+      const source = unit.find('contestWorks', w => w.id === 'work3');
+      const card = unit.find('cards', c => c.id === 'card3');
+      for (let number = 5; number <= 26; number++) {
+        unit.insert('cards', { ...card, id: 'card' + number, shareToken: 'share-' + number, shortToken: 'TestA' + String.fromCharCode(64 + number) });
+        unit.insert('contestWorks', { ...source, id: 'work' + number, cardId: 'card' + number, number });
+      }
+    }, { write: true });
+    const fullRoute = judging.routes.find(r => r.pattern === adminPath + '/materials.zip');
+    const fullZip = await fullRoute.handler({ db: f.db, config: f.config, req: { headers: { authorization: 'Bearer ' + f.adminToken } }, params: { eventKey }, query: new URLSearchParams() });
+    const fullManifest = JSON.parse(await (await JSZip.loadAsync(fullZip.body)).file('manifest.json').async('string'));
+    assert.equal(fullManifest.items.length, 24); // work3, work4, and 22 new works
+    assert.ok(fullManifest.items.every(m => m.number >= 3));
   } finally { await f.cleanup(); }
 }
 
@@ -248,13 +286,13 @@ export async function testContestJudging() {
     const allZipText = (await Promise.all(Object.values(archive.files).filter(file => !file.dir && !file.name.endsWith('.webp')).map(file => file.async('string')))).join('');
     for (const secret of ['private-comment','private-share','secret-author-contact','storageKey','userId','submittedAt','judge1','passwordHash','humanScore']) assert.ok(!allZipText.includes(secret), secret + ' excluded');
     assert.deepEqual(await archive.file('1/front.webp').async('nodebuffer'), imageBefore);
-    for (const query of ['', 'from=1&to=21', 'from=2&to=1', 'from=0&to=2', 'from=1.2&to=2']) await rejects(zip(query), 400);
+    assert.equal(JSON.parse(await (await JSZip.loadAsync((await zip('')).body)).file('manifest.json').async('string')).items.length, 2);
+    for (const query of ['from=1', 'to=2', 'from=2&to=1', 'from=0&to=2', 'from=1.2&to=2']) await rejects(zip(query), 400);
     await rejects(zip('from=50&to=51'), 404);
-    // Mutating or deleting source records and bytes cannot alter frozen judging.
+    // Editing source text and bytes cannot alter still-eligible frozen material.
     await f.db.transaction(unit => {
       unit.find('cards', c => c.id === 'card1').title = 'changed source title';
       unit.find('contestWorks', w => w.id === 'work1').description = 'changed source description';
-      unit.removeWhere('cards', c => c.id === 'card2');
     }, { write: true });
     await fs.unlink(path.join(f.uploadsDir,'original.png'));
     assert.deepEqual((await own()).items.map(({ title, description }) => ({ title, description })), ownBefore.items.map(({ title, description }) => ({ title, description })));

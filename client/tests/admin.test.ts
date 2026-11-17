@@ -142,6 +142,18 @@ it('never auto-fetches judge scores and confirms starting a saved judging config
   Array.from(document.querySelectorAll<HTMLButtonElement>('.modal-actions button')).find(b=>b.textContent==='确认')!.click();await flushPromises();
   expect(raw.api.post.mock.calls[0][1]).toEqual({expectedRevision:2});
 });
+it('exports all judging materials with one click and no number range', async () => {
+  const {platform,raw}=mock();
+  raw.api.get.mockResolvedValue({judging:{revision:2,deadline:'2099-12-01T00:00:00.000Z',frozenAt:'2026-11-01',judges:[],totalWorks:68,canViewResults:false}});
+  const fetcher=vi.fn().mockResolvedValue({ok:true,blob:async()=>new Blob(['zip'])});
+  vi.stubGlobal('fetch',fetcher);
+  vi.stubGlobal('URL',Object.assign(URL,{createObjectURL:vi.fn(()=> 'blob:all-materials'),revokeObjectURL:vi.fn()}));
+  const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});
+  const wrapper=render(AdminJudging,platform);await flushPromises();
+  await wrapper.findAll('button').find(b=>b.text()==='一键导出全部材料 ZIP')!.trigger('click');await flushPromises();
+  expect(fetcher).toHaveBeenCalledWith('/api/admin/contests/qsl-design-2026-11/judging/materials.zip',expect.objectContaining({headers:expect.objectContaining({Accept:'application/zip'})}));
+  expect(click).toHaveBeenCalledOnce();click.mockRestore();
+});
 it('revokes download object URLs when leaving and prevents late 401 clearing another session', async () => {
   const {platform,raw,change}=mock();let scope!:ReturnType<typeof useAdmin>;
   const wrapper=mount(defineComponent({setup(){scope=useAdmin(platform);return()=>h('div');}}));wrappers.push(wrapper);

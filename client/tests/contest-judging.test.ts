@@ -63,6 +63,20 @@ it('drops private content and revokes blobs on forbidden polling — vue3', asyn
   expect(wrapper.text()).not.toContain('Private title'); expect(revoked).toHaveBeenCalledWith('blob:private-1');
   wrapper.unmount(); expect(vi.getTimerCount()).toBe(0);
 });
+it('keeps images and the save button stable during a slow background refresh', async () => {
+  const { services, data } = await setup();
+  await wrapper.find('input[name=score]').setValue('8');
+  const image = wrapper.find('img').element;
+  let finish!: (value: unknown) => void;
+  vi.mocked(services.get).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  await vi.advanceTimersByTimeAsync(30000);
+  expect(wrapper.find('button[type=submit]').attributes('disabled')).toBeUndefined();
+  expect(wrapper.find('img').element).toBe(image);
+  finish(structuredClone(data)); await flushPromises();
+  expect(wrapper.find('img').element).toBe(image);
+  expect(services.privateImage).toHaveBeenCalledOnce();
+  expect(wrapper.find('input[name=score]').element.value).toBe('8');
+});
 it('blocks writes at the actual deadline and disposes private requests on leaving — vue3', async () => {
   const { services, data, auth } = await setup(true);
   await vi.advanceTimersByTimeAsync(Date.parse(data.judging.deadline!) - Date.now()); await flushPromises();
