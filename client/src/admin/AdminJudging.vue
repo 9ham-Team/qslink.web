@@ -34,6 +34,7 @@ async function load(quiet = false) {
   try {
     const data = await api.get<{judging:Judging; materialSyncError?: { number: number | null; reason: string }}>(endpoint);
     if (!api.live()) return;
+    syncError.value = data.materialSyncError ? props.platform.t('评审材料更新失败（作品 #{number}）：{reason}。已有材料仍可评分，请联系管理员。', {number:data.materialSyncError.number ?? '—',reason:props.platform.t(data.materialSyncError.reason)}) : '';
     if (quiet && judging.value) {
       if (data.judging.revision !== judging.value.revision || data.judging.materialVersion !== judging.value.materialVersion || (dirty.value && data.judging.canViewResults !== judging.value.canViewResults)) {
         stale.value = true; results.value = undefined;

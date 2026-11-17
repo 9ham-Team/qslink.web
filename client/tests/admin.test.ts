@@ -142,6 +142,15 @@ it('never auto-fetches judge scores and confirms starting a saved judging config
   Array.from(document.querySelectorAll<HTMLButtonElement>('.modal-actions button')).find(b=>b.textContent==='确认')!.click();await flushPromises();
   expect(raw.api.post.mock.calls[0][1]).toEqual({expectedRevision:2});
 });
+it('displays material sync errors without hiding existing judging progress', async () => {
+  const {platform,raw}=mock();
+  raw.t=(text:string,values?:Record<string,unknown>)=>text.replace(/\{(\w+)\}/g,(match,key)=>String(values?.[key] ?? match));
+  raw.api.get.mockResolvedValue({judging:{revision:2,deadline:'2099-12-01T00:00:00.000Z',frozenAt:'2026-11-01',judges:[],totalWorks:68,canViewResults:false},materialSyncError:{number:27,reason:'冻结图片解码失败'}});
+  const wrapper=render(AdminJudging,platform);await flushPromises();
+  expect(wrapper.text()).toContain('评审材料更新失败');
+  expect(wrapper.text()).toContain('冻结图片解码失败');
+  expect(wrapper.find('.a-contest-voting-status').exists()).toBe(true);
+});
 it('exports all judging materials with one click and no number range', async () => {
   const {platform,raw}=mock();
   raw.api.get.mockResolvedValue({judging:{revision:2,deadline:'2099-12-01T00:00:00.000Z',frozenAt:'2026-11-01',judges:[],totalWorks:68,canViewResults:false}});
