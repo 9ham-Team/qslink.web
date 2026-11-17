@@ -77,6 +77,19 @@ it('keeps images and the save button stable during a slow background refresh', a
   expect(services.privateImage).toHaveBeenCalledOnce();
   expect(wrapper.find('input[name=score]').element.value).toBe('8');
 });
+it('shows a sync warning while preserving saved scores and blocking completion', async () => {
+  const { services, data } = await setup(true);
+  vi.mocked(services.get).mockResolvedValueOnce({ ...data, materialSyncError: { number: 27, reason: '冻结图片不可读取或超过 10MiB' } });
+  await vi.advanceTimersByTimeAsync(30000); await flushPromises();
+  expect(wrapper.find('img').exists()).toBe(true);
+  expect(wrapper.find('input[name=score]').element.value).toBe('0');
+  expect(wrapper.find('fieldset').attributes('disabled')).toBeUndefined();
+  expect(wrapper.find('[role=alert]').text()).toContain('#27');
+  expect(wrapper.findAll('button').find(button => button.text() === '标记评分完成')!.attributes('disabled')).toBeDefined();
+  await vi.advanceTimersByTimeAsync(30000); await flushPromises();
+  expect(wrapper.find('[role=alert]').exists()).toBe(false);
+  expect(wrapper.findAll('button').find(button => button.text() === '标记评分完成')!.attributes('disabled')).toBeUndefined();
+});
 it('blocks writes at the actual deadline and disposes private requests on leaving — vue3', async () => {
   const { services, data, auth } = await setup(true);
   await vi.advanceTimersByTimeAsync(Date.parse(data.judging.deadline!) - Date.now()); await flushPromises();

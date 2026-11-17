@@ -127,6 +127,18 @@ test('real judge permissions, private blob images, saved zero scores and complet
     const saved = page.waitForResponse(response => response.request().method() === 'PUT' && response.url().endsWith('/score'));
     await root.getByRole('button', { name: '保存此作品评分', exact: true }).click(); expect((await saved).ok()).toBe(true);
   }
+  const sheet = await (await request.get(eventApi + '/judging', { headers: { Authorization: 'Bearer ' + judge.token } })).json();
+  await page.route('**/api/contests/qsl-design-2026-11/judging', route => route.fulfill({ json: { ...sheet, materialSyncError: { number: 27, reason: '冻结图片不可读取或超过 10MiB' } } }));
+  await root.getByRole('button', { name: '刷新评审数据', exact: true }).click();
+  await expect(root.getByRole('alert')).toContainText('#27');
+  await expect(root.locator('img').first()).toHaveAttribute('src', /^blob:/);
+  await expect(root.locator('input[name=score]')).toBeEnabled();
+  await expect(root.getByRole('button', { name: '标记评分完成', exact: true })).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('contest-judging-sync-warning.png') });
+  await page.unroute('**/api/contests/qsl-design-2026-11/judging');
+  await root.getByRole('button', { name: '刷新评审数据', exact: true }).click();
+  await expect(root.getByRole('alert')).toHaveCount(0);
   await root.getByRole('button', { name: '标记评分完成', exact: true }).click();
   const confirmation = page.getByRole('dialog', { name: '标记评分完成', exact: true });
   const done = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/judging/submit'));
