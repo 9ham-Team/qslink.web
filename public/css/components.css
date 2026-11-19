@@ -441,8 +441,8 @@
   background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: var(--r-lg);
-  backdrop-filter: blur(18px) saturate(130%);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
   box-shadow: var(--shadow-sm);
 }
 .surface {
@@ -544,8 +544,8 @@
   place-items: center;
   padding: 22px;
   background: rgba(6, 42, 35, 0.34);
-  backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
   opacity: 0;
   visibility: hidden;
   transition: opacity var(--t-base) var(--ease), visibility var(--t-base);
