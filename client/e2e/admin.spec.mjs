@@ -181,6 +181,32 @@ test('real contest description review, five-judge configuration, start and prote
     expect((await started).ok()).toBe(true);
   }
   await expect(judging.getByRole('button',{name:'下载人工评分 XLSX',exact:true})).toBeDisabled();
+  const allZip = '**/judging/materials.zip';
+  const exportAll = judging.getByRole('button', {name:'一键导出全部材料 ZIP', exact:true});
+  let failExport;
+  const allowResponse = new Promise(resolve => { failExport = resolve; });
+  await page.route(allZip, async route => {
+    await allowResponse;
+    await route.fulfill({status:200, contentType:'text/html', body:'<html>Unexpected response</html>'});
+  });
+  await exportAll.click();
+  try {
+    await expect(judging.getByRole('status').filter({hasText:'正在准备下载…'})).toBeVisible();
+    await expect(exportAll).toBeHidden();
+  } finally {
+    failExport();
+  }
+  await expect(judging.getByRole('alert').filter({hasText:'服务器没有返回下载文件，请稍后重试。'})).toBeVisible();
+  await page.unroute(allZip);
+  const fullPromise = page.waitForEvent('download');
+  await exportAll.click();
+  const fullZip = await fullPromise;
+  expect(fullZip.suggestedFilename()).toMatch(/materials-all\.zip$/);
+  expect(await fullZip.failure()).toBeNull();
+  const manual = judging.getByRole('link', {name:'手动下载文件'});
+  const manualPromise = page.waitForEvent('download');
+  await manual.click();
+  expect(await (await manualPromise).failure()).toBeNull();
   const zipPromise=page.waitForEvent('download');
   await judging.getByRole('button',{name:'下载此范围材料 ZIP',exact:true}).click();
   const zip=await zipPromise;expect(zip.suggestedFilename()).toMatch(/materials-1-20\.zip$/);expect(await zip.failure()).toBeNull();

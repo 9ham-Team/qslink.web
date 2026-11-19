@@ -136,8 +136,8 @@
   border: 1px solid rgba(255, 255, 255, 0.72);
   background: rgba(255, 255, 255, 0.78);
   box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 .f-form-card-head {
   display: flex;
@@ -523,8 +523,8 @@ html[lang="en"] .f-visual-card {
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.72);
   box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(20px) saturate(130%);
   -webkit-backdrop-filter: blur(20px) saturate(130%);
+  backdrop-filter: blur(20px) saturate(130%);
 }
 .f-auth-card-head { display: flex; flex-direction: column; gap: 8px; }
 .f-auth-card-head h2 { font-size: clamp(23px, 2.3vw, 29px); letter-spacing: -0.02em; }
@@ -1518,8 +1518,8 @@ html[lang="en"] .f-visual-card {
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.72);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(16px) saturate(130%);
   -webkit-backdrop-filter: blur(16px) saturate(130%);
+  backdrop-filter: blur(16px) saturate(130%);
 }
 .f-preview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .f-preview-title { font-size: 15.5px; }

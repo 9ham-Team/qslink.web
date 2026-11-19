@@ -74,6 +74,11 @@ export default {
   "材料包超过 272MiB，请缩小范围": "The archive exceeds 272 MiB. Select a smaller range.",
   "支持一键导出全部有效评审作品，也可按编号范围下载。仅手动下载，不自动发送到任何第三方。": "Export all eligible judging entries in one click, or download a number range. Downloads are manual; nothing is sent to third parties.",
   "一键导出全部材料 ZIP": "Export all materials (ZIP)",
+  "正在准备下载…": "Preparing download…",
+  "文件已准备好。若浏览器没有自动保存，请": "Your file is ready. If your browser did not save it automatically,",
+  "手动下载文件": "download the file manually",
+  "服务器没有返回下载文件，请稍后重试。": "The server did not return a download. Please try again later.",
+  "下载超时，请重试。": "The download timed out. Please try again.",
   "正在生成材料包…": "Preparing archive…",
 
   "还有参赛作品的评审材料未更新，请联系管理员": "Some eligible entries still need judging materials. Contact an administrator.",

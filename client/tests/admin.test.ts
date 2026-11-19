@@ -154,7 +154,7 @@ it('displays material sync errors without hiding existing judging progress', asy
 it('exports all judging materials with one click and no number range', async () => {
   const {platform,raw}=mock();
   raw.api.get.mockResolvedValue({judging:{revision:2,deadline:'2099-12-01T00:00:00.000Z',frozenAt:'2026-11-01',judges:[],totalWorks:68,canViewResults:false}});
-  const fetcher=vi.fn().mockResolvedValue({ok:true,blob:async()=>new Blob(['zip'])});
+  const fetcher=vi.fn().mockResolvedValue(new Response('zip', {headers:{'Content-Type':'application/zip'}}));
   vi.stubGlobal('fetch',fetcher);
   vi.stubGlobal('URL',Object.assign(URL,{createObjectURL:vi.fn(()=> 'blob:all-materials'),revokeObjectURL:vi.fn()}));
   const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});
@@ -166,11 +166,13 @@ it('exports all judging materials with one click and no number range', async () 
 it('revokes download object URLs when leaving and prevents late 401 clearing another session', async () => {
   const {platform,raw,change}=mock();let scope!:ReturnType<typeof useAdmin>;
   const wrapper=mount(defineComponent({setup(){scope=useAdmin(platform);return()=>h('div');}}));wrappers.push(wrapper);
-  vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,blob:async()=>new Blob(['test'])}));
+  vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('test', {headers:{'Content-Type':'application/octet-stream'}})));
   const create=vi.fn(()=> 'blob:test'), revoke=vi.fn();
   vi.stubGlobal('URL',Object.assign(URL,{createObjectURL:create,revokeObjectURL:revoke}));
   vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});
-  await scope.download('/api/admin/contests/qsl-design-2026-11/votes.xlsx','votes.xlsx','application/octet-stream');
+  const file = await scope.download('/api/admin/contests/qsl-design-2026-11/votes.xlsx','votes.xlsx','application/octet-stream',true);
+  expect(file?.url).toBe('blob:test');
+  expect(revoke).not.toHaveBeenCalled();
   wrapper.unmount();expect(revoke).toHaveBeenCalledWith('blob:test');
   wrappers.splice(wrappers.indexOf(wrapper),1);
   const second=mount(defineComponent({setup(){scope=useAdmin(platform);return()=>h('div');}}));wrappers.push(second);
