@@ -150,14 +150,17 @@ async function sourceBuffer(url, uploadsDir) {
     return bytes;
   } catch { throw badRequest({ images: '冻结图片不可读取或超过 10MiB' }); }
 }
-async function freezeImage(url, uploadsDir, directory, name) {
-  const input = await sourceBuffer(url, uploadsDir);
+async function encodeJudgingImage(input) {
   let bytes;
   try {
     bytes = await withImageSlot(() => sharp(input, { limitInputPixels: 80 * 1024 * 1024 }).rotate()
       .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true }).webp({ quality: 85 }).toBuffer());
   } catch { throw badRequest({ images: '冻结图片解码失败' }); }
   if (bytes.length > MAX_IMAGE_BYTES) throw payloadTooLarge('冻结单图超过 10MiB');
+  return bytes;
+}
+async function freezeImage(url, uploadsDir, directory, name) {
+  const bytes = await encodeJudgingImage(await sourceBuffer(url, uploadsDir));
   await fs.writeFile(path.join(directory, name), bytes, { flag: 'wx', mode: 0o600 });
   return { file: name, sha256: hash(bytes), bytes: bytes.length };
 }
@@ -232,28 +235,39 @@ async function own(ctx) {
       score: score ? { value: Number(score.value), comment: score.comment, revision: score.revision } : null };
   }) } };
 }
+function pendingWorks(ctx, existing) {
+  const frozenIds = new Set(existing.map(m => m.id));
+  return publicSnapshot(ctx).filter(work => !frozenIds.has(work.id));
+}
+function inExportRange(work, range) {
+  return !range || (work.number >= range.from && work.number <= range.to);
+}
 // Append new eligible works without replacing any material that already has a
 // frozen identity. Image preparation stays outside the shared writer lock.
 function withNewMaterials(handler, authorize) {
   return async base => {
     let materialSyncError = null;
+    const isExport = handler === exportMaterials;
+    let exportRange = null;
     const prepared = await base.db.transaction(async unit => {
       const ctx = independentContext(base, unit);
       await authorize(ctx);
+      if (isExport) exportRange = parseExportRange(ctx.query);
       const config = await setting(ctx);
       if (!isOpen(config)) return null;
       const existing = await materials(ctx, true);
-      const works = publicSnapshot(ctx).filter(w => !existing.some(m => m.id === w.id));
-      if (!works.length) return null;
-      if (existing.length + works.length > MAX_FROZEN_WORKS) throw payloadTooLarge('冻结作品超过 1000 件');
-      return { config, works, actorId: ctx.user.id, bytes: existing.reduce((sum, m) => sum + m.images.front.bytes + (m.images.back?.bytes || 0), 0) };
+      const works = pendingWorks(ctx, existing);
+      if (!works.length || (isExport && !works.some(work => inExportRange(work, exportRange)))) return null;
+      return { config, works, existingCount: existing.length, actorId: ctx.user.id,
+        bytes: existing.reduce((sum, m) => sum + m.images.front.bytes + (m.images.back?.bytes || 0), 0) };
     });
     if (prepared) {
       const storageKey = crypto.randomUUID();
       const directory = path.join(base.config.dataDir, 'judging', storageKey);
-      await fs.mkdir(directory, { recursive: true, mode: 0o700 });
       let committed = false, currentWork = null;
       try {
+        if (prepared.existingCount + prepared.works.length > MAX_FROZEN_WORKS) throw payloadTooLarge('冻结作品超过 1000 件');
+        await fs.mkdir(directory, { recursive: true, mode: 0o700 });
         const frozen = [];
         let bytes = prepared.bytes;
         for (const work of prepared.works) {
@@ -272,7 +286,7 @@ function withNewMaterials(handler, authorize) {
           // A competing sync/configuration change wins; the next read can retry.
           if (!isOpen(config) || config.revision !== prepared.config.revision) return false;
           const existing = await materials(ctx, true);
-          const works = publicSnapshot(ctx).filter(w => !existing.some(m => m.id === w.id));
+          const works = pendingWorks(ctx, existing);
           if (JSON.stringify(works) !== JSON.stringify(prepared.works)) return false;
           const combined = [...existing, ...frozen].sort((a, b) => a.number - b.number);
           const bytes = combined.reduce((sum, m) => sum + m.images.front.bytes + (m.images.back?.bytes || 0), 0);
@@ -290,15 +304,17 @@ function withNewMaterials(handler, authorize) {
         if (committed) console.info('[admin:contest-judging]', JSON.stringify({ action: 'materials.append', eventKey: base.params.eventKey, actorId: prepared.actorId, at: new Date().toISOString() }));
       } catch (failure) {
         // An invalid new image must not make already-frozen scores unreadable.
-        // Exports still fail rather than silently downloading an incomplete set.
-        if (![own, getSettings].includes(handler) || !(failure.status === 400 && failure.fields?.images || failure.status === 413)) throw failure;
-        materialSyncError = { number: currentWork?.number || null, reason: failure.fields?.images || failure.message };
+        if (!(failure.status === 400 && failure.fields?.images || failure.status === 413)) throw failure;
+        if (!isExport && ![own, getSettings].includes(handler)) throw failure;
+        materialSyncError = { number: currentWork?.number ?? null, reason: failure.fields?.images || failure.message };
       } finally {
         if (!committed) await fs.rm(directory, { recursive: true, force: true });
       }
     }
     return base.db.transaction(async unit => {
-      const result = await handler(independentContext(base, unit));
+      const ctx = independentContext(base, unit);
+      if (isExport) return exportMaterials(ctx, exportRange, materialSyncError);
+      const result = await handler(ctx);
       if (materialSyncError) result.body.materialSyncError = materialSyncError;
       return result;
     });
@@ -405,17 +421,33 @@ async function image(ctx) {
   if (!config || !config.frozenAt || !material || !['front', 'back'].includes(ctx.params.side)) throw notFound('冻结作品不存在');
   return { body: await frozenBytes(ctx, config, material.images[ctx.params.side]), headers: { 'Content-Type': 'image/webp' } };
 }
-async function exportMaterials(ctx) {
+function parseExportRange(query) {
+  if (!query.has('from') && !query.has('to')) return null;
+  const fromText = query.get('from'), toText = query.get('to');
+  const from = Number(fromText), to = Number(toText);
+  if (!/^[1-9]\d*$/.test(fromText || '') || !/^[1-9]\d*$/.test(toText || '') || !Number.isSafeInteger(from) || !Number.isSafeInteger(to) || to < from) {
+    const reason = '请指定有效作品编号闭区间 from/to';
+    throw badRequest({ range: reason }, reason);
+  }
+  return { from, to };
+}
+async function exportMaterials(ctx, range, syncError) {
   auth.requireAdmin(ctx);
   const config = await setting(ctx);
   if (!config || !config.frozenAt) throw conflict('JUDGING_NOT_STARTED', '评审尚未开始');
   const all = await materials(ctx);
-  const full = !ctx.query.has('from') && !ctx.query.has('to');
-  const fromText = ctx.query.get('from'), toText = ctx.query.get('to');
-  const from = full ? all[0]?.number : Number(fromText), to = full ? all.at(-1)?.number : Number(toText);
-  if (!full && (!/^[1-9]\d*$/.test(fromText || '') || !/^[1-9]\d*$/.test(toText || '') || !Number.isSafeInteger(from) || !Number.isSafeInteger(to) || to < from)) {
-    throw badRequest({ range: '请指定有效作品编号闭区间 from/to' });
+  if (isOpen(config)) {
+    // Use the same snapshot for this check and the archive. A failed batch or
+    // a concurrent change must not produce a silently incomplete download.
+    const pending = pendingWorks(ctx, all);
+    const missing = pending.find(work => inExportRange(work, range));
+    if (missing) {
+      const issue = syncError && (syncError.number === null || pending.some(work => work.number === syncError.number))
+        ? syncError : { number: missing.number, reason: '评审材料尚未生成，请重试。' };
+      throw conflict('MATERIALS_EXPORT_PENDING', '评审材料尚未同步，无法导出完整材料包。', issue);
+    }
   }
+  const from = range?.from ?? all[0]?.number, to = range?.to ?? all.at(-1)?.number;
   const selected = all.filter(m => m.number >= from && m.number <= to);
   if (!selected.length) throw notFound('范围内没有冻结作品');
   const JSZip = require('jszip');
@@ -461,4 +493,4 @@ const routes = [
   { method: 'POST', pattern: judgePrefix + '/submit', handler: submit },
   { method: 'GET', pattern: judgePrefix + '/materials/:id/:side', handler: image },
 ];
-module.exports = { routes, MAX_IMAGE_BYTES, MAX_ZIP_BYTES };
+module.exports = { routes, encodeJudgingImage, MAX_IMAGE_BYTES, MAX_ZIP_BYTES, MAX_FROZEN_BYTES, MAX_FROZEN_WORKS };

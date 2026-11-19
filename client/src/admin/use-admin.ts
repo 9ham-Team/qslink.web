@@ -46,7 +46,16 @@ export function useAdmin(platform: ApplicationContext) {
             platform.api.setToken?.(null); platform.setUser?.(null);
             platform.toast(platform.t('登录已过期，请重新登录'), 'error');
           }
-          throw new Error(platform.t(data?.error?.message || '下载失败，请稍后重试'));
+          const error = data?.error;
+          if (error?.code === 'MATERIALS_EXPORT_PENDING' && typeof error.fields?.reason === 'string') {
+            const message = Number.isSafeInteger(error.fields.number)
+              ? '无法导出完整材料包：作品 #{number} 同步失败（{reason}）。请处理后重试，或缩小下载范围。'
+              : '无法导出完整材料包：{reason}。请处理后重试，或缩小下载范围。';
+            throw new Error(platform.t(message, {
+              number: error.fields.number, reason: platform.t(error.fields.reason),
+            }));
+          }
+          throw new Error(platform.t(error?.message || '下载失败，请稍后重试'));
         }
         const type = response.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase();
         if (type !== accept) throw new Error(platform.t('服务器没有返回下载文件，请稍后重试。'));
