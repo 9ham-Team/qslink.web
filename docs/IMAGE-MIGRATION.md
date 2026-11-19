@@ -1,5 +1,7 @@
 # 历史卡片图片迁移
 
+若目标是排查某件赛事作品或评审 ZIP 下载失败，使用 [赛事评审图片排查与修复](JUDGING-IMAGE-REPAIR.md)。
+
 `server/migrate-images.js` 是显式维护工具，不在应用启动时运行，不自动部署生产、不执行 SQL schema 迁移。它读取当前数据库所有状态卡片的 `frontImage` / `backImage`，按图片去重，将 PNG/JPEG 以及长边超过 3840 的 WebP 转为长边最多 3840、质量 82 的 WebP，不放大小图。已符合尺寸的 WebP、SVG、外部 URL 和未引用文件不改动。
 
 ## 执行顺序

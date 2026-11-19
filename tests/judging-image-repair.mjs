@@ -1,0 +1,51 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import sharp from 'sharp';
+import { createJudgingFixture } from './contest-judging.mjs';
+import judging from '../server/lib/contest-judging.js';
+import { repairJudgingImages } from '../server/repair-judging-images.js';
+
+test('judging image repair scans by number, preserves frozen materials and can roll back', async t => {
+  const f = await createJudgingFixture();
+  t.after(() => f.cleanup());
+  const config = { ...f.config, databaseUrl: f.databaseUrl, databaseSchema: f.databaseSchema, publicDir: path.resolve('public') };
+  const run = options => repairJudgingImages({ config, ...options });
+  const backupDir = path.join(await fs.realpath(f.dataDir), 'repair-backup');
+  const oldFile = path.join(f.uploadsDir, 'oversize.jpg');
+  await sharp({ create: { width: 64, height: 32, channels: 3, background: '#478ad2' } }).jpeg().toFile(oldFile);
+  // A decodable image with enough trailing data to trip the judging read limit.
+  await fs.truncate(oldFile, 10 * 1024 ** 2 + 1);
+  const storageKey = '72d4ab4e-6279-493b-b103-39d8a72a9401';
+  await f.db.transaction(async unit => {
+    unit.find('contestWorks', w => w.id === 'work1').number = 69;
+    unit.find('cards', c => c.id === 'card1').frontImage = '/uploads/oversize.jpg';
+    unit.find('cards', c => c.id === 'card1').backImage = '/uploads/missing.png';
+    await unit.client.query('INSERT INTO "contestJudging" (id,deadline,"frozenAt","materialVersion","storageKey") VALUES ($1,now()+interval \'1 hour\',now(),$2,$3)', [f.eventKey, 'test-version', storageKey]);
+    await unit.client.query('INSERT INTO "contestMaterials" ("eventKey",id,number,title,description,images) VALUES ($1,$2,2,$3,$4,$5)', [f.eventKey, 'work2', 'Frozen', 'Frozen', { front: { file: '2-front.webp', bytes: 4, sha256: 'missing' } }]);
+  }, { write: true });
+  const getCard = () => f.db.transaction(unit => unit.find('cards', c => c.id === 'card1'));
+  const original = await getCard();
+  const scan = await run();
+  assert.deepEqual(scan.findings.map(({ number, side, status }) => [number, side, status]), [[2, 'front', 'manual'], [69, 'front', 'repairable'], [69, 'back', 'manual']]);
+  assert.deepEqual(await getCard(), original);
+  await assert.rejects(fs.access(backupDir), { code: 'ENOENT' });
+  await assert.rejects(run({ mode: 'apply', number: 69, backupDir: f.uploadsDir }), /备份目录不能/);
+  const fixed = await run({ mode: 'apply', number: 69, backupDir });
+  assert.equal(fixed.repaired, 1);
+  assert.equal(fixed.findings.find(item => item.side === 'back').status, 'manual');
+  const card = await getCard();
+  assert.match(card.frontImage, /^\/uploads\/[a-f0-9-]{36}\.webp$/);
+  assert.deepEqual(card, { ...original, frontImage: card.frontImage });
+  const output = await fs.readFile(path.join(f.uploadsDir, path.basename(card.frontImage)));
+  assert.equal((await sharp(output).metadata()).format, 'webp');
+  assert.ok((await judging.encodeJudgingImage(output)).length);
+  assert.equal((await fs.stat(oldFile)).size, 10 * 1024 ** 2 + 1);
+  const rescan = await run();
+  assert.deepEqual(rescan.findings.map(item => item.number), [2, 69]);
+  assert.ok(rescan.findings.every(item => item.status === 'manual'));
+  assert.equal((await run({ mode: 'rollback', backupDir })).reverted, 1);
+  assert.deepEqual(await getCard(), original);
+  assert.equal((await run({ mode: 'rollback', backupDir })).reverted, 0);
+});
