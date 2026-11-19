@@ -327,8 +327,8 @@
   background: rgba(255, 255, 255, 0.74);
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
 }
 .card3d-ctrl {
   display: inline-flex;
@@ -387,8 +387,8 @@
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
 }
 .g-display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.01em; }
 
@@ -657,8 +657,8 @@
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(14px) saturate(150%);
   -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
   font-size: 12.6px;
   font-weight: 650;
   color: var(--ink-2);
@@ -1655,8 +1655,8 @@
   position: relative;
   background: rgba(255, 255, 255, 0.34);
   border-bottom: 1px solid var(--line);
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 .g-share__crumb-inner {
   display: flex;
@@ -1698,8 +1698,8 @@
 .g-share__viewer.g-panel,
 .g-detail__viewer.g-panel {
   background: rgba(255, 255, 255, 0.84);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .g-share__viewer::before {
   content: "";

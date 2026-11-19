@@ -1,5 +1,15 @@
 import { test, expect } from './fixtures.mjs';
 
+test('the built sticky header keeps its frosted backdrop while scrolling', async ({ page }) => {
+  await page.goto('/');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const header = page.locator('#site-header');
+  await expect(header).toHaveCSS('backdrop-filter', 'blur(18px) saturate(1.5)');
+  await page.evaluate(() => window.scrollTo({ top: 200, behavior: 'instant' }));
+  await expect(header).toHaveClass(/is-scrolled/);
+  await expect(header).toHaveCSS('backdrop-filter', 'blur(18px) saturate(1.5)');
+});
+
 test('English header uses one row when space permits and a menu when it cannot fit', async ({ page, request }, testInfo) => {
   const errors = [];
   page.on('pageerror', err => errors.push(err.message));
