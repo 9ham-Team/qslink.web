@@ -114,7 +114,8 @@ async function testNewJudgingMaterials() {
       }
     }, { write: true });
     const fullRoute = judging.routes.find(r => r.pattern === adminPath + '/materials.zip');
-    const fullZip = await fullRoute.handler({ db: f.db, config: f.config, req: { headers: { authorization: 'Bearer ' + f.adminToken } }, params: { eventKey }, query: new URLSearchParams() });
+    const exportZip = query => fullRoute.handler({ db: f.db, config: f.config, req: { headers: { authorization: 'Bearer ' + f.adminToken } }, params: { eventKey }, query: new URLSearchParams(query) });
+    const fullZip = await exportZip();
     const fullManifest = JSON.parse(await (await JSZip.loadAsync(fullZip.body)).file('manifest.json').async('string'));
     assert.equal(fullManifest.items.length, 24); // work3, work4, and 22 new works
     assert.ok(fullManifest.items.every(m => m.number >= 3));
@@ -123,6 +124,8 @@ async function testNewJudgingMaterials() {
       const card = unit.find('cards', c => c.id === 'card3');
       unit.insert('cards', { ...card, id: 'broken-card', shareToken: 'broken-share', shortToken: 'Broken', backImage: '/uploads/missing.webp' });
       unit.insert('contestWorks', { ...unit.find('contestWorks', w => w.id === 'work3'), id: 'broken-work', cardId: 'broken-card', number: 27 });
+      unit.insert('cards', { ...card, id: 'pending-card', shareToken: 'pending-share', shortToken: 'Pendng' });
+      unit.insert('contestWorks', { ...unit.find('contestWorks', w => w.id === 'work3'), id: 'pending-work', cardId: 'pending-card', number: 28 });
       card.title = 'Edited after scoring';
       card.frontImage = '/uploads/replaced-original.webp';
     }, { write: true });
@@ -137,15 +140,24 @@ async function testNewJudgingMaterials() {
       assert.equal(readable.items.find(m => m.id === 'work3').title, after.items[2].title, 'editing the source never replaces the frozen title');
       assert.equal(readable.items.find(m => m.id === 'work3').score.value, 7);
       assert.equal((await read(adminPath, 'admin')).body.materialSyncError.number, 27);
-      await assert.rejects(read(adminPath + '/materials.zip', 'admin'), e => e.status === 400);
+      const isSyncError = e => e.status === 409 && e.code === 'MATERIALS_EXPORT_PENDING' &&
+        e.fields.number === 27 && e.fields.reason === readable.materialSyncError.reason;
+      await assert.rejects(exportZip(), isSyncError);
+      await assert.rejects(exportZip('from=1&to=80'), isSyncError);
+      await assert.rejects(exportZip('from=28&to=80'), isSyncError, 'a failed batch must not silently omit a healthy pending entry');
+      const unaffected = await JSZip.loadAsync((await exportZip('from=1&to=26')).body);
+      assert.deepEqual(JSON.parse(await unaffected.file('manifest.json').async('string')).items, fullManifest.items);
+      await assert.rejects(exportZip('from=80&to=1'), e => e.status === 400 && e.message === e.fields.range);
       await assert.rejects(write(judgePath + '/submit', { expectedRevision: readable.judging.revision }, 'judge1'), e => e.code === 'MATERIALS_PENDING');
       assert.equal((await fs.readdir(path.join(f.dataDir, 'judging'))).length, frozenBeforeFailure, 'failed partial batch is removed');
     }
     const savedDespiteFailure = await write(judgePath + '/materials/:id/score', { expectedRevision: 1, score: 8, comment: 'can continue' }, 'judge1', 'work3');
     assert.equal(savedDespiteFailure.body.score.revision, 2);
     await f.db.transaction(unit => { unit.find('cards', c => c.id === 'broken-card').backImage = ''; }, { write: true });
+    const retry = await JSZip.loadAsync((await exportZip('from=27&to=80')).body);
+    assert.deepEqual(JSON.parse(await retry.file('manifest.json').async('string')).items.map(m => m.number), [27, 28]);
     const recovered = (await read()).body;
-    assert.equal(recovered.items.length, 25);
+    assert.equal(recovered.items.length, 26);
     assert.equal(recovered.materialSyncError, undefined);
     assert.equal(recovered.items.find(m => m.id === 'work3').score.value, 8);
   } finally { await f.cleanup(); }

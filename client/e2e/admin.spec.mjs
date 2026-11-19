@@ -198,6 +198,13 @@ test('real contest description review, five-judge configuration, start and prote
   }
   await expect(judging.getByRole('alert').filter({hasText:'服务器没有返回下载文件，请稍后重试。'})).toBeVisible();
   await page.unroute(allZip);
+  await page.route(allZip, route => route.fulfill({
+    status:409,
+    json:{error:{code:'MATERIALS_EXPORT_PENDING',fields:{number:27,reason:'冻结图片解码失败'}}},
+  }));
+  await exportAll.click();
+  await expect(judging.getByRole('alert').filter({hasText:'作品 #27 同步失败（冻结图片解码失败）'})).toBeVisible();
+  await page.unroute(allZip);
   const fullPromise = page.waitForEvent('download');
   await exportAll.click();
   const fullZip = await fullPromise;
