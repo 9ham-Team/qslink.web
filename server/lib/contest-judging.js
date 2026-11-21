@@ -242,6 +242,8 @@ function pendingWorks(ctx, existing) {
 function inExportRange(work, range) {
   return !range || (work.number >= range.from && work.number <= range.to);
 }
+const isSyncFailure = error => (error.status === 400 && error.fields?.images) || error.status === 413;
+const syncReason = error => error.fields?.images || error.message;
 // Append new eligible works without replacing any material that already has a
 // frozen identity. Image preparation stays outside the shared writer lock.
 function withNewMaterials(handler, authorize) {
@@ -249,10 +251,15 @@ function withNewMaterials(handler, authorize) {
     let materialSyncError = null;
     const isExport = handler === exportMaterials;
     let exportRange = null;
+    let skipFailed = false;
+    const skippedSync = new Map();
     const prepared = await base.db.transaction(async unit => {
       const ctx = independentContext(base, unit);
       await authorize(ctx);
-      if (isExport) exportRange = parseExportRange(ctx.query);
+      if (isExport) {
+        exportRange = parseExportRange(ctx.query);
+        skipFailed = ctx.query.get('skipFailed') === '1';
+      }
       const config = await setting(ctx);
       if (!isOpen(config)) return null;
       const existing = await materials(ctx, true);
@@ -266,54 +273,70 @@ function withNewMaterials(handler, authorize) {
       const directory = path.join(base.config.dataDir, 'judging', storageKey);
       let committed = false, currentWork = null;
       try {
-        if (prepared.existingCount + prepared.works.length > MAX_FROZEN_WORKS) throw payloadTooLarge('冻结作品超过 1000 件');
+        if (!skipFailed && prepared.existingCount + prepared.works.length > MAX_FROZEN_WORKS) throw payloadTooLarge('冻结作品超过 1000 件');
         await fs.mkdir(directory, { recursive: true, mode: 0o700 });
         const frozen = [];
         let bytes = prepared.bytes;
         for (const work of prepared.works) {
+          if (skipFailed && !inExportRange(work, exportRange)) continue;
           currentWork = work;
-          const images = { front: await freezeImage(work.front, base.config.uploadsDir, directory, `${work.number}-front.webp`),
-            back: work.back ? await freezeImage(work.back, base.config.uploadsDir, directory, `${work.number}-back.webp`) : null };
-          for (const image of Object.values(images)) if (image) image.storageKey = storageKey;
-          bytes += images.front.bytes + (images.back?.bytes || 0);
-          if (bytes > MAX_FROZEN_BYTES) throw payloadTooLarge('冻结图片总量超过 256MiB');
-          frozen.push({ id: work.id, number: work.number, title: work.title, description: work.description, images });
-        }
-        committed = await base.db.transaction(async unit => {
-          const ctx = independentContext(base, unit);
-          await authorize(ctx);
-          const config = await setting(ctx);
-          // A competing sync/configuration change wins; the next read can retry.
-          if (!isOpen(config) || config.revision !== prepared.config.revision) return false;
-          const existing = await materials(ctx, true);
-          const works = pendingWorks(ctx, existing);
-          if (JSON.stringify(works) !== JSON.stringify(prepared.works)) return false;
-          const combined = [...existing, ...frozen].sort((a, b) => a.number - b.number);
-          const bytes = combined.reduce((sum, m) => sum + m.images.front.bytes + (m.images.back?.bytes || 0), 0);
-          if (bytes > MAX_FROZEN_BYTES) throw payloadTooLarge('冻结图片总量超过 256MiB');
-          for (const work of frozen) {
-            await unit.client.query('INSERT INTO "contestMaterials" ("eventKey",id,number,title,description,images) VALUES ($1,$2,$3,$4,$5,$6)',
-              [scope(ctx), work.id, work.number, work.title, work.description, JSON.stringify(work.images)]);
+          if (skipFailed && prepared.existingCount + frozen.length >= MAX_FROZEN_WORKS) {
+            skippedSync.set(work.id, '冻结作品超过 1000 件');
+            continue;
           }
-          const version = hash(JSON.stringify(combined.map(({ id, number, title, description, images }) => ({ id, number, title, description, images }))));
-          const published = await unit.client.query('UPDATE "contestJudging" SET "materialVersion"=$2,revision=revision+1 WHERE id=$1 AND deadline>clock_timestamp() RETURNING id', [scope(ctx), version]);
-          if (!published.rows.length) throw conflict('JUDGING_CLOSED', '评审已截止');
-          await unit.client.query('UPDATE "contestJudges" SET "submittedAt"=NULL,revision=revision+1 WHERE "eventKey"=$1', [scope(ctx)]);
-          return true;
-        }, { write: true });
-        if (committed) console.info('[admin:contest-judging]', JSON.stringify({ action: 'materials.append', eventKey: base.params.eventKey, actorId: prepared.actorId, at: new Date().toISOString() }));
+          const front = `${work.number}-front.webp`, back = `${work.number}-back.webp`;
+          try {
+            const images = { front: await freezeImage(work.front, base.config.uploadsDir, directory, front),
+              back: work.back ? await freezeImage(work.back, base.config.uploadsDir, directory, back) : null };
+            const size = images.front.bytes + (images.back?.bytes || 0);
+            if (bytes + size > MAX_FROZEN_BYTES) throw payloadTooLarge('冻结图片总量超过 256MiB');
+            for (const image of Object.values(images)) if (image) image.storageKey = storageKey;
+            bytes += size;
+            frozen.push({ id: work.id, number: work.number, title: work.title, description: work.description, images });
+          } catch (failure) {
+            if (!skipFailed || !isSyncFailure(failure)) throw failure;
+            skippedSync.set(work.id, syncReason(failure));
+            await fs.rm(path.join(directory, front), { force: true });
+            await fs.rm(path.join(directory, back), { force: true });
+          }
+        }
+        if (frozen.length) {
+          committed = await base.db.transaction(async unit => {
+            const ctx = independentContext(base, unit);
+            await authorize(ctx);
+            const config = await setting(ctx);
+            // A competing sync/configuration change wins; the next read can retry.
+            if (!isOpen(config) || config.revision !== prepared.config.revision) return false;
+            const existing = await materials(ctx, true);
+            const works = pendingWorks(ctx, existing);
+            if (JSON.stringify(works) !== JSON.stringify(prepared.works)) return false;
+            const combined = [...existing, ...frozen].sort((a, b) => a.number - b.number);
+            const bytes = combined.reduce((sum, m) => sum + m.images.front.bytes + (m.images.back?.bytes || 0), 0);
+            if (bytes > MAX_FROZEN_BYTES) throw payloadTooLarge('冻结图片总量超过 256MiB');
+            for (const work of frozen) {
+              await unit.client.query('INSERT INTO "contestMaterials" ("eventKey",id,number,title,description,images) VALUES ($1,$2,$3,$4,$5,$6)',
+                [scope(ctx), work.id, work.number, work.title, work.description, JSON.stringify(work.images)]);
+            }
+            const version = hash(JSON.stringify(combined.map(({ id, number, title, description, images }) => ({ id, number, title, description, images }))));
+            const published = await unit.client.query('UPDATE "contestJudging" SET "materialVersion"=$2,revision=revision+1 WHERE id=$1 AND deadline>clock_timestamp() RETURNING id', [scope(ctx), version]);
+            if (!published.rows.length) throw conflict('JUDGING_CLOSED', '评审已截止');
+            await unit.client.query('UPDATE "contestJudges" SET "submittedAt"=NULL,revision=revision+1 WHERE "eventKey"=$1', [scope(ctx)]);
+            return true;
+          }, { write: true });
+          if (committed) console.info('[admin:contest-judging]', JSON.stringify({ action: 'materials.append', eventKey: base.params.eventKey, actorId: prepared.actorId, at: new Date().toISOString() }));
+        }
       } catch (failure) {
         // An invalid new image must not make already-frozen scores unreadable.
-        if (!(failure.status === 400 && failure.fields?.images || failure.status === 413)) throw failure;
+        if (!isSyncFailure(failure)) throw failure;
         if (!isExport && ![own, getSettings].includes(handler)) throw failure;
-        materialSyncError = { number: currentWork?.number ?? null, reason: failure.fields?.images || failure.message };
+        materialSyncError = { number: currentWork?.number ?? null, reason: syncReason(failure) };
       } finally {
         if (!committed) await fs.rm(directory, { recursive: true, force: true });
       }
     }
     return base.db.transaction(async unit => {
       const ctx = independentContext(base, unit);
-      if (isExport) return exportMaterials(ctx, exportRange, materialSyncError);
+      if (isExport) return exportMaterials(ctx, exportRange, materialSyncError, skipFailed ? skippedSync : null);
       const result = await handler(ctx);
       if (materialSyncError) result.body.materialSyncError = materialSyncError;
       return result;
@@ -431,25 +454,31 @@ function parseExportRange(query) {
   }
   return { from, to };
 }
-async function exportMaterials(ctx, range, syncError) {
+async function exportMaterials(ctx, range, syncError, skippedSync) {
   auth.requireAdmin(ctx);
   const config = await setting(ctx);
   if (!config || !config.frozenAt) throw conflict('JUDGING_NOT_STARTED', '评审尚未开始');
   const all = await materials(ctx);
+  const skipped = [];
   if (isOpen(config)) {
     // Use the same snapshot for this check and the archive. A failed batch or
     // a concurrent change must not produce a silently incomplete download.
     const pending = pendingWorks(ctx, all);
     const missing = pending.find(work => inExportRange(work, range));
-    if (missing) {
+    if (skippedSync) {
+      for (const work of pending.filter(work => inExportRange(work, range))) {
+        skipped.push({ number: work.number, reason: skippedSync.get(work.id) || '评审材料尚未生成，请重试。' });
+      }
+    } else if (missing) {
       const issue = syncError && (syncError.number === null || pending.some(work => work.number === syncError.number))
         ? syncError : { number: missing.number, reason: '评审材料尚未生成，请重试。' };
       throw conflict('MATERIALS_EXPORT_PENDING', '评审材料尚未同步，无法导出完整材料包。', issue);
     }
   }
-  const from = range?.from ?? all[0]?.number, to = range?.to ?? all.at(-1)?.number;
-  const selected = all.filter(m => m.number >= from && m.number <= to);
-  if (!selected.length) throw notFound('范围内没有冻结作品');
+  const numbers = [...all, ...skipped].map(work => work.number).sort((a, b) => a - b);
+  const from = range?.from ?? numbers[0], to = range?.to ?? numbers.at(-1);
+  const selected = all.filter(work => inExportRange(work, range));
+  if (!selected.length && !skipped.length) throw notFound('范围内没有冻结作品');
   const JSZip = require('jszip');
   const zip = new JSZip();
   let size = 0;
@@ -463,21 +492,37 @@ async function exportMaterials(ctx, range, syncError) {
   const manifest = { materialVersion: config.materialVersion, frozenAt: iso(config.frozenAt), from, to, items: [] };
   for (const m of selected) {
     const item = { id: m.id, number: m.number, title: m.title, description: m.description, images: {} };
-    for (const side of ['front', 'back']) {
-      if (!m.images[side]) { item.images[side] = null; continue; }
-      const name = `${m.number}/${side}.webp`;
-      add(name, await frozenBytes(ctx, config, m.images[side]));
-      item.images[side] = { file: name, sha256: m.images[side].sha256, bytes: m.images[side].bytes };
+    const files = [];
+    try {
+      for (const side of ['front', 'back']) {
+        if (side === 'back' && !m.images.back) { item.images.back = null; continue; }
+        const name = `${m.number}/${side}.webp`;
+        files.push([name, await frozenBytes(ctx, config, m.images[side])]);
+        item.images[side] = { file: name, sha256: m.images[side].sha256, bytes: m.images[side].bytes };
+      }
+    } catch (failure) {
+      if (!skippedSync || !['NOT_FOUND', 'MATERIAL_INTEGRITY'].includes(failure.code)) throw failure;
+      skipped.push({ number: m.number, reason: failure.message });
+      continue;
     }
+    for (const [name, bytes] of files) add(name, bytes);
     add(`${m.number}/text.txt`, `${m.title}\n\n${m.description}\n`);
     manifest.items.push(item);
   }
+  if (!manifest.items.length) throw conflict('MATERIALS_EXPORT_EMPTY', '所选范围没有可导出的作品，未生成材料包。');
+  if (skipped.length) {
+    skipped.sort((a, b) => a.number - b.number);
+    manifest.partial = true;
+    manifest.skipped = skipped;
+  }
   add('manifest.json', JSON.stringify(manifest, null, 2));
   add('README.txt', 'QSLink 冻结作品材料包\n仅供独立离线 AI 评审；本服务不向任何外部系统发送材料，不执行评分。\n下载不代表第三方上传或再授权许可；卡面可能含呼号、地址等个人信息，外发前须核对作者授权和平台条款。\n三名 AI 各自独立评审每件作品，0–10 分，允许 0.5 分档。模板仅为空白输入，不包含人工分数、评语或身份。\n保留 manifest 的 materialVersion 和图片 SHA-256 以核对材料一致性。本包不生成 AI 分数或总排名。\n');
-  add('template.json', JSON.stringify({ materialVersion: config.materialVersion, items: selected.map(m => ({ id: m.id, number: m.number, aiScore: null, comment: '' })) }, null, 2));
+  add('template.json', JSON.stringify({ materialVersion: config.materialVersion, items: manifest.items.map(m => ({ id: m.id, number: m.number, aiScore: null, comment: '' })) }, null, 2));
   const bytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'STORE' });
   if (bytes.length > MAX_ZIP_BYTES) throw payloadTooLarge('材料包超过 272MiB，请缩小范围');
-  return { body: bytes, headers: { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${scope(ctx)}-materials-${from}-${to}.zip"` }, afterCommit: audit(ctx, 'materials.export') };
+  const suffix = skipped.length ? '-partial' : '';
+  return { body: bytes, headers: { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${scope(ctx)}-materials-${from}-${to}${suffix}.zip"`,
+    ...(skipped.length ? { 'X-QSL-Export-Skipped': `${skipped.length};${skipped.slice(0, 20).map(item => item.number).join(',')}` } : {}) }, afterCommit: audit(ctx, 'materials.export') };
 }
 const adminPrefix = '/api/admin/contests/:eventKey/judging';
 const judgePrefix = '/api/contests/:eventKey/judging';

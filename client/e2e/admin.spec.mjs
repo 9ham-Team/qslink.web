@@ -217,6 +217,19 @@ test('real contest description review, five-judge configuration, start and prote
   const zipPromise=page.waitForEvent('download');
   await judging.getByRole('button',{name:'下载此范围材料 ZIP',exact:true}).click();
   const zip=await zipPromise;expect(zip.suggestedFilename()).toMatch(/materials-1-20\.zip$/);expect(await zip.failure()).toBeNull();
+  const skip = judging.getByRole('checkbox', {name:'跳过失败作品'});
+  await expect(skip).not.toBeChecked();
+  await skip.check();
+  await page.route('**/judging/materials.zip?from=1&to=20&skipFailed=1', async route => {
+    const response = await route.fetch();
+    await route.fulfill({response, headers:{...response.headers(), 'x-qsl-export-skipped':'1;19'}});
+  });
+  const partialPromise = page.waitForEvent('download');
+  await judging.getByRole('button',{name:'下载此范围材料 ZIP',exact:true}).click();
+  const partial = await partialPromise;
+  expect(partial.suggestedFilename()).toMatch(/materials-1-20-partial\.zip$/);
+  expect(await partial.failure()).toBeNull();
+  await expect(judging.getByRole('status').filter({hasText:'已跳过 1 件作品（#19）'})).toBeVisible();
   const votesPromise=page.waitForEvent('download');
   await page.getByRole('button',{name:'下载当前投票 XLSX',exact:true}).click();
   const votes=await votesPromise;expect(votes.suggestedFilename()).toMatch(/votes\.xlsx$/);expect(await votes.failure()).toBeNull();

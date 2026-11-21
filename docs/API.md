@@ -490,6 +490,8 @@ body：`{ expectedRevision }`，版本为本人最新整表 `judging.revision`�
 
 管理员可在开始后下载，不传 query 时一键导出全部当前有效材料；也可传 `from`／`to` 按固定作品编号选择闭区间，不再限制为 20 件。单图最多 10 MiB，冻结图片累计最多 256 MiB，材料包上限 272 MiB（包含说明、清单及 ZIP 元数据）。按编号目录包含正面、可选背面与作品说明，附材料版本、SHA-256 清单、规则和空白 AI 评分模板；不存在的背面不伪造图片。没有评委分、评语、联系邮箱、寄送资料或投票明细，也不自动调用或发送到 AI。作品卡面可能自带个人信息，外发前需自行检查授权范围。本导出不受成绩截止限制，因为不含成绩。截止前，若导出所选范围时仍有待同步作品（全量视为全部编号），返回 409 `MATERIALS_EXPORT_PENDING`；`error.fields` 提供原因 `reason`，以及涉及的作品编号 `number`（总体容量限制等无单个作品编号时为 null）。若所选范围不含待同步作品，则直接下载该范围内已冻结的有效材料。
 
+传 `skipFailed=1` 可显式请求部分导出，默认仍要求完整。截止前先尝试冻结所选范围内尚未同步的作品；无法同步或无法读取、校验的冻结图片会使整件作品跳过，其他作品照常导出。截止后只检查已冻结的有效作品。部分 ZIP 文件名带 `-partial`，`manifest.json` 额外包含 `partial: true` 和 `skipped: [{ number, reason }]`；评分模板只列出 ZIP 内实际包含的作品。部分响应带 `X-QSL-Export-Skipped`，格式为 `总件数;编号,编号,…`，最多列出前 20 个编号；完整列表见清单。若范围内的作品全部失败，返回 409 `MATERIALS_EXPORT_EMPTY`，不生成空包。权限、ZIP 总体大小上限和其他请求错误仍照常处理。
+
 #### GET /api/admin/contests/:eventKey/judging/results 👑
 
 评审截止前返回 403（包括所有评委已提前提交时），不提前解锁。截止后返回 `{ materialVersion, deadline, judges, items }`；作品含 `id`、`number`、`title`、`scores: [{slot,score,comment,submittedAt}]`、`humanScore` 与 `complete`。该作品缺任一评委已保存评分时，人工项为 `null`／未完成；五位均有已保存评分即可去掉一个最高、一个最低，余三均分乘 5，四舍五入两位小数，不要求设置完成标记。原始评分保留，不产生最终总分、总排名或获奖名单。

@@ -62,6 +62,10 @@ export function useAdmin(platform: ApplicationContext) {
         const blob = await response.blob();
         ensure();
         if (!blob.size) throw new Error(platform.t('服务器没有返回下载文件，请稍后重试。'));
+        const summary = accept === 'application/zip'
+          ? /^([1-9]\d*);([1-9]\d*(?:,[1-9]\d*){0,19})$/.exec(response.headers.get('X-QSL-Export-Skipped') || '') : null;
+        const skipped = summary ? { count: Number(summary[1]), numbers: summary[2].split(',') } : null;
+        if (skipped) filename = filename.replace(/\.zip$/i, '-partial.zip');
         const url = URL.createObjectURL(blob);
         urls.add(url);
         const release = () => { if (urls.delete(url)) URL.revokeObjectURL(url); };
@@ -71,7 +75,7 @@ export function useAdmin(platform: ApplicationContext) {
         document.body.append(link);
         try { link.click(); }
         finally { link.remove(); }
-        if (retainLink) return { url, filename, release };
+        if (retainLink) return { url, filename, release, skipped };
         const timer = setTimeout(() => { release(); timers.delete(timer); }, 1000);
         timers.add(timer);
       } catch (err) {
