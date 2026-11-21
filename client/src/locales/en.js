@@ -83,6 +83,9 @@ export default {
   "无法导出完整材料包：作品 #{number} 同步失败（{reason}）。请处理后重试，或缩小下载范围。": "Cannot export the complete archive: entry #{number} failed to sync ({reason}). Resolve the issue and retry, or select a smaller range.",
   "无法导出完整材料包：{reason}。请处理后重试，或缩小下载范围。": "Cannot export the complete archive: {reason}. Resolve the issue and retry, or select a smaller range.",
   "评审材料尚未生成，请重试。": "Judging materials have not been generated yet. Please retry.",
+  "跳过失败作品": "Skip failed entries",
+  "部分导出：已跳过 {count} 件作品（{numbers}）。完整编号和原因见 ZIP 内的 manifest.json。": "Partial export: skipped {count} entries ({numbers}). See manifest.json in the ZIP for all entry numbers and reasons.",
+  "所选范围没有可导出的作品，未生成材料包。": "No entries in this range could be exported. No archive was created.",
   "正在生成材料包…": "Preparing archive…",
 
   "还有参赛作品的评审材料未更新，请联系管理员": "Some eligible entries still need judging materials. Contact an administrator.",

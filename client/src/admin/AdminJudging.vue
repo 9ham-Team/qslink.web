@@ -10,6 +10,7 @@ const api = useAdmin(props.platform), endpoint = CONTEST_API + '/judging';
 const judging = ref<Judging>(), results = ref<JudgingResults>(), loading = ref(false), busy = ref(false), downloading = ref<'all' | 'range' | 'scores'>(), stale = ref(false), error = ref('');
 const syncError = ref('');
 const downloadError = ref('');
+const downloadNotice = ref('');
 const downloadLink = ref<Awaited<ReturnType<typeof api.download>>>();
 function clearDownloadLink() {
   downloadLink.value?.release();
@@ -18,6 +19,7 @@ function clearDownloadLink() {
 const deadline = ref(''), query = ref(''), users = ref<AdminUser[]>([]), searching = ref(false), searchError = ref('');
 const selected = ref<Array<{id:string;displayName?:string;username?:string;uid?:string}>>([]);
 const range = reactive({from:1,to:20});
+const skipFailed = ref(false);
 const confirmation = ref<'start'|'config'>();
 let searchJob = 0, poll:ReturnType<typeof setInterval>;
 const dirty = computed(() => {
@@ -100,9 +102,27 @@ async function download(materials:boolean, all = false) {
   if (locked.value || downloading.value || !judging.value || (materials ? !judging.value.frozenAt : !judging.value.canViewResults)) return;
   clearDownloadLink();
   downloadError.value = '';
+  downloadNotice.value = '';
   if (materials && !all && (!Number.isSafeInteger(range.from) || !Number.isSafeInteger(range.to) || range.from < 1 || range.to < range.from)) { downloadError.value = props.platform.t('请输入有效作品编号范围。'); return; }
   downloading.value = materials ? (all ? 'all' : 'range') : 'scores';
-  try { downloadLink.value = await api.download(materials ? endpoint + '/materials.zip' + (all ? '' : '?' + new URLSearchParams({from:String(range.from),to:String(range.to)})) : endpoint + '/scores.xlsx', materials ? 'qsl-design-2026-11-materials-' + (all ? 'all' : range.from + '-' + range.to) + '.zip' : 'qsl-design-2026-11-judging.xlsx',materials ? 'application/zip' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', true); }
+  const query = new URLSearchParams();
+  if (materials && !all) { query.set('from', String(range.from)); query.set('to', String(range.to)); }
+  if (materials && skipFailed.value) query.set('skipFailed', '1');
+  const params = query.toString();
+  const suffix = params ? '?' + params : '';
+  try {
+    const file = await api.download(materials ? endpoint + '/materials.zip' + suffix : endpoint + '/scores.xlsx',
+      materials ? 'qsl-design-2026-11-materials-' + (all ? 'all' : range.from + '-' + range.to) + '.zip' : 'qsl-design-2026-11-judging.xlsx',
+      materials ? 'application/zip' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', true);
+    if (!api.live()) return;
+    downloadLink.value = file;
+    if (file?.skipped) {
+      const { count, numbers } = file.skipped;
+      downloadNotice.value = props.platform.t('部分导出：已跳过 {count} 件作品（{numbers}）。完整编号和原因见 ZIP 内的 manifest.json。', {
+        count, numbers: numbers.map(number => '#' + number).join('、') + (count > numbers.length ? '…' : ''),
+      });
+    }
+  }
   catch(err) { if(api.live()) downloadError.value = err instanceof TypeError ? props.platform.t('下载失败，请稍后重试') : message(err); }
   finally { if(api.live()) downloading.value = undefined; }
 }
@@ -113,9 +133,10 @@ onBeforeUnmount(() => { searchJob++; clearInterval(poll); });
 <form class="a-judging-search" @submit.prevent="search"><label>{{ platform.t('搜索评委用户名或 UID') }}<input v-model="query" type="search" name="q" class="input" :disabled="locked"></label><button type="submit" class="btn btn-ghost" :disabled="locked || searching">{{ platform.t('搜索用户') }}</button></form><p role="status">{{ searchError }}</p><div aria-live="polite"><button v-for="user in users" :key="user.id" type="button" class="btn btn-ghost" :disabled="locked" @click="add(user)">{{ user.displayName || user.username }} @{{ user.username }} · UID {{ user.uid }}</button></div><ol class="a-judging-selected"><li v-for="(user,index) in selected" :key="user.id"><span>{{ platform.t('评委 {n}',{n:index+1}) }} · {{ user.displayName || user.username }} · UID {{ user.uid }}</span><button type="button" class="btn btn-ghost btn-sm" :disabled="locked" @click="selected.splice(index,1)">{{ platform.t('移除') }}</button></li></ol><button type="button" class="btn btn-primary" :disabled="locked" @click="save(false)">{{ platform.t('保存评审配置') }}</button><p role="alert" class="a-hint-error">{{ error }}</p><p v-if="syncError" role="alert" class="a-hint-error">{{ syncError }}</p><div class="a-announcement-actions"><button type="button" class="btn btn-primary" :disabled="locked || !!judging.frozenAt || dirty || !judging.deadline || judging.judges.length !== 5" @click="save(true)">{{ platform.t('开始并固定评审') }}</button><button type="button" class="btn btn-ghost" :disabled="busy || loading || !!confirmation" @click="load()">{{ platform.t('刷新评审配置与进度') }}</button></div>
 <h3>{{ platform.t('评委完成进度') }}</h3><div class="a-judging-table"><table><thead><tr><th>{{ platform.t('评委') }}</th><th>{{ platform.t('已保存作品') }}</th><th>{{ platform.t('完成标记') }}</th></tr></thead><tbody><tr v-for="judge in judging.judges" :key="judge.userId"><td>{{ judge.displayName || judge.username }} · UID {{ judge.uid }}</td><td>{{ judge.scoredCount || 0 }} / {{ judging.totalWorks }}</td><td>{{ judge.submittedAt ? beijingInput(judge.submittedAt).replace('T',' ') + ' UTC+08:00' : platform.t('未标记完成') }}</td></tr></tbody></table></div>
 <p class="muted">{{ platform.t(judging.canViewResults ? '结果可在截止后手动加载；不包含 AI 评分、投票分或最终排名。' : '截止前不显示任何评委分数或评语。') }}</p><button v-if="judging.canViewResults" type="button" class="btn btn-ghost" :disabled="locked" @click="loadResults">{{ platform.t('加载人工评审结果') }}</button><div v-if="results && judging.canViewResults && !stale"><h3>{{ platform.t('人工评审结果（非最终排名）') }}</h3><p class="muted">{{ platform.t('人工分：截止后按五位评委已保存评分，去掉一个最高分和一个最低分，余下三项平均后乘 5；缺项不计算。完成标记为可选，不影响汇总。') }}</p><div class="a-judging-table"><table><thead><tr><th>{{ platform.t('作品') }}</th><th v-for="judge in results.judges" :key="judge.slot">{{ platform.t('评委 {n}',{n:judge.slot}) }}</th><th>{{ platform.t('人工分 / 50') }}</th></tr></thead><tbody><tr v-for="item in results.items" :key="item.number"><td>#{{ item.number }} {{ item.title }}</td><td v-for="judge in results.judges" :key="judge.slot"><template v-for="score in item.scores.filter(score => score.slot === judge.slot)" :key="score.slot"><b>{{ score.score ?? '—' }}</b><small>{{ platform.t(score.submittedAt ? '已标记完成' : '未标记完成') }}</small><p class="a-judging-comment">{{ score.comment }}</p></template></td><td>{{ item.complete && item.humanScore != null ? item.humanScore : platform.t('评分未完成') }}</td></tr></tbody></table></div></div>
-<div class="a-announcement-actions"><button type="button" class="btn btn-ghost" :disabled="locked || !!downloading || !judging.canViewResults" @click="download(false)">{{ platform.t(downloading === 'scores' ? '正在准备下载…' : '下载人工评分 XLSX') }}</button></div><h3>{{ platform.t('下载固定版评审材料 ZIP') }}</h3><p class="muted">{{ platform.t('支持一键导出全部有效评审作品，也可按编号范围下载。仅手动下载，不自动发送到任何第三方。') }}</p><p class="a-judging-notice">{{ platform.t('外发授权提示：材料含用户作品。下载不代表获得向 AI 或其他第三方外发、上传或再授权的许可；请先取得作者授权并核对平台条款。压缩包默认附带此提示。') }}</p><button type="button" class="btn btn-primary" :disabled="locked || !!downloading || !judging.frozenAt" @click="download(true, true)">{{ platform.t(downloading === 'all' ? '正在生成材料包…' : '一键导出全部材料 ZIP') }}</button><div class="a-judging-range"><label>{{ platform.t('起始作品编号') }}<input v-model.number="range.from" type="number" min="1" step="1" class="input"></label><label>{{ platform.t('结束作品编号') }}<input v-model.number="range.to" type="number" min="1" step="1" class="input"></label><button type="button" class="btn btn-ghost" :disabled="locked || !!downloading || !judging.frozenAt" @click="download(true)">{{ platform.t(downloading === 'range' ? '正在生成材料包…' : '下载此范围材料 ZIP') }}</button></div>
+<div class="a-announcement-actions"><button type="button" class="btn btn-ghost" :disabled="locked || !!downloading || !judging.canViewResults" @click="download(false)">{{ platform.t(downloading === 'scores' ? '正在准备下载…' : '下载人工评分 XLSX') }}</button></div><h3>{{ platform.t('下载固定版评审材料 ZIP') }}</h3><p class="muted">{{ platform.t('支持一键导出全部有效评审作品，也可按编号范围下载。仅手动下载，不自动发送到任何第三方。') }}</p><p class="a-judging-notice">{{ platform.t('外发授权提示：材料含用户作品。下载不代表获得向 AI 或其他第三方外发、上传或再授权的许可；请先取得作者授权并核对平台条款。压缩包默认附带此提示。') }}</p><div class="a-announcement-actions"><label><input v-model="skipFailed" type="checkbox" :disabled="locked || !!downloading || !judging.frozenAt"> {{ platform.t('跳过失败作品') }}</label></div><button type="button" class="btn btn-primary" :disabled="locked || !!downloading || !judging.frozenAt" @click="download(true, true)">{{ platform.t(downloading === 'all' ? '正在生成材料包…' : '一键导出全部材料 ZIP') }}</button><div class="a-judging-range"><label>{{ platform.t('起始作品编号') }}<input v-model.number="range.from" type="number" min="1" step="1" class="input"></label><label>{{ platform.t('结束作品编号') }}<input v-model.number="range.to" type="number" min="1" step="1" class="input"></label><button type="button" class="btn btn-ghost" :disabled="locked || !!downloading || !judging.frozenAt" @click="download(true)">{{ platform.t(downloading === 'range' ? '正在生成材料包…' : '下载此范围材料 ZIP') }}</button></div>
 <p v-if="downloadError" role="alert" class="a-hint-error">{{ downloadError }}</p>
 <div role="status" class="muted">
+  <p v-if="downloadNotice" class="a-judging-notice">{{ downloadNotice }}</p>
   <p v-if="downloading">{{ platform.t('正在准备下载…') }}</p>
   <p v-else-if="downloadLink">{{ platform.t('文件已准备好。若浏览器没有自动保存，请') }} <a class="section-link" :href="downloadLink.url" :download="downloadLink.filename">{{ platform.t('手动下载文件') }}</a></p>
 </div></template>

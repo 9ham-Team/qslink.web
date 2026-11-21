@@ -105,6 +105,7 @@
   "冻结材料校验失败": "Frozen material integrity verification failed",
   "请指定作品编号闭区间 from/to，每包最多 20 件作品": "Specify an inclusive from/to entry-number range with at most 20 entries per archive",
   "范围内没有冻结作品": "There are no frozen entries in this range",
+  "所选范围没有可导出的作品，未生成材料包。": "No entries in this range could be exported. No archive was created.",
   "评审材料尚未同步，无法导出完整材料包。": "Judging materials have not finished syncing. The complete archive cannot be exported.",
   "材料包超过 64MiB，请缩小作品编号范围": "The archive exceeds 64 MiB. Select a smaller entry-number range.",
   "材料包超过 64MiB，请缩小范围": "The archive exceeds 64 MiB. Select a smaller range.",
