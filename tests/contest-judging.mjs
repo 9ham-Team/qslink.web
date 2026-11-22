@@ -179,9 +179,23 @@ async function testNewJudgingMaterials() {
     assert.equal(damagedZip.file('28/front.webp'), null, 'a bad back must not leave a good front in the archive');
     assert.deepEqual(JSON.parse(await damagedZip.file('manifest.json').async('string')).skipped.map(m => m.number), [27, 28]);
     await setImages28(material28);
-    await f.db.transaction(unit => { unit.find('cards', c => c.id === 'broken-card').backImage = ''; }, { write: true });
+    const original = await sharp(path.join(f.uploadsDir, 'original.png')).jpeg().toBuffer();
+    const missingEnd = original.subarray(0, -2);
+    const sourcePath = path.join(f.uploadsDir, 'recoverable.jpg');
+    await fs.writeFile(sourcePath, missingEnd);
+    await assert.rejects(sharp(missingEnd).webp().toBuffer());
+    await f.db.transaction(unit => { unit.find('cards', c => c.id === 'broken-card').backImage = '/uploads/recoverable.jpg'; }, { write: true });
     const retry = await JSZip.loadAsync((await exportZip('from=27&to=80')).body);
     assert.deepEqual(JSON.parse(await retry.file('manifest.json').async('string')).items.map(m => m.number), [27, 28]);
+    assert.deepEqual(await retry.file('27/back.webp').async('nodebuffer'), await judging.encodeJudgingImage(original));
+    assert.deepEqual(await fs.readFile(sourcePath), missingEnd, 'automatic repair leaves the uploaded original unchanged');
+    const webp = await sharp(original).webp().toBuffer();
+    const wrongSize = Buffer.from(webp);
+    wrongSize.writeUInt32LE(webp.length + 800, 4);
+    await assert.rejects(sharp(wrongSize).webp().toBuffer());
+    assert.deepEqual(await judging.encodeJudgingImage(wrongSize), await judging.encodeJudgingImage(webp));
+    await assert.rejects(judging.encodeJudgingImage(original.subarray(0, Math.floor(original.length / 2))),
+      e => e.fields?.images === '冻结图片解码失败', 'missing JPEG pixel data must not become a judging image');
     const recovered = (await read()).body;
     assert.equal(recovered.items.length, 26);
     assert.equal(recovered.materialSyncError, undefined);

@@ -151,11 +151,32 @@ async function sourceBuffer(url, uploadsDir) {
   } catch { throw badRequest({ images: '冻结图片不可读取或超过 10MiB' }); }
 }
 async function encodeJudgingImage(input) {
-  let bytes;
-  try {
-    bytes = await withImageSlot(() => sharp(input, { limitInputPixels: 80 * 1024 * 1024 }).rotate()
-      .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true }).webp({ quality: 85 }).toBuffer());
-  } catch { throw badRequest({ images: '冻结图片解码失败' }); }
+  const options = { limitInputPixels: 80 * 1024 * 1024 };
+  const convert = (source, failOn) => sharp(source, { ...options, failOn }).rotate()
+    .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true }).webp({ quality: 85 }).toBuffer();
+  const bytes = await withImageSlot(async () => {
+    try { return await convert(input, 'warning'); }
+    catch {
+      // Repair only the in-memory copy. Never invent missing pixel data.
+      let source = input;
+      if (input[0] === 0xff && input[1] === 0xd8 && input.length >= 4 && input.readUInt16BE(input.length - 2) !== 0xffd9) {
+        source = Buffer.concat([input, Buffer.from([0xff, 0xd9])]);
+      } else if (input.length >= 20 && input.toString('latin1', 0, 4) === 'RIFF' &&
+          input.toString('latin1', 8, 12) === 'WEBP' && input.readUInt32LE(4) !== input.length - 8) {
+        source = Buffer.from(input);
+        source.writeUInt32LE(source.length - 8, 4);
+      }
+      try {
+        const meta = await sharp(source, options).metadata();
+        if (['jpeg', 'png', 'webp'].includes(meta.format) && (meta.pages ?? 1) === 1) {
+          // For a repaired container require a clean decode; otherwise tolerate
+          // decoder warnings only, as in the offline repair tool.
+          return await convert(source, source === input ? 'error' : 'warning');
+        }
+      } catch { /* Unrecoverable: keep the existing sync error and batch semantics. */ }
+      throw badRequest({ images: '冻结图片解码失败' });
+    }
+  });
   if (bytes.length > MAX_IMAGE_BYTES) throw payloadTooLarge('冻结单图超过 10MiB');
   return bytes;
 }
