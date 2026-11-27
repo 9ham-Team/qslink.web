@@ -46,6 +46,7 @@ reducedMotionQuery?.addEventListener?.('change', onMotionChange);
 
 const safeNext = computed(() => props.services.safeNext(props.nextRaw) || '');
 const registerHref = computed(() => '/register' + (safeNext.value ? '?next=' + encodeURIComponent(safeNext.value) : ''));
+const resetHref = computed(() => '/password-reset' + (safeNext.value ? '?next=' + encodeURIComponent(safeNext.value) : ''));
 const config = computed(() => props.services.config());
 const demoAccounts = computed(() => (config.value.demo ? config.value.demoAccounts || [] : []));
 
@@ -211,7 +212,7 @@ async function onSubmit() {
           <div class="f-field" :class="{ 'has-error': !!fieldErrors.password }" data-field="password">
             <div class="f-field-row">
               <label class="label" for="fLoginPassword">{{ t('密码') }}</label>
-              <span class="f-label-hint">{{ t('区分大小写') }}</span>
+              <a class="f-link" :href="resetHref">{{ t('忘记密码？') }}</a>
             </div>
             <div class="f-input-wrap">
               <span class="f-input-ico"><IconVue3 name="lock" :size="18" /></span>

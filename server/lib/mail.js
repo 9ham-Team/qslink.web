@@ -49,7 +49,13 @@ function createMessageTransport(config) {
 function createMailTransport(config) {
   const send = createMessageTransport(config);
   if (!send) return null;
-  return async (email, code) => {
+  return async (email, code, purpose) => {
+    if (purpose === 'reset') {
+      return send(email, {
+        subject: 'QSLink 找回密码验证码',
+        textBody: `重设 QSLink 密码\n\n请在找回密码页面输入验证码：${code}\n\n验证码 30 分钟内有效，仅可使用一次。请勿将验证码透露给他人。如非本人操作，请忽略此邮件。`,
+      });
+    }
     await send(email, {
       subject: 'QSLink 注册邮箱验证码',
       textBody: `完成邮箱验证\n\n您正在注册 QSLink。请在您打开的注册页面中输入以下验证码，以完成邮箱验证并创建账号。\n\n${code}\n\n此验证码将在 30 分钟后过期，仅可使用一次。\n请勿将验证码透露给他人。如果您没有尝试注册 QSLink，可以安全地忽略此邮件。`,

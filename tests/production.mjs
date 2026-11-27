@@ -474,6 +474,44 @@ test('email codes persist attempts, expire, consume once, throttle across proces
     assert.throws(() => readConfig({ DATABASE_URL: 'postgresql://localhost/test', ...settings }));
 });
 
+test('password recovery keeps account existence private and revokes previous sessions', async t => {
+  const dir = await temp(t);
+  assert.equal((await init(dir)).code, 0);
+  const app = await start(t, dir);
+  const db = databases.get(dir).db;
+  const account = { username: 'recoverable', email: 'recovery@example.test', password: 'Previous-Password-42!' };
+  const registered = await request(app.base, '/api/auth/register', { method: 'POST', body: await withCode(app, account) });
+  assert.equal(registered.status, 201);
+  const { token } = await registered.json();
+  const unused = await withCode(app, { email: 'unknown-recovery@example.test' });
+  app.codes.clear();
+  const post = (route, body) => request(app.base, '/api/auth/' + route, { method: 'POST', body });
+  const send = email => post('password-reset/code', { email });
+  const reset = (emailCode, email = account.email) => post('password-reset', { email, emailCode, newPassword: 'Replacement-Password-73!' });
+  const known = await send(account.email.toUpperCase());
+  const unknown = await send(unused.email);
+  assert.equal(known.status, 200);
+  assert.equal(unknown.status, known.status);
+  assert.deepEqual(await known.json(), await unknown.json());
+  assert.equal((await send(account.email)).status, 429);
+  assert.equal((await send(unused.email)).status, 429);
+  for (let i = 0; i < 100; i++) {
+    const ready = await db.transaction(unit => unit.find('emailVerifications', row => row.id === 'reset:' + account.email)?.status === 'ready');
+    if (ready && app.codes.has(account.email)) break;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.match(app.codes.get(account.email) || '', /^\d{6}$/);
+  assert.equal(app.codes.has(unused.email), false);
+  assert.equal((await reset(unused.emailCode, unused.email)).status, 400, 'registration code cannot be used for reset');
+  const code = app.codes.get(account.email);
+  assert.equal((await reset(code === '000000' ? '000001' : '000000')).status, 400);
+  assert.equal((await reset(code)).status, 200);
+  assert.equal((await reset(code)).status, 400, 'the reset code is single use');
+  assert.equal((await request(app.base, '/api/auth/me', { token })).status, 401);
+  assert.equal((await post('login', { identifier: account.username, password: account.password })).status, 401);
+  assert.equal((await post('login', { identifier: account.email, password: 'Replacement-Password-73!' })).status, 200);
+});
+
 test('exchange mail uses escaped templates and the existing bounded Direct Mail transport', async () => {
   const DM = require('@alicloud/dm20151123');
   const { createMailTransport, createExchangeMailTransport, createCardReviewMailTransport, readMailConfig } = require('../server/lib/mail');

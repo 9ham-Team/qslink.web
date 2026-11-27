@@ -5,6 +5,7 @@ const { badRequest, notFound } = require('../errors');
 const { parsePagination, parseEnum } = require('../validate');
 const { createId, paginate } = require('../db');
 const { announcementScope } = require('../contests');
+const images = require('../announcement-images');
 
 function validate(body, partial = false) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw badRequest(null, '请提交公告内容');
@@ -46,6 +47,7 @@ async function create(ctx) {
   auth.requireAdmin(ctx);
   const patch = validate(ctx.body);
   patch.eventKey = announcementScope(ctx.body.eventKey);
+  await images.validateImages(ctx.db, patch.body);
   const now = new Date().toISOString();
   const announcement = ctx.db.insert('announcements', {
     id: createId('a'), ...patch, publishedAt: patch.status === 'published' ? now : null,
@@ -60,6 +62,7 @@ async function update(ctx) {
   const announcement = ctx.db.find('announcements', (item) => item.id === ctx.params.id);
   if (!announcement) throw notFound('公告不存在');
   const patch = validate(ctx.body, true);
+  if (patch.body !== undefined) await images.validateImages(ctx.db, patch.body);
   if (Object.prototype.hasOwnProperty.call(ctx.body, 'eventKey') && announcementScope(ctx.body.eventKey) !== (announcement.eventKey || null)) {
     throw badRequest({ eventKey: '不能修改公告所属范围' });
   }
@@ -86,6 +89,8 @@ async function dismiss(ctx) {
 module.exports = {
   routes: [
     { method: 'GET', pattern: '/api/announcements', handler: (ctx) => list(ctx) },
+    { method: 'GET', pattern: '/api/announcement-images/:file', handler: images.get },
+    { method: 'POST', pattern: '/api/admin/announcement-images', outsideTransaction: true, handler: images.upload },
     { method: 'POST', pattern: '/api/announcements/:id/dismiss', handler: dismiss },
     { method: 'GET', pattern: '/api/admin/announcements', handler: (ctx) => list(ctx, true) },
     { method: 'POST', pattern: '/api/admin/announcements', handler: create },

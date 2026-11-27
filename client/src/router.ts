@@ -371,6 +371,14 @@ export function createRouterRuntimeVue3(
       }),
       { guest: true },
     );
+    const passwordReset = pageRecordVue3(
+      platform, runtime, '/password-reset', 'password-reset', '找回密码', () => import('./pages/PasswordReset.vue'),
+      (route, owner, scope) => ({
+        nextRaw: typeof route.query.next === 'string' ? route.query.next : null,
+        services: cachedVue3(scope, 'services', () => createAuthServicesVue3(owner)),
+      }),
+      { guest: true },
+    );
     const dashboard = pageRecordVue3(
       platform, runtime, '/dashboard', 'dashboard', '个人中心', () => import('./pages/Dashboard.vue'),
       (_route, owner, scope) => ({
@@ -450,6 +458,7 @@ export function createRouterRuntimeVue3(
       shortShare,
       login,
       register,
+      passwordReset,
       dashboard,
       myCards,
       cardEditorNew,
