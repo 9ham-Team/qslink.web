@@ -3,6 +3,7 @@ import { onBeforeUnmount, ref } from 'vue';
 import { contestKeyVue3, type ContestServicesVue3, type NewsVue3, type PageVue3 } from '../contracts';
 import { beijingTimeVue3 } from '../services';
 import LoadMoreVue3 from '../../components/LoadMore.vue';
+import AnnouncementBody from '../../components/AnnouncementBody.vue';
 const props = defineProps<{ services: ContestServicesVue3 }>(); const t = props.services.t;
 const emit = defineEmits<{ ready: [] }>(); let announced = false;
 const items = ref<NewsVue3[]>([]), busy = ref(false), error = ref(''), page = ref(0), pages = ref(0), loaded = ref(false);
@@ -19,4 +20,4 @@ async function load() {
 }
 void load(); onBeforeUnmount(() => { active = false; controller.abort(); });
 </script>
-<template><div :aria-busy="busy || undefined" aria-live="polite"><p v-if="busy && !items.length">{{ t('加载中…') }}</p><article v-for="item in items" :key="item.id" class="f-contest-news"><time :datetime="item.publishedAt">{{ beijingTimeVue3(item.publishedAt) }}</time><h3>{{ item.title }}</h3><p>{{ item.body }}</p></article><p v-if="loaded && !items.length" class="f-contest-notice">{{ t('暂无赛事动态，后续安排将在这里公布。') }}</p><div v-if="error" class="f-contest-notice" role="alert"><p>{{ error }}</p><button class="btn btn-soft" type="button" @click="load">{{ t('重试') }}</button></div><div class="f-contest-more"><LoadMoreVue3 :visible="page < pages" :loading="busy" :t="t" @load="load" /></div></div></template>
+<template><div :aria-busy="busy || undefined" aria-live="polite"><p v-if="busy && !items.length">{{ t('加载中…') }}</p><article v-for="item in items" :key="item.id" class="f-contest-news"><time :datetime="item.publishedAt">{{ beijingTimeVue3(item.publishedAt) }}</time><h3>{{ item.title }}</h3><AnnouncementBody :body="item.body" :image-error="t('公告图片加载失败')" /></article><p v-if="loaded && !items.length" class="f-contest-notice">{{ t('暂无赛事动态，后续安排将在这里公布。') }}</p><div v-if="error" class="f-contest-notice" role="alert"><p>{{ error }}</p><button class="btn btn-soft" type="button" @click="load">{{ t('重试') }}</button></div><div class="f-contest-more"><LoadMoreVue3 :visible="page < pages" :loading="busy" :t="t" @load="load" /></div></div></template>

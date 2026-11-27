@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import DialogVue3 from './Dialog.vue';
 import IconVue3 from './Icon.vue';
 import type { AnnouncementVue3, HomeServicesVue3 } from '../contracts';
+import AnnouncementBody from './AnnouncementBody.vue';
 
 const props = defineProps<{ services: HomeServicesVue3 }>();
 const t = props.services.t;
@@ -347,7 +348,7 @@ onBeforeUnmount(() => {
       </div>
       <h2 id="home-announcement-title">{{ noticeItem.title }}</h2>
       <time class="muted">{{ services.formatDateTime(noticeItem.publishedAt) }}</time>
-      <p class="g-announcement-body">{{ noticeItem.body }}</p>
+      <AnnouncementBody class="g-announcement-body" :body="noticeItem.body" :image-error="t('公告图片加载失败')" />
       <div class="g-announcement-actions">
         <button type="button" class="btn btn-soft btn-sm" :disabled="noticeClosing" @click="openBoardFromNotice">
           {{ t('查看全部公告') }}
@@ -381,7 +382,7 @@ onBeforeUnmount(() => {
           <article v-for="item in boardItems" :key="item.id">
             <h3>{{ item.title }}</h3>
             <time class="muted">{{ services.formatDateTime(item.publishedAt) }}</time>
-            <p class="g-announcement-body">{{ item.body }}</p>
+            <AnnouncementBody class="g-announcement-body" :body="item.body" :image-error="t('公告图片加载失败')" />
           </article>
         </template>
         <p v-else class="muted">{{ t('暂无已发布公告') }}</p>

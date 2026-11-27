@@ -2,9 +2,10 @@
 
 /** 认证路由：/api/auth/* */
 
-const { conflict, banned, invalidCredentials } = require('../errors');
-const { validateRegister, validateLogin, randomAvatarColor } = require('../validate');
+const { badRequest, conflict, banned, invalidCredentials } = require('../errors');
+const { validateRegister, validateLogin, validateEmail, passwordProblem, randomAvatarColor } = require('../validate');
 const auth = require('../auth');
+const verification = require('../email-verification');
 const { createId } = require('../db');
 const serialize = require('../serialize');
 
@@ -21,8 +22,8 @@ async function register(ctx) {
     throw conflict('EMAIL_TAKEN', '邮箱已被注册', { email: '该邮箱已被注册' });
   }
 
-  if (!require('../email-verification').consumeCode(ctx.db, payload.email, ctx.body.emailCode)) {
-    return require('../email-verification').invalidCode();
+  if (!verification.consumeCode(ctx.db, payload.email, ctx.body.emailCode)) {
+    return verification.invalidCode();
   }
 
   const now = new Date().toISOString();
@@ -47,6 +48,21 @@ async function register(ctx) {
   const token = auth.createSession(ctx.db, user.id);
   await ctx.db.save();
   return { status: 201, body: { token, user: serialize.selfUser(ctx.db, user) } };
+}
+
+async function resetPassword(ctx) {
+  const body = ctx.body || {};
+  const email = validateEmail(body.email);
+  const password = typeof body.newPassword === 'string' ? body.newPassword : '';
+  const problem = passwordProblem(password);
+  if (problem) throw badRequest({ newPassword: problem });
+  const user = ctx.db.find('users', item => item.status === 'active' && (item.email || '').toLowerCase() === email);
+  if (!user || !verification.consumeCode(ctx.db, email, body.emailCode, user)) return verification.invalidCode();
+  user.passwordHash = auth.hashPassword(password);
+  user.updatedAt = new Date().toISOString();
+  auth.destroyUserSessions(ctx.db, user.id);
+  await ctx.db.save();
+  return { body: { ok: true } };
 }
 
 /** POST /api/auth/login */
@@ -84,7 +100,9 @@ async function me(ctx) {
 
 module.exports = {
   routes: [
-    { method: 'POST', pattern: '/api/auth/email-code', outsideTransaction: true, handler: require('../email-verification').sendCode },
+    { method: 'POST', pattern: '/api/auth/email-code', outsideTransaction: true, handler: verification.sendCode },
+    { method: 'POST', pattern: '/api/auth/password-reset/code', outsideTransaction: true, handler: (ctx) => verification.sendCode(ctx, true) },
+    { method: 'POST', pattern: '/api/auth/password-reset', handler: resetPassword },
     { method: 'POST', pattern: '/api/auth/register', handler: register },
     { method: 'POST', pattern: '/api/auth/login', handler: login },
     { method: 'POST', pattern: '/api/auth/logout', handler: logout },

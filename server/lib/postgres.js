@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 const { ApiError } = require('./errors');
 const MIGRATIONS = ['001_initial.sql', '002_json_shapes.sql', '003_email_verification.sql', '004_legal_consent.sql', '005_public_uid.sql', '006_multiple_card_exchanges.sql', '007_announcements.sql', '008_short_tokens.sql', '009_exchange_card_preference.sql', '010_announcement_reminders.sql', '011_contact_logs.sql', '012_exchange_contact_logs.sql', '013_card_stock.sql', '014_qsl_design_contest.sql', '015_contest_entry_cards.sql', '016_contest_works.sql', '017_contest_voting.sql', '018_contest_voting_limits.sql', '019_contest_judging.sql', '020_contest_controls.sql', '021_contest_auto_entry.sql'];
+MIGRATIONS.push('022_recovery_and_announcement_images.sql');
 const SCHEMA_VERSION = MIGRATIONS.length;
 const COLLECTIONS = ['users', 'cards', 'exchanges', 'likes', 'sessions', 'emailVerifications', 'mailQuotas', 'announcements', 'announcementDismissals', 'contactLogs', 'contestEntries', 'contestWorks'];
 const FIELDS = {
@@ -13,7 +14,7 @@ const FIELDS = {
   contactLogs: ['id', 'userId', 'dedupKey', 'qsoAt', 'callSign', 'details', 'createdAt', 'updatedAt'],
   announcements: ['id', 'eventKey', 'title', 'body', 'status', 'displaySeconds', 'publishedAt', 'createdAt', 'updatedAt'],
   announcementDismissals: ['id', 'userId', 'announcementId', 'createdAt'],
-  emailVerifications: ['id', 'nonce', 'codeHash', 'attempts', 'status', 'sentAt', 'expiresAt'],
+  emailVerifications: ['id', 'nonce', 'codeHash', 'attempts', 'status', 'sentAt', 'expiresAt', 'accountBinding'],
   mailQuotas: ['id', 'count', 'windowAt'],
   users: [
     'id',

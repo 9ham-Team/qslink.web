@@ -24,13 +24,15 @@ function createAuthLimiter({ trustProxy = false } = {}) {
   }
   return (req, res, pathname, body) => {
     const vote = /^\/api\/contests\/[^/]+\/works\/[^/]+\/vote$/.test(pathname);
-    if (req.method !== 'POST' || (!vote && !['/api/auth/login', '/api/auth/register'].includes(pathname))) return;
+    if (req.method !== 'POST' || (!vote && !['/api/auth/login', '/api/auth/register', '/api/auth/password-reset', '/api/auth/password-reset/code'].includes(pathname))) return;
     const peer = req.socket.remoteAddress;
     const forwarded = req.headers['x-real-ip'];
     // Only trust the configured local reverse proxy, never arbitrary clients.
     const loopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(peer);
     const ip = (loopback || trustProxy) && typeof forwarded === 'string' && net.isIP(forwarded) ? forwarded : peer;
     if (vote) { consume('vote:' + ip, 30, res); return; }
+    if (pathname === '/api/auth/password-reset/code') { consume('reset-code:' + ip, 40, res); return; }
+    if (pathname === '/api/auth/password-reset') { consume('reset:' + ip, 60, res); return; }
     consume('ip:' + ip, 100, res);
     const identifier = body && typeof body.identifier === 'string' ? body.identifier.trim().toLowerCase() : '';
     if (pathname.endsWith('/login') && identifier) consume('login:' + identifier.slice(0, 120), 15, res);

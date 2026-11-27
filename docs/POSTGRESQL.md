@@ -2,7 +2,7 @@
 
 ## 存储方式
 
-应用只使用 PostgreSQL 17，不再读写 JSON 数据库，也没有 JSON 回退模式。用户、卡片、申请、点赞、会话分别存储在关系表中；地址、卡片比例使用 JSONB 字段。图片仍保存为 `QSL_DATA_DIR/uploads/` 下的文件。
+应用只使用 PostgreSQL 17，不再读写 JSON 数据库，也没有 JSON 回退模式。用户、卡片、申请、点赞、会话分别存储在关系表中；地址、卡片比例使用 JSONB 字段。卡片图片仍保存为 `QSL_DATA_DIR/uploads/` 下的文件，公告图片随数据库备份。
 
 `server/migrations/001_initial.sql` 建立外键、级联删除、大小写不敏感的用户名/邮箱唯一索引、每人每卡一次点赞、有效申请唯一索引，以及同卡最多一条已同意申请的约束。服务、管理员初始化和导入命令会自动执行版本化建表；旧程序遇到高于自身支持版本的数据库会拒绝启动，不会自动降级。
 
@@ -60,6 +60,8 @@ npm run db:import-json -- --file /backup/db.json
 若使用 Compose，先按部署指南启动 db、复制图片至 app-data，再用带源文件只读挂载的 `docker compose run --rm --no-deps -v /backup:/backup:ro app node server/import-json.js --file /backup/db.json --dry-run` 进行预检。不要先运行 admin:init 占用空目标库；导入包含管理员的真实业务库后直接启动应用。
 
 ## 验证与回退
+
+迁移 `022_recovery_and_announcement_images.sql` 新增找回密码验证码的账号绑定字段及公告图片表。已有账号、注册验证码和公告均保留原样。公告图片仅在读取对应资源时从数据库取出，不进入常规领域快照；上传图片时清理已上传超过 7 天且正文未引用的图片。升级后，旧镜像不能直接启动；回退需使用迁移前备份和匹配版本。
 
 迁移 `008_short_tokens.sql` 在同一迁移事务内为已有卡片补齐密码学安全的六位大小写敏感字母 `shortToken`，保留原 `shareToken`。短 token 有非空、格式及唯一约束；`card_share_tokens` 与触发器保证历史 token 和新 token 不能指向不同卡片。迁移、导入和运行时写入均检查冲突，应用写锁保证多进程分配稳定；重复启动不换号。历史 `/share/:token` 保持可访问，新分享使用 `/s/:token`。升级提高 schema 版本，旧程序会拒绝启动；回退需恢复迁移前数据库备份，不能仅换旧镜像。
 

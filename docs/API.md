@@ -191,6 +191,14 @@ body: `{ identifier, password }`（identifier = 用户名或邮箱，大小写�
 - 200 → `{ token, user: UserSelf }`
 - 401 `INVALID_CREDENTIALS`；403 `BANNED`（被禁用）；生产限流见 §1。
 
+### POST /api/auth/password-reset/code
+
+无需登录。body：`{ email }`。已启用邮件服务时，有效格式的邮箱返回 `200 → { ok: true, expiresIn: 1800, retryAfter: 60 }`，无论邮箱是否可用于找回密码。仅向匹配的启用账号投递；响应不等待邮件服务商，投递失败可在冷却后重试。未配置邮件服务返回 `503 MAIL_UNAVAILABLE`。请求有 60 秒冷却、每邮箱每小时 5 次以及按 IP 的限制，超过时返回 `429`。找回密码和注册的验证码相互独立。
+
+### POST /api/auth/password-reset
+
+无需登录。body：`{ email, emailCode, newPassword }`。邮箱不区分大小写；验证码为 6 位数字，30 分钟内有效，最多尝试 5 次，仅能使用一次，并绑定到申请时的账号及密码版本。新密码沿用注册规则。无可用账号或验证码无效返回 `400 EMAIL_CODE_INVALID`；成功 `200 → { ok: true }`，撤销该账号的全部会话，用户需用新密码登录。
+
 ### POST /api/auth/logout  🔒
 删除当前 token。→ `{ ok: true }`
 
@@ -336,7 +344,17 @@ query：`status`、`page`、`limit`。→ 分页列表（ExchangeItem，含双�
 
 ## 公告
 
-公告对象 `Announcement` 包含 `id`、`eventKey`、`title`、`body`、`status`、`displaySeconds`、`publishedAt`、`createdAt`、`updatedAt`。`eventKey: null` 为全站公告，`qsl-design-2026-11` 为本届比赛动态，创建后不可改变所属范围。`displaySeconds` 为浮层停留秒数，整数 1–3600，默认 30。标题和正文均为纯文本；去除首尾空白后分别为 1–120 和 1–10000 个 Unicode 字符，不允许 NUL。状态仅为 `draft`（草稿 / 已撤下）或 `published`（已发布）。时间由服务端生成，为 UTC ISO 字符串，未发布过的草稿 `publishedAt: null`。客户端提交的 ID、时间及其它未知字段不参与写入。
+公告对象 `Announcement` 包含 `id`、`eventKey`、`title`、`body`、`status`、`displaySeconds`、`publishedAt`、`createdAt`、`updatedAt`。`eventKey: null` 为全站公告，`qsl-design-2026-11` 为本届比赛动态，创建后不可改变所属范围。`displaySeconds` 为浮层停留秒数，整数 1–3600，默认 30。标题为纯文本，正文支持在指定位置插入本站上传的图片。去除首尾空白后分别为 1–120 和 1–10000 个 Unicode 字符，不允许 NUL；图片标记也计入正文长度。状态仅为 `draft`（草稿 / 已撤下）或 `published`（已发布）。时间由服务端生成，为 UTC ISO 字符串，未发布过的草稿 `publishedAt: null`。客户端提交的 ID、时间及其它未知字段不参与写入。
+
+插图采用 `![图片说明](/api/announcement-images/<uuid>.webp)` 标记；说明可留空，不超过 120 字且不能含方括号或换行。每条最多 8 个图片标记，保存时图片必须存在。其它文本照原样显示，HTML、一般 Markdown 及外链不渲染。
+
+### POST /api/admin/announcement-images
+
+仅管理员。body：`{ image }`，为静态 PNG、JPEG 或 WebP 的 base64 data URL，解码后最多 3 MiB、2400 万像素。成功 `201 → { url }`，服务端转为最长边 2048 像素的 WebP。上传本身不会发布图片。
+
+### GET /api/announcement-images/:file
+
+管理员可查看图片。访客及普通用户只有在图片被至少一条已发布公告或赛事动态引用时可读取，否则返回 `404`。成功返回 `image/webp`，响应不可缓存，因此撤下公告或移除最后一处公开引用后，下一次访问不再公开。
 
 ### GET /api/announcements
 

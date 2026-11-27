@@ -1,5 +1,37 @@
 import { expect, test } from './fixtures.mjs';
 
+test('forgot password preserves the destination and validates the new password', async ({ page }) => {
+  const next = '/dashboard/profile';
+  let submitted = null;
+  await page.route('**/api/auth/password-reset/code', async route => {
+    expect(route.request().postDataJSON()).toEqual({ email: 'member@example.test' });
+    await route.fulfill({ json: { ok: true, expiresIn: 1800, retryAfter: 60 } });
+  });
+  await page.route('**/api/auth/password-reset', async route => {
+    submitted = route.request().postDataJSON();
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.goto('/login?next=' + encodeURIComponent(next));
+  await page.getByRole('link', { name: '忘记密码？' }).click();
+  await expect(page.getByRole('heading', { name: '找回密码', exact: true })).toBeVisible();
+  await page.getByLabel('注册邮箱').fill('member@example.test');
+  await page.getByRole('button', { name: '获取验证码' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '如果该邮箱可用于找回密码' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /秒后重发/ })).toBeDisabled();
+  await page.getByLabel('邮箱验证码').fill('012345');
+  await page.getByLabel('新密码', { exact: true }).fill('Replacement-73');
+  await page.getByLabel('确认新密码').fill('Wrong-Password-73');
+  await page.getByRole('button', { name: '重设密码', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: '两次输入的密码不一致' })).toBeVisible();
+  expect(submitted).toBeNull();
+  await page.getByLabel('确认新密码').fill('Replacement-73');
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  expect(overflow).toBe(false);
+  await page.getByRole('button', { name: '重设密码', exact: true }).click();
+  await expect(page).toHaveURL('/login?next=' + encodeURIComponent(next));
+  expect(submitted).toEqual({ email: 'member@example.test', emailCode: '012345', newPassword: 'Replacement-73' });
+});
+
 test('login handles validation, errors, retry, demo fill, and safe next redirects — vue3', async ({ page, request }) => {
   const errors = [];
   page.on('pageerror', err => errors.push(err.message));

@@ -18,6 +18,66 @@ async function noOverflow(page) {
     overflowing:[...document.querySelectorAll('[data-vue3="admin"] *')].filter(el=>el.getBoundingClientRect().right>document.documentElement.clientWidth+1).slice(0,8).map(el=>({tag:el.tagName,cls:el.className,width:el.getBoundingClientRect().width}))}));
   expect(metrics.scroll,JSON.stringify(metrics)).toBeLessThanOrEqual(metrics.client);
 }
+test('announcement images are inserted at the cursor and follow publication visibility', async ({ page, request }, testInfo) => {
+  await page.goto('/');
+  const { admin, member } = await sessions(request);
+  const adminHeaders = { Authorization: 'Bearer ' + admin.token };
+  const memberHeaders = { Authorization: 'Bearer ' + member.token };
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200; canvas.height = 800;
+    canvas.getContext('2d').fillRect(0, 0, 1200, 800);
+    return canvas.toDataURL('image/png');
+  });
+  const imageRoute = '/api/admin/announcement-images';
+  expect((await request.post(imageRoute, { data: { image } })).status()).toBe(401);
+  expect((await request.post(imageRoute, { headers: memberHeaders, data: { image } })).status()).toBe(403);
+  expect((await request.post(imageRoute, { headers: adminHeaders, data: { image: 'data:image/png;base64,AAAA' } })).status()).toBe(400);
+  const title = 'Announcement image ' + testInfo.project.name + ' ' + Date.now();
+  await enter(page, admin, '/admin?tab=announcements');
+  await page.getByRole('button', { name: '新建公告', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.locator('[name=title]').fill(title);
+  const body = dialog.locator('[name=body]');
+  await body.fill('上文\n\n下文 <b>仍是纯文本</b>');
+  await body.evaluate(el => el.setSelectionRange(3, 3));
+  await dialog.getByLabel('图片说明（选填）').fill('活动照片');
+  const uploaded = page.waitForResponse(res => res.url().endsWith(imageRoute) && res.status() === 201);
+  await dialog.locator('input[type=file]').setInputFiles({
+    name: 'announcement.png', mimeType: 'image/png', buffer: Buffer.from(image.split(',')[1], 'base64'),
+  });
+  const { url } = await (await uploaded).json();
+  await expect(body).toHaveValue('上文\n![活动照片](' + url + ')\n下文 <b>仍是纯文本</b>');
+  await expect.poll(() => dialog.getByRole('img', { name: '活动照片' }).evaluate(el => el.naturalWidth)).toBe(1200);
+  await noOverflow(page);
+  expect((await request.get(url)).status()).toBe(404);
+  expect((await request.get(url, { headers: memberHeaders })).status()).toBe(404);
+  await dialog.getByRole('button', { name: '保存修改' }).click();
+  await expect(dialog).toHaveCount(0);
+  const row = page.locator('.a-announcement-item').filter({ hasText: title });
+  await expect(row).toContainText('[活动照片]');
+  const adminPath = '/api/admin/announcements';
+  const list = await (await request.get(adminPath, { headers: adminHeaders })).json();
+  const id = list.items.find(item => item.title === title).id;
+  try {
+    await row.getByRole('button', { name: '发布', exact: true }).click();
+    await expect(row).toContainText('已发布');
+    const publicImage = await request.get(url);
+    expect(publicImage.headers()['content-type']).toBe('image/webp');
+    expect(publicImage.headers()['cache-control']).toBe('no-store');
+    await page.goto('/');
+    await page.locator('.g-announcement-entry button').click();
+    const board = page.getByRole('dialog', { name: '公告板', exact: true });
+    const published = board.locator('article').filter({ hasText: title });
+    await expect(published.getByRole('img', { name: '活动照片' })).toBeVisible();
+    await expect(published).toContainText('<b>仍是纯文本</b>');
+    expect(await published.locator('b').count()).toBe(0);
+  } finally {
+    await request.put(adminPath + '/' + id, { headers: adminHeaders, data: { status: 'draft' } });
+  }
+  expect((await request.get(url)).status()).toBe(404);
+});
+
 test('admin Vue modules, permission boundaries, query history, shell round-trip and layouts', async ({page,request},testInfo)=>{
   const errors=[], legacy=[];
   page.on('pageerror',err=>errors.push(err.message));
