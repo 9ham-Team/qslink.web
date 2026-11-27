@@ -127,6 +127,12 @@ export function createAuthServicesVue3(platform: ApplicationContext): AuthServic
       { email },
       { signal, skipAuthClear: true },
     ),
+    sendPasswordResetCode: (email, signal) => platform.api.post<{ retryAfter: number }>(
+      '/api/auth/password-reset/code', { email }, { signal, skipAuthClear: true },
+    ),
+    resetPassword: (payload, signal) => platform.api.post<{ ok: boolean }>(
+      '/api/auth/password-reset', payload, { signal, skipAuthClear: true },
+    ),
     fetchMe: signal => (platform.api.auth && typeof platform.api.auth.me === 'function'
       ? platform.api.auth.me({ signal, skipAuthClear: true })
       : platform.api.get<{ user?: AuthUserVue3 | null }>('/api/auth/me', { signal, skipAuthClear: true })),

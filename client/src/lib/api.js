@@ -48,7 +48,7 @@ export function createApi(dependencies) {
   async function request(method, path, body, options) {
     const opts = options || {};
     const requestToken = token;
-    const headers = { Accept: 'application/json' };
+    const headers = { Accept: opts.responseType === 'blob' ? 'image/webp' : 'application/json' };
     if (body !== undefined && body !== null) headers['Content-Type'] = 'application/json';
     if (requestToken) headers.Authorization = 'Bearer ' + requestToken;
 
@@ -66,6 +66,10 @@ export function createApi(dependencies) {
       throw new ApiError(dependencies.t("网络连接失败，请确认服务已启动"), { isNetwork: true });
     }
 
+    if (res.ok && opts.responseType === 'blob') {
+      if (res.headers.get('Content-Type') !== 'image/webp') throw new ApiError(dependencies.t('公告图片加载失败'));
+      return res.blob();
+    }
     let data = null;
     const text = await res.text();
     if (text) {

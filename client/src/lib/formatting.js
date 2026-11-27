@@ -10,7 +10,8 @@ export function createFormatting(i18n) {
       if (parsed.origin !== 'https://qsl.local') return null;
       if (!parsed.pathname.startsWith('/') || parsed.pathname.startsWith('//')) return null;
       if (parsed.pathname === '/login' || parsed.pathname.startsWith('/login/') ||
-          parsed.pathname === '/register' || parsed.pathname.startsWith('/register/')) return null;
+          parsed.pathname === '/register' || parsed.pathname.startsWith('/register/') ||
+          parsed.pathname === '/password-reset' || parsed.pathname.startsWith('/password-reset/')) return null;
       return decoded;
     } catch (e) { return null; }
   }

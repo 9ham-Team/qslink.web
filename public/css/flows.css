@@ -2725,7 +2725,7 @@ html[lang="en"] .f-visual-card {
 .f-contest-news { position: relative; padding: 26px 30px; margin-bottom: 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow-wrap: anywhere; }
 .f-contest-news time { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
 .f-contest-news h3 { font-size: 20px; margin: 10px 0 12px; }
-.f-contest-news p { white-space: pre-wrap; color: var(--ink-2); line-height: 1.85; margin: 0; }
+.f-contest-news .announcement-content { color: var(--ink-2); line-height: 1.85; }
 .f-contest-more { display: flex; justify-content: center; margin-top: 20px; }
 .f-contest-registration { position: relative; padding: 32px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow-wrap: anywhere; overflow-anchor: none; }
 .f-contest-registration.is-transitioning { overflow: hidden; }

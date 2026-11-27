@@ -205,6 +205,8 @@ export interface AuthServicesVue3 extends ServicesVue3 {
   login(payload: LoginPayloadVue3, signal: AbortSignal): Promise<AuthResponseVue3>;
   register(payload: RegisterPayloadVue3, signal: AbortSignal): Promise<AuthResponseVue3>;
   sendEmailCode(email: string, signal: AbortSignal): Promise<{ ok: boolean; expiresIn?: number; retryAfter?: number }>;
+  sendPasswordResetCode(email: string, signal: AbortSignal): Promise<{ retryAfter: number }>;
+  resetPassword(payload: { email: string; emailCode: string; newPassword: string }, signal: AbortSignal): Promise<{ ok: boolean }>;
   fetchMe(signal: AbortSignal): Promise<{ user?: AuthUserVue3 | null }>;
 }
 
@@ -515,7 +517,7 @@ export interface ApplicationContext {
     ready?: Promise<void>;
   };
   api: {
-    get<T>(path: string, options?: { signal?: AbortSignal; cache?: RequestCache; skipAuthClear?: boolean }): Promise<T>;
+    get<T>(path: string, options?: { signal?: AbortSignal; cache?: RequestCache; skipAuthClear?: boolean; responseType?: 'blob' }): Promise<T>;
     post<T>(path: string, body: unknown, options?: { signal?: AbortSignal; skipAuthClear?: boolean }): Promise<T>;
     put<T>(path: string, body: unknown, options?: { signal?: AbortSignal; skipAuthClear?: boolean }): Promise<T>;
     del?<T>(path: string, options?: { signal?: AbortSignal; skipAuthClear?: boolean }): Promise<T>;
